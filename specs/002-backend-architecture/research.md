@@ -14,11 +14,13 @@ Research findings for implementing the Rust backend architecture with proper mod
 **Decision**: Use `thiserror` with a unified `TuskError` enum that is serializable for IPC transport.
 
 **Rationale**:
+
 - Tauri commands require `Result<T, E>` where `E: Serialize` for frontend consumption
 - PostgreSQL errors contain rich metadata (code, position, hint, detail) that must be preserved
 - Single error type simplifies error propagation and frontend handling
 
 **Alternatives considered**:
+
 - `anyhow` alone: Rejected because it doesn't serialize well for IPC
 - Multiple error types per module: Rejected due to complexity in command handlers
 
@@ -95,11 +97,13 @@ impl From<tokio_postgres::Error> for TuskError {
 **Decision**: Use `tauri::State` with `Arc<RwLock<T>>` for read-heavy state and `Arc<Mutex<T>>` for write-heavy state.
 
 **Rationale**:
+
 - RwLock allows concurrent reads for schema cache and settings
 - Connection pools are managed in a HashMap keyed by UUID
 - State is initialized in `Builder::setup()` before any commands run
 
 **Alternatives considered**:
+
 - Global static state: Rejected due to testing difficulties
 - Per-command state initialization: Rejected due to performance overhead
 
@@ -145,11 +149,13 @@ impl AppState {
 **Decision**: Use `tracing-appender` with daily rotation, writing to both file and stdout in development, file-only in release.
 
 **Rationale**:
+
 - Users need access to logs for troubleshooting connection issues
 - Daily rotation prevents unbounded log growth
 - Non-blocking writes ensure logging doesn't impact performance
 
 **Alternatives considered**:
+
 - stdout-only: Rejected because users can't capture terminal output easily
 - Custom log rotation: Rejected due to maintenance burden
 
@@ -200,11 +206,13 @@ pub fn init_logging(log_dir: &Path, is_debug: bool) -> LogGuard {
 **Decision**: Use `keyring` crate with service name pattern `tusk/conn:{connection_id}` for connection passwords.
 
 **Rationale**:
+
 - Cross-platform support (macOS Keychain, Windows Credential Manager, Linux Secret Service)
 - Clear credential organization by connection ID
 - Graceful fallback to session-only cache when keychain unavailable
 
 **Alternatives considered**:
+
 - Encrypted local file: Rejected per constitution (Principle III)
 - Environment variables: Rejected due to persistence requirements
 
@@ -275,11 +283,13 @@ impl CredentialService {
 **Decision**: Use `PRAGMA integrity_check` for detection, attempt VACUUM/REINDEX for repair, backup corrupted file before reset.
 
 **Rationale**:
+
 - Users lose saved connections if database is reset without backup
 - Automatic repair handles minor corruption without user intervention
 - Backup naming with timestamp allows manual recovery
 
 **Alternatives considered**:
+
 - Silent reset: Rejected because user loses data without knowing why
 - Require manual repair: Rejected due to poor UX
 
@@ -347,11 +357,13 @@ fn create_fresh(db_path: &Path) -> Result<rusqlite::Connection, TuskError> {
 **Decision**: Use `tokio::select!` with timeout for automatic cancellation, store `CancelToken` per query for explicit cancellation.
 
 **Rationale**:
+
 - `select!` provides clean cancellation by dropping the query future
 - Connection remains usable after cancellation
 - Query tracking map enables frontend cancel button
 
 **Alternatives considered**:
+
 - CancelToken only: Rejected because cancellation is racy
 - Statement timeout only: Rejected because user can't cancel early
 
@@ -420,6 +432,7 @@ impl QueryService {
 **Decision**: Use `directories` crate to get platform-appropriate paths, create all required directories on first launch.
 
 **Rationale**:
+
 - Platform-appropriate paths (e.g., `~/Library/Application Support/com.tusk` on macOS)
 - User doesn't need to manually create directories
 - Clear error messages if creation fails
@@ -463,18 +476,18 @@ impl AppDirs {
 
 All dependencies are already in `Cargo.toml` from 001-project-init:
 
-| Crate | Version | Purpose |
-|-------|---------|---------|
-| thiserror | 2.0 | Error type derivation |
-| tokio-postgres | 0.7 | PostgreSQL async driver |
-| deadpool-postgres | 0.14 | Connection pooling |
-| rusqlite | 0.32 | Local SQLite storage |
-| keyring | 3.6 | OS keychain integration |
-| tracing | 0.1 | Structured logging |
-| tracing-subscriber | 0.3 | Log formatting and filtering |
-| tracing-appender | (add) | File rotation |
-| directories | 5 | Platform paths |
-| uuid | 1.12 | Connection/query IDs |
-| chrono | 0.4 | Timestamps |
+| Crate              | Version | Purpose                      |
+| ------------------ | ------- | ---------------------------- |
+| thiserror          | 2.0     | Error type derivation        |
+| tokio-postgres     | 0.7     | PostgreSQL async driver      |
+| deadpool-postgres  | 0.14    | Connection pooling           |
+| rusqlite           | 0.32    | Local SQLite storage         |
+| keyring            | 3.6     | OS keychain integration      |
+| tracing            | 0.1     | Structured logging           |
+| tracing-subscriber | 0.3     | Log formatting and filtering |
+| tracing-appender   | (add)   | File rotation                |
+| directories        | 5       | Platform paths               |
+| uuid               | 1.12    | Connection/query IDs         |
+| chrono             | 0.4     | Timestamps                   |
 
 **New dependency needed**: `tracing-appender = "0.2"` for file rotation.

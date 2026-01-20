@@ -239,6 +239,7 @@ All errors should include:
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
 ## Active Technologies
+
 - Rust 1.75+ (backend), TypeScript 5.5+ (frontend) + Tauri v2, tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, thiserror, tracing, directories (002-backend-architecture)
 - SQLite (rusqlite) for local metadata; PostgreSQL for user databases (via tokio-postgres) (002-backend-architecture)
 

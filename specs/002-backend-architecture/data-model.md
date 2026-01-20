@@ -15,23 +15,24 @@ This document defines the core data structures for Tusk's backend architecture. 
 
 Represents a saved database connection configuration.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| id | UUID | Yes | Unique identifier |
-| name | String | Yes | User-friendly display name |
-| host | String | Yes | PostgreSQL server hostname |
-| port | u16 | Yes | PostgreSQL server port (default: 5432) |
-| database | String | Yes | Database name |
-| username | String | Yes | Authentication username |
-| ssl_mode | SslMode | Yes | SSL/TLS mode (disable/prefer/require/verify-ca/verify-full) |
-| ssl_ca_cert | Option<String> | No | Path to CA certificate for verify-ca/verify-full |
-| ssh_tunnel | Option<SshTunnel> | No | SSH tunnel configuration if connecting via SSH |
-| read_only | bool | Yes | Whether connection should enforce read-only mode |
-| statement_timeout_ms | Option<u64> | No | Default statement timeout in milliseconds |
-| created_at | DateTime | Yes | Creation timestamp |
-| updated_at | DateTime | Yes | Last modification timestamp |
+| Field                | Type              | Required | Description                                                 |
+| -------------------- | ----------------- | -------- | ----------------------------------------------------------- |
+| id                   | UUID              | Yes      | Unique identifier                                           |
+| name                 | String            | Yes      | User-friendly display name                                  |
+| host                 | String            | Yes      | PostgreSQL server hostname                                  |
+| port                 | u16               | Yes      | PostgreSQL server port (default: 5432)                      |
+| database             | String            | Yes      | Database name                                               |
+| username             | String            | Yes      | Authentication username                                     |
+| ssl_mode             | SslMode           | Yes      | SSL/TLS mode (disable/prefer/require/verify-ca/verify-full) |
+| ssl_ca_cert          | Option<String>    | No       | Path to CA certificate for verify-ca/verify-full            |
+| ssh_tunnel           | Option<SshTunnel> | No       | SSH tunnel configuration if connecting via SSH              |
+| read_only            | bool              | Yes      | Whether connection should enforce read-only mode            |
+| statement_timeout_ms | Option<u64>       | No       | Default statement timeout in milliseconds                   |
+| created_at           | DateTime          | Yes      | Creation timestamp                                          |
+| updated_at           | DateTime          | Yes      | Last modification timestamp                                 |
 
 **Validation Rules**:
+
 - `name` must be non-empty and unique
 - `host` must be a valid hostname or IP address
 - `port` must be in range 1-65535
@@ -47,15 +48,16 @@ Represents a saved database connection configuration.
 
 SSH tunnel configuration for secure remote connections.
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| host | String | Yes | SSH server hostname |
-| port | u16 | Yes | SSH server port (default: 22) |
-| username | String | Yes | SSH username |
-| auth_method | SshAuthMethod | Yes | Authentication method |
-| local_port | Option<u16> | No | Local port for tunnel (auto-assigned if not specified) |
+| Field       | Type          | Required | Description                                            |
+| ----------- | ------------- | -------- | ------------------------------------------------------ |
+| host        | String        | Yes      | SSH server hostname                                    |
+| port        | u16           | Yes      | SSH server port (default: 22)                          |
+| username    | String        | Yes      | SSH username                                           |
+| auth_method | SshAuthMethod | Yes      | Authentication method                                  |
+| local_port  | Option<u16>   | No       | Local port for tunnel (auto-assigned if not specified) |
 
 **SshAuthMethod Enum**:
+
 - `Password` - Password stored in OS keychain
 - `KeyFile { path: String }` - Private key file path (passphrase in keychain if encrypted)
 - `Agent` - SSH agent forwarding
@@ -66,15 +68,16 @@ SSH tunnel configuration for secure remote connections.
 
 Represents an active database connection pool (runtime only, not persisted).
 
-| Field | Type | Description |
-|-------|------|-------------|
-| config_id | UUID | Reference to ConnectionConfig |
-| pool | deadpool_postgres::Pool | Connection pool instance |
-| ssh_tunnel | Option<SshTunnelHandle> | Active SSH tunnel if used |
-| created_at | Instant | When pool was created |
-| last_used | AtomicInstant | Last query execution time |
+| Field      | Type                    | Description                   |
+| ---------- | ----------------------- | ----------------------------- |
+| config_id  | UUID                    | Reference to ConnectionConfig |
+| pool       | deadpool_postgres::Pool | Connection pool instance      |
+| ssh_tunnel | Option<SshTunnelHandle> | Active SSH tunnel if used     |
+| created_at | Instant                 | When pool was created         |
+| last_used  | AtomicInstant           | Last query execution time     |
 
 **State Transitions**:
+
 - `Connecting` → `Connected` | `Failed`
 - `Connected` → `Disconnecting` → `Disconnected`
 - `Failed` → `Disconnected` (cleanup)
@@ -85,16 +88,17 @@ Represents an active database connection pool (runtime only, not persisted).
 
 Represents a running database query (runtime only, not persisted).
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | UUID | Unique query identifier |
-| connection_id | UUID | Reference to ConnectionPool |
-| sql | String | SQL query text |
-| cancel_token | CancelToken | Token for query cancellation |
-| started_at | Instant | Query start time |
-| status | QueryStatus | Current execution status |
+| Field         | Type        | Description                  |
+| ------------- | ----------- | ---------------------------- |
+| id            | UUID        | Unique query identifier      |
+| connection_id | UUID        | Reference to ConnectionPool  |
+| sql           | String      | SQL query text               |
+| cancel_token  | CancelToken | Token for query cancellation |
+| started_at    | Instant     | Query start time             |
+| status        | QueryStatus | Current execution status     |
 
 **QueryStatus Enum**:
+
 - `Running` - Query is executing
 - `Completed { rows: usize, elapsed_ms: u64 }` - Query finished successfully
 - `Cancelled` - Query was cancelled by user
@@ -102,6 +106,7 @@ Represents a running database query (runtime only, not persisted).
 - `Failed { error: TuskError }` - Query encountered an error
 
 **State Transitions**:
+
 - `Running` → `Completed` | `Cancelled` | `Timeout` | `Failed`
 
 ---
@@ -110,16 +115,17 @@ Represents a running database query (runtime only, not persisted).
 
 Structured error information for frontend display.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| kind | ErrorKind | Error category |
-| message | String | Human-readable error message |
-| detail | Option<String> | Additional technical detail |
-| hint | Option<String> | Actionable suggestion for resolution |
-| position | Option<u32> | Character position in SQL (for syntax errors) |
-| code | Option<String> | PostgreSQL error code (e.g., "42P01") |
+| Field    | Type           | Description                                   |
+| -------- | -------------- | --------------------------------------------- |
+| kind     | ErrorKind      | Error category                                |
+| message  | String         | Human-readable error message                  |
+| detail   | Option<String> | Additional technical detail                   |
+| hint     | Option<String> | Actionable suggestion for resolution          |
+| position | Option<u32>    | Character position in SQL (for syntax errors) |
+| code     | Option<String> | PostgreSQL error code (e.g., "42P01")         |
 
 **ErrorKind Enum**:
+
 - `Database` - PostgreSQL server error
 - `Connection` - Connection establishment/pool error
 - `Storage` - Local SQLite storage error
@@ -136,13 +142,13 @@ Structured error information for frontend display.
 
 Application-level state container (runtime only).
 
-| Field | Type | Description |
-|-------|------|-------------|
-| connections | RwLock<HashMap<UUID, ConnectionPool>> | Active connection pools |
-| active_queries | RwLock<HashMap<UUID, QueryHandle>> | Currently executing queries |
-| storage | StorageService | Local SQLite storage |
-| credentials | CredentialService | OS keychain access |
-| log_dir | PathBuf | Log file directory |
+| Field          | Type                                  | Description                 |
+| -------------- | ------------------------------------- | --------------------------- |
+| connections    | RwLock<HashMap<UUID, ConnectionPool>> | Active connection pools     |
+| active_queries | RwLock<HashMap<UUID, QueryHandle>>    | Currently executing queries |
+| storage        | StorageService                        | Local SQLite storage        |
+| credentials    | CredentialService                     | OS keychain access          |
+| log_dir        | PathBuf                               | Log file directory          |
 
 ---
 
@@ -150,12 +156,12 @@ Application-level state container (runtime only).
 
 Application metadata for health checks.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| name | String | Application name ("tusk") |
-| version | String | Application version |
-| tauri_version | String | Tauri runtime version |
-| platform | String | OS platform (macos/windows/linux) |
+| Field         | Type   | Description                       |
+| ------------- | ------ | --------------------------------- |
+| name          | String | Application name ("tusk")         |
+| version       | String | Application version               |
+| tauri_version | String | Tauri runtime version             |
+| platform      | String | OS platform (macos/windows/linux) |
 
 ---
 
@@ -163,11 +169,11 @@ Application metadata for health checks.
 
 SQLite database health status.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| is_healthy | bool | Whether database passed integrity check |
-| errors | Vec<String> | List of integrity errors (empty if healthy) |
-| backup_path | Option<PathBuf> | Path to backup if repair failed |
+| Field       | Type            | Description                                 |
+| ----------- | --------------- | ------------------------------------------- |
+| is_healthy  | bool            | Whether database passed integrity check     |
+| errors      | Vec<String>     | List of integrity errors (empty if healthy) |
+| backup_path | Option<PathBuf> | Path to backup if repair failed             |
 
 ---
 
@@ -243,10 +249,10 @@ AppState
 
 Credentials are stored in the OS keychain using the `keyring` crate with the following key patterns:
 
-| Credential Type | Service | Username |
-|-----------------|---------|----------|
-| Database password | `tusk` | `conn:{connection_id}` |
-| SSH password | `tusk` | `ssh:{connection_id}` |
-| SSH key passphrase | `tusk` | `ssh_key:{connection_id}` |
+| Credential Type    | Service | Username                  |
+| ------------------ | ------- | ------------------------- |
+| Database password  | `tusk`  | `conn:{connection_id}`    |
+| SSH password       | `tusk`  | `ssh:{connection_id}`     |
+| SSH key passphrase | `tusk`  | `ssh_key:{connection_id}` |
 
 Credentials are NEVER stored in SQLite or configuration files per Constitution Principle III.

@@ -285,16 +285,19 @@
 ### Parallel Opportunities
 
 **Within Phase 1:**
+
 ```
 T002 [P], T003 [P], T004 [P] can run in parallel
 ```
 
 **Within Phase 2:**
+
 ```
 T009 [P], T010 [P] can run in parallel (after T005-T008)
 ```
 
 **User Stories can parallel by developer:**
+
 - Developer A: US1 (startup) + US2 (errors)
 - Developer B: US3 (persistence) → US4 (connections)
 - Developer C: US5 (queries) + US6 (credentials)

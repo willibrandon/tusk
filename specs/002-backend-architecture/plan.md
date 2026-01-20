@@ -25,27 +25,27 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 ### Pre-Design Check (Phase 0)
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Postgres Exclusivity | ✅ PASS | All database operations use tokio-postgres, Postgres-specific error codes preserved |
-| II. Complete Local Privacy | ✅ PASS | No network calls except to user-configured Postgres servers; logs stored locally |
-| III. OS Keychain for Credentials | ✅ PASS | FR-007 mandates OS keychain via `keyring` crate; passwords never in files |
-| IV. Complete Implementation | ✅ PASS | Plan includes all 13 functional requirements; no placeholders |
-| V. Task Immutability | ✅ PASS | Tasks created in tasks.md will be immutable per constitution |
-| VI. Performance Discipline | ✅ PASS | Cold start < 1s, memory < 100MB specified in success criteria |
-| Security Requirements | ✅ PASS | Parameterized queries, no credential logging, SSL preferred |
+| Principle                        | Status  | Notes                                                                               |
+| -------------------------------- | ------- | ----------------------------------------------------------------------------------- |
+| I. Postgres Exclusivity          | ✅ PASS | All database operations use tokio-postgres, Postgres-specific error codes preserved |
+| II. Complete Local Privacy       | ✅ PASS | No network calls except to user-configured Postgres servers; logs stored locally    |
+| III. OS Keychain for Credentials | ✅ PASS | FR-007 mandates OS keychain via `keyring` crate; passwords never in files           |
+| IV. Complete Implementation      | ✅ PASS | Plan includes all 13 functional requirements; no placeholders                       |
+| V. Task Immutability             | ✅ PASS | Tasks created in tasks.md will be immutable per constitution                        |
+| VI. Performance Discipline       | ✅ PASS | Cold start < 1s, memory < 100MB specified in success criteria                       |
+| Security Requirements            | ✅ PASS | Parameterized queries, no credential logging, SSL preferred                         |
 
 ### Post-Design Check (Phase 1)
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Postgres Exclusivity | ✅ PASS | Data model preserves PostgreSQL error codes (code, position, hint, detail); tokio-postgres used exclusively |
-| II. Complete Local Privacy | ✅ PASS | Logs written to local app data directory; no telemetry or external calls |
-| III. OS Keychain for Credentials | ✅ PASS | Credential storage patterns in research.md use `keyring` crate; SQLite stores no passwords |
-| IV. Complete Implementation | ✅ PASS | All 19 IPC commands defined in contracts; data-model.md covers all entities; quickstart.md has 10 implementation phases |
-| V. Task Immutability | ✅ PASS | Ready for task generation via `/speckit.tasks` |
-| VI. Performance Discipline | ✅ PASS | Query cancellation via `tokio::select!`; non-blocking logging via `tracing-appender`; deadpool pooling |
-| Security Requirements | ✅ PASS | No credential logging (research.md); parameterized queries required; SSL preferred by default |
+| Principle                        | Status  | Notes                                                                                                                   |
+| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------- |
+| I. Postgres Exclusivity          | ✅ PASS | Data model preserves PostgreSQL error codes (code, position, hint, detail); tokio-postgres used exclusively             |
+| II. Complete Local Privacy       | ✅ PASS | Logs written to local app data directory; no telemetry or external calls                                                |
+| III. OS Keychain for Credentials | ✅ PASS | Credential storage patterns in research.md use `keyring` crate; SQLite stores no passwords                              |
+| IV. Complete Implementation      | ✅ PASS | All 19 IPC commands defined in contracts; data-model.md covers all entities; quickstart.md has 10 implementation phases |
+| V. Task Immutability             | ✅ PASS | Ready for task generation via `/speckit.tasks`                                                                          |
+| VI. Performance Discipline       | ✅ PASS | Query cancellation via `tokio::select!`; non-blocking logging via `tracing-appender`; deadpool pooling                  |
+| Security Requirements            | ✅ PASS | No credential logging (research.md); parameterized queries required; SSL preferred by default                           |
 
 **NON-NEGOTIABLE Principles (automatic failure if violated):**
 
@@ -124,12 +124,12 @@ No constitution violations requiring justification.
 
 ## Generated Artifacts
 
-| Artifact | Path | Description |
-|----------|------|-------------|
-| Research | [research.md](./research.md) | Technical research findings for all implementation areas |
-| Data Model | [data-model.md](./data-model.md) | Entity definitions, SQLite schema, relationships |
-| IPC Contracts | [contracts/ipc-commands.md](./contracts/ipc-commands.md) | All 19 Tauri IPC command specifications |
-| Quickstart | [quickstart.md](./quickstart.md) | Implementation guide with 10 phases |
+| Artifact      | Path                                                     | Description                                              |
+| ------------- | -------------------------------------------------------- | -------------------------------------------------------- |
+| Research      | [research.md](./research.md)                             | Technical research findings for all implementation areas |
+| Data Model    | [data-model.md](./data-model.md)                         | Entity definitions, SQLite schema, relationships         |
+| IPC Contracts | [contracts/ipc-commands.md](./contracts/ipc-commands.md) | All 19 Tauri IPC command specifications                  |
+| Quickstart    | [quickstart.md](./quickstart.md)                         | Implementation guide with 10 phases                      |
 
 ---
 

@@ -39,6 +39,7 @@ Execute these phases in order:
 4. Export from `src-tauri/src/lib.rs`
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo build
 ```
@@ -54,6 +55,7 @@ cd src-tauri && cargo build
 3. Add error handling for permission failures
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo test dirs
 ```
@@ -70,6 +72,7 @@ cd src-tauri && cargo test dirs
 4. Integrate in `lib.rs` before `Builder::setup()`
 
 **Verification**:
+
 - Run app, check logs appear in `{app_data_dir}/logs/`
 - Verify log level respects `RUST_LOG` environment variable
 
@@ -86,6 +89,7 @@ cd src-tauri && cargo test dirs
 5. Implement preference get/set operations
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo test storage
 ```
@@ -101,6 +105,7 @@ cd src-tauri && cargo test storage
 3. Add error handling for keychain unavailability
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo test credentials
 ```
@@ -117,6 +122,7 @@ cd src-tauri && cargo test credentials
 4. Add active query tracking (HashMap)
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo build
 ```
@@ -133,6 +139,7 @@ cd src-tauri && cargo build
 4. Implement connect/disconnect lifecycle
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo test connection
 ```
@@ -149,6 +156,7 @@ cd src-tauri && cargo test connection
 4. Create query result serialization
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo test query
 ```
@@ -166,6 +174,7 @@ cd src-tauri && cargo test query
 5. Register all commands in `lib.rs` invoke_handler
 
 **Verification**:
+
 ```bash
 cd src-tauri && cargo build
 ```
@@ -182,6 +191,7 @@ cd src-tauri && cargo build
 4. Add graceful shutdown handling
 
 **Verification**:
+
 ```bash
 npm run tauri dev
 # Frontend should be able to call health_check command
@@ -265,8 +275,8 @@ Use Tauri MCP to test IPC commands:
 
 ```typescript
 // Test: health_check returns valid response
-const info = await invoke<AppInfo>("health_check");
-expect(info.name).toBe("tusk");
+const info = await invoke<AppInfo>('health_check');
+expect(info.name).toBe('tusk');
 expect(info.platform).toMatch(/macos|windows|linux/);
 ```
 
@@ -284,14 +294,14 @@ expect(info.platform).toMatch(/macos|windows|linux/);
 
 ## Success Criteria Verification
 
-| Criterion | How to Verify |
-|-----------|---------------|
-| SC-001: Cold start < 1s | Time `npm run tauri dev` to first window |
-| SC-002: Memory < 100MB idle | Monitor with Activity Monitor / Task Manager |
-| SC-003: Cancel < 2s | Execute `SELECT pg_sleep(10)`, cancel, measure |
-| SC-004: Actionable errors | Trigger connection failures, verify hints |
-| SC-005: Persistence | Save connection, restart app, verify present |
-| SC-006: Health check | Call `health_check` command, verify response |
-| SC-007: No memory leaks | Connect/disconnect repeatedly, monitor memory |
-| SC-008: No plaintext creds | Search app data directory for passwords |
-| SC-009: Accessible logs | Find and read log files in app data directory |
+| Criterion                   | How to Verify                                  |
+| --------------------------- | ---------------------------------------------- |
+| SC-001: Cold start < 1s     | Time `npm run tauri dev` to first window       |
+| SC-002: Memory < 100MB idle | Monitor with Activity Monitor / Task Manager   |
+| SC-003: Cancel < 2s         | Execute `SELECT pg_sleep(10)`, cancel, measure |
+| SC-004: Actionable errors   | Trigger connection failures, verify hints      |
+| SC-005: Persistence         | Save connection, restart app, verify present   |
+| SC-006: Health check        | Call `health_check` command, verify response   |
+| SC-007: No memory leaks     | Connect/disconnect repeatedly, monitor memory  |
+| SC-008: No plaintext creds  | Search app data directory for passwords        |
+| SC-009: Accessible logs     | Find and read log files in app data directory  |

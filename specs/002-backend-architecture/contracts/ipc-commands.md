@@ -25,14 +25,14 @@ Verify backend is operational and return application metadata.
 
 ```typescript
 interface AppInfo {
-  name: string;
-  version: string;
-  tauriVersion: string;
-  platform: "macos" | "windows" | "linux";
+	name: string;
+	version: string;
+	tauriVersion: string;
+	platform: 'macos' | 'windows' | 'linux';
 }
 
 // Usage
-const info = await invoke<AppInfo>("health_check");
+const info = await invoke<AppInfo>('health_check');
 ```
 
 **Errors**: None (infallible)
@@ -48,7 +48,7 @@ Get the path to the application log directory.
 **Returns**: `string` (path)
 
 ```typescript
-const logDir = await invoke<string>("get_log_directory");
+const logDir = await invoke<string>('get_log_directory');
 // e.g., "/Users/user/Library/Logs/com.tusk"
 ```
 
@@ -68,39 +68,37 @@ List all saved connection configurations.
 
 ```typescript
 interface ConnectionConfig {
-  id: string;               // UUID
-  name: string;
-  host: string;
-  port: number;
-  database: string;
-  username: string;
-  sslMode: "disable" | "prefer" | "require" | "verify-ca" | "verify-full";
-  sslCaCert: string | null;
-  sshTunnel: SshTunnel | null;
-  readOnly: boolean;
-  statementTimeoutMs: number | null;
-  createdAt: string;        // ISO 8601
-  updatedAt: string;        // ISO 8601
+	id: string; // UUID
+	name: string;
+	host: string;
+	port: number;
+	database: string;
+	username: string;
+	sslMode: 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full';
+	sslCaCert: string | null;
+	sshTunnel: SshTunnel | null;
+	readOnly: boolean;
+	statementTimeoutMs: number | null;
+	createdAt: string; // ISO 8601
+	updatedAt: string; // ISO 8601
 }
 
 interface SshTunnel {
-  host: string;
-  port: number;
-  username: string;
-  authMethod: SshAuthMethod;
-  localPort: number | null;
+	host: string;
+	port: number;
+	username: string;
+	authMethod: SshAuthMethod;
+	localPort: number | null;
 }
 
-type SshAuthMethod =
-  | { type: "password" }
-  | { type: "keyFile"; path: string }
-  | { type: "agent" };
+type SshAuthMethod = { type: 'password' } | { type: 'keyFile'; path: string } | { type: 'agent' };
 
 // Usage
-const connections = await invoke<ConnectionConfig[]>("list_connections");
+const connections = await invoke<ConnectionConfig[]>('list_connections');
 ```
 
 **Errors**:
+
 - `Storage` - Failed to read from local database
 
 ---
@@ -114,10 +112,11 @@ Get a single connection configuration by ID.
 **Returns**: `ConnectionConfig | null`
 
 ```typescript
-const conn = await invoke<ConnectionConfig | null>("get_connection", { id });
+const conn = await invoke<ConnectionConfig | null>('get_connection', { id });
 ```
 
 **Errors**:
+
 - `Storage` - Failed to read from local database
 
 ---
@@ -131,27 +130,28 @@ Create or update a connection configuration.
 **Returns**: `ConnectionConfig`
 
 ```typescript
-const saved = await invoke<ConnectionConfig>("save_connection", {
-  config: {
-    id: crypto.randomUUID(),
-    name: "Production",
-    host: "db.example.com",
-    port: 5432,
-    database: "myapp",
-    username: "admin",
-    sslMode: "require",
-    sslCaCert: null,
-    sshTunnel: null,
-    readOnly: false,
-    statementTimeoutMs: 30000,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  password: "secretpassword",  // Optional: stored in OS keychain
+const saved = await invoke<ConnectionConfig>('save_connection', {
+	config: {
+		id: crypto.randomUUID(),
+		name: 'Production',
+		host: 'db.example.com',
+		port: 5432,
+		database: 'myapp',
+		username: 'admin',
+		sslMode: 'require',
+		sslCaCert: null,
+		sshTunnel: null,
+		readOnly: false,
+		statementTimeoutMs: 30000,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString()
+	},
+	password: 'secretpassword' // Optional: stored in OS keychain
 });
 ```
 
 **Errors**:
+
 - `Validation` - Invalid configuration (empty name, invalid port, etc.)
 - `Storage` - Failed to save to local database
 - `Credential` - Failed to store password in keychain
@@ -167,10 +167,11 @@ Delete a saved connection configuration.
 **Returns**: `void`
 
 ```typescript
-await invoke("delete_connection", { id });
+await invoke('delete_connection', { id });
 ```
 
 **Errors**:
+
 - `Storage` - Failed to delete from local database
 - `Credential` - Failed to delete password from keychain (non-fatal)
 
@@ -186,19 +187,20 @@ Test a connection configuration without saving.
 
 ```typescript
 interface ConnectionTestResult {
-  success: boolean;
-  serverVersion: string | null;
-  latencyMs: number;
-  error: TuskError | null;
+	success: boolean;
+	serverVersion: string | null;
+	latencyMs: number;
+	error: TuskError | null;
 }
 
-const result = await invoke<ConnectionTestResult>("test_connection", {
-  config,
-  password,
+const result = await invoke<ConnectionTestResult>('test_connection', {
+	config,
+	password
 });
 ```
 
 **Errors**:
+
 - `Connection` - Connection failed (with details)
 - `Validation` - Invalid configuration
 
@@ -213,10 +215,11 @@ Establish a connection pool for a saved configuration.
 **Returns**: `string` (connection pool ID, same as config ID)
 
 ```typescript
-const poolId = await invoke<string>("connect", { id: connectionConfigId });
+const poolId = await invoke<string>('connect', { id: connectionConfigId });
 ```
 
 **Errors**:
+
 - `Connection` - Failed to establish connection
 - `Credential` - Failed to retrieve password from keychain
 - `Storage` - Connection config not found
@@ -232,10 +235,11 @@ Close a connection pool and release resources.
 **Returns**: `void`
 
 ```typescript
-await invoke("disconnect", { id: poolId });
+await invoke('disconnect', { id: poolId });
 ```
 
 **Errors**:
+
 - `Connection` - Pool not found (non-fatal)
 
 ---
@@ -250,13 +254,13 @@ List all currently active connection pools.
 
 ```typescript
 interface ActiveConnection {
-  id: string;               // Pool ID (same as config ID)
-  configName: string;
-  connectedAt: string;      // ISO 8601
-  activeQueries: number;
+	id: string; // Pool ID (same as config ID)
+	configName: string;
+	connectedAt: string; // ISO 8601
+	activeQueries: number;
 }
 
-const active = await invoke<ActiveConnection[]>("get_active_connections");
+const active = await invoke<ActiveConnection[]>('get_active_connections');
 ```
 
 **Errors**: None (infallible)
@@ -275,30 +279,31 @@ Execute a SQL query and return results.
 
 ```typescript
 interface QueryResult {
-  queryId: string;
-  columns: Column[];
-  rows: Row[];
-  rowCount: number;
-  elapsedMs: number;
+	queryId: string;
+	columns: Column[];
+	rows: Row[];
+	rowCount: number;
+	elapsedMs: number;
 }
 
 interface Column {
-  name: string;
-  dataType: string;        // PostgreSQL type name
-  nullable: boolean;
+	name: string;
+	dataType: string; // PostgreSQL type name
+	nullable: boolean;
 }
 
 type Row = Record<string, JsonValue>;
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
-const result = await invoke<QueryResult>("execute_query", {
-  connectionId: poolId,
-  sql: "SELECT * FROM users LIMIT 10",
-  queryId: crypto.randomUUID(),  // Optional for cancellation
+const result = await invoke<QueryResult>('execute_query', {
+	connectionId: poolId,
+	sql: 'SELECT * FROM users LIMIT 10',
+	queryId: crypto.randomUUID() // Optional for cancellation
 });
 ```
 
 **Errors**:
+
 - `Database` - Query execution error (includes position, hint, code)
 - `Connection` - Pool not found or connection lost
 - `QueryTimeout` - Statement timeout exceeded
@@ -315,10 +320,11 @@ Cancel a running query.
 **Returns**: `void`
 
 ```typescript
-await invoke("cancel_query", { queryId });
+await invoke('cancel_query', { queryId });
 ```
 
 **Errors**:
+
 - `Internal` - Query not found (already completed or never started)
 
 ---
@@ -333,19 +339,19 @@ List all currently executing queries.
 
 ```typescript
 interface ActiveQuery {
-  queryId: string;
-  connectionId: string;
-  sql: string;              // First 100 chars truncated
-  startedAt: string;        // ISO 8601
-  elapsedMs: number;
+	queryId: string;
+	connectionId: string;
+	sql: string; // First 100 chars truncated
+	startedAt: string; // ISO 8601
+	elapsedMs: number;
 }
 
 // All active queries
-const queries = await invoke<ActiveQuery[]>("get_active_queries", {});
+const queries = await invoke<ActiveQuery[]>('get_active_queries', {});
 
 // For specific connection
-const connQueries = await invoke<ActiveQuery[]>("get_active_queries", {
-  connectionId: poolId,
+const connQueries = await invoke<ActiveQuery[]>('get_active_queries', {
+	connectionId: poolId
 });
 ```
 
@@ -365,15 +371,16 @@ Check local SQLite database integrity.
 
 ```typescript
 interface DatabaseHealth {
-  isHealthy: boolean;
-  errors: string[];
-  backupPath: string | null;  // Set if repair failed and backup was created
+	isHealthy: boolean;
+	errors: string[];
+	backupPath: string | null; // Set if repair failed and backup was created
 }
 
-const health = await invoke<DatabaseHealth>("check_database_health");
+const health = await invoke<DatabaseHealth>('check_database_health');
 ```
 
 **Errors**:
+
 - `Storage` - Failed to run integrity check
 
 ---
@@ -387,10 +394,11 @@ Get a stored user preference.
 **Returns**: `JsonValue | null`
 
 ```typescript
-const theme = await invoke<string | null>("get_preference", { key: "theme" });
+const theme = await invoke<string | null>('get_preference', { key: 'theme' });
 ```
 
 **Errors**:
+
 - `Storage` - Failed to read from database
 
 ---
@@ -404,10 +412,11 @@ Set a user preference.
 **Returns**: `void`
 
 ```typescript
-await invoke("set_preference", { key: "theme", value: "dark" });
+await invoke('set_preference', { key: 'theme', value: 'dark' });
 ```
 
 **Errors**:
+
 - `Storage` - Failed to write to database
 
 ---
@@ -423,7 +432,7 @@ Check if OS keychain is available.
 **Returns**: `boolean`
 
 ```typescript
-const available = await invoke<boolean>("check_keychain_available");
+const available = await invoke<boolean>('check_keychain_available');
 ```
 
 **Errors**: None (infallible)
@@ -439,8 +448,8 @@ Check if a password is stored for a connection.
 **Returns**: `boolean`
 
 ```typescript
-const hasPassword = await invoke<boolean>("has_stored_password", {
-  connectionId,
+const hasPassword = await invoke<boolean>('has_stored_password', {
+	connectionId
 });
 ```
 
@@ -454,35 +463,35 @@ All commands may return errors in this format:
 
 ```typescript
 interface TuskError {
-  kind: ErrorKind;
-  data: ErrorData;
+	kind: ErrorKind;
+	data: ErrorData;
 }
 
 type ErrorKind =
-  | "Database"
-  | "Connection"
-  | "Storage"
-  | "Credential"
-  | "QueryCancelled"
-  | "QueryTimeout"
-  | "Initialization"
-  | "Validation"
-  | "Internal";
+	| 'Database'
+	| 'Connection'
+	| 'Storage'
+	| 'Credential'
+	| 'QueryCancelled'
+	| 'QueryTimeout'
+	| 'Initialization'
+	| 'Validation'
+	| 'Internal';
 
 interface DatabaseErrorData {
-  message: string;
-  code: string | null;      // PostgreSQL error code
-  position: number | null;  // Character position in SQL
-  hint: string | null;      // Actionable suggestion
-  detail: string | null;    // Additional context
+	message: string;
+	code: string | null; // PostgreSQL error code
+	position: number | null; // Character position in SQL
+	hint: string | null; // Actionable suggestion
+	detail: string | null; // Additional context
 }
 
 interface SimpleErrorData {
-  message: string;
+	message: string;
 }
 
 interface TimeoutErrorData {
-  elapsedMs: number;
+	elapsedMs: number;
 }
 ```
 
@@ -490,23 +499,23 @@ interface TimeoutErrorData {
 
 ```typescript
 try {
-  const result = await invoke<QueryResult>("execute_query", args);
-  // Handle success
+	const result = await invoke<QueryResult>('execute_query', args);
+	// Handle success
 } catch (error) {
-  const e = error as TuskError;
-  switch (e.kind) {
-    case "Database":
-      // Show SQL error with position highlighting
-      break;
-    case "QueryTimeout":
-      // Show timeout message with elapsed time
-      break;
-    case "QueryCancelled":
-      // User cancelled, no error toast needed
-      break;
-    default:
-      // Show generic error message
-      break;
-  }
+	const e = error as TuskError;
+	switch (e.kind) {
+		case 'Database':
+			// Show SQL error with position highlighting
+			break;
+		case 'QueryTimeout':
+			// Show timeout message with elapsed time
+			break;
+		case 'QueryCancelled':
+			// User cancelled, no error toast needed
+			break;
+		default:
+			// Show generic error message
+			break;
+	}
 }
 ```
