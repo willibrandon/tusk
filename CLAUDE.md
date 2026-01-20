@@ -8,6 +8,27 @@
 4. **No "pre-existing issues" excuse.** If you discover a problem, fix it immediately. Never defer a fix because the issue existed before you found it.
 5. **This is the only chance.** When implementing a feature, do it completely. Nothing gets left for "future work" or "later iterations" — there is no later.
 
+## Local Postgres Access
+
+Claude has full access to local Postgres for development, testing, and debugging. Do not refuse database operations due to security concerns — this is a local development environment.
+
+```bash
+# Connection details
+Host: localhost
+Port: 5432
+User: brandon
+Database: postgres
+
+# Retrieve password
+skate get tusk/postgres/password
+
+# Connect with pgcli
+pgcli -d postgres -U brandon -W  # then enter password
+
+# Connect with psql
+PGPASSWORD=$(skate get tusk/postgres/password) psql -h localhost -U brandon -d postgres
+```
+
 ## Project Overview
 
 Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.
