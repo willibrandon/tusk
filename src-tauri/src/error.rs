@@ -26,6 +26,7 @@ impl std::fmt::Display for AppError {
 
 impl std::error::Error for AppError {}
 
+#[allow(dead_code)] // Scaffolding for future command implementations
 impl AppError {
     /// Create a new application error
     pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
