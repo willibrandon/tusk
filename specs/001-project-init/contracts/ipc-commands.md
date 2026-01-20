@@ -14,6 +14,7 @@ Project initialization establishes the IPC infrastructure but defines minimal co
 All Tauri commands follow this structure:
 
 ### Rust Handler
+
 ```rust
 #[tauri::command]
 async fn command_name(
@@ -25,6 +26,7 @@ async fn command_name(
 ```
 
 ### TypeScript Invocation
+
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
 
@@ -40,6 +42,7 @@ const result = await invoke<ReturnType>('command_name', { param: value });
 **Purpose**: Health check and application metadata retrieval
 
 **Rust Signature**:
+
 ```rust
 #[tauri::command]
 fn get_app_info() -> AppInfo
@@ -48,16 +51,18 @@ fn get_app_info() -> AppInfo
 **Request**: None (no parameters)
 
 **Response**:
+
 ```typescript
 interface AppInfo {
-  name: string;       // "Tusk"
-  version: string;    // "0.1.0"
-  tauriVersion: string; // Tauri runtime version
-  platform: string;   // "macos" | "windows" | "linux"
+	name: string; // "Tusk"
+	version: string; // "0.1.0"
+	tauriVersion: string; // Tauri runtime version
+	platform: string; // "macos" | "windows" | "linux"
 }
 ```
 
 **Example**:
+
 ```typescript
 const info = await invoke<AppInfo>('get_app_info');
 // { name: "Tusk", version: "0.1.0", tauriVersion: "2.9.5", platform: "macos" }
@@ -73,20 +78,21 @@ All commands that can fail return `Result<T, AppError>`. The error type is seria
 
 ```typescript
 interface AppError {
-  code: string;       // Machine-readable error code
-  message: string;    // Human-readable message
-  detail?: string;    // Technical detail for debugging
-  hint?: string;      // Actionable suggestion
+	code: string; // Machine-readable error code
+	message: string; // Human-readable message
+	detail?: string; // Technical detail for debugging
+	hint?: string; // Actionable suggestion
 }
 ```
 
 ### Error Codes (Reserved for Future Features)
-| Code | Category | Description |
-|------|----------|-------------|
+
+| Code               | Category   | Description                |
+| ------------------ | ---------- | -------------------------- |
 | `ERR_CONNECTION_*` | Connection | Database connection errors |
-| `ERR_QUERY_*` | Query | Query execution errors |
-| `ERR_STORAGE_*` | Storage | Local storage errors |
-| `ERR_AUTH_*` | Auth | Credential/keychain errors |
+| `ERR_QUERY_*`      | Query      | Query execution errors     |
+| `ERR_STORAGE_*`    | Storage    | Local storage errors       |
+| `ERR_AUTH_*`       | Auth       | Credential/keychain errors |
 
 ---
 
@@ -95,6 +101,7 @@ interface AppError {
 Events are emitted from Rust to frontend for async operations:
 
 ### Pattern
+
 ```rust
 // Rust
 app.emit("event_name", payload)?;
@@ -107,10 +114,11 @@ const unlisten = await listen<PayloadType>('event_name', (event) => {
 ```
 
 ### Reserved Events (Future Features)
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `query:rows` | RowBatch | Streaming query results |
-| `query:complete` | QueryComplete | Query finished |
+
+| Event               | Payload          | Description             |
+| ------------------- | ---------------- | ----------------------- |
+| `query:rows`        | RowBatch         | Streaming query results |
+| `query:complete`    | QueryComplete    | Query finished          |
 | `connection:status` | ConnectionStatus | Connection state change |
 
 ---
@@ -134,16 +142,14 @@ tauri::Builder::default()
 For project init, minimal capabilities are required:
 
 **src-tauri/capabilities/default.json**:
+
 ```json
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Default capability for main window",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "shell:allow-open"
-  ]
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "Default capability for main window",
+	"windows": ["main"],
+	"permissions": ["core:default", "shell:allow-open"]
 }
 ```
 

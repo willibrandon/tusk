@@ -450,193 +450,175 @@ import type { QueryResult, ColumnMeta, Value } from '$types/query';
 
 // Error type from backend
 export interface TuskError {
-  error_type: string;
-  message: string;
-  detail?: string;
-  hint?: string;
-  position?: number;
-  code?: string;
+	error_type: string;
+	message: string;
+	detail?: string;
+	hint?: string;
+	position?: number;
+	code?: string;
 }
 
 // Generic invoke wrapper with error handling
 async function ipc<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  try {
-    return await invoke<T>(command, args);
-  } catch (error) {
-    // Error is already TuskError from backend
-    throw error as TuskError;
-  }
+	try {
+		return await invoke<T>(command, args);
+	} catch (error) {
+		// Error is already TuskError from backend
+		throw error as TuskError;
+	}
 }
 
 // Connection commands
 export const connectionCommands = {
-  connect: (config: ConnectionConfig) =>
-    ipc<ConnectionStatus>('connect', { config }),
+	connect: (config: ConnectionConfig) => ipc<ConnectionStatus>('connect', { config }),
 
-  disconnect: (connectionId: string) =>
-    ipc<void>('disconnect', { connectionId }),
+	disconnect: (connectionId: string) => ipc<void>('disconnect', { connectionId }),
 
-  testConnection: (config: ConnectionConfig) =>
-    ipc<string>('test_connection', { config }),
+	testConnection: (config: ConnectionConfig) => ipc<string>('test_connection', { config }),
 
-  listConnections: () =>
-    ipc<ConnectionConfig[]>('list_connections'),
+	listConnections: () => ipc<ConnectionConfig[]>('list_connections'),
 
-  saveConnection: (config: ConnectionConfig) =>
-    ipc<void>('save_connection', { config }),
+	saveConnection: (config: ConnectionConfig) => ipc<void>('save_connection', { config }),
 
-  deleteConnection: (connectionId: string) =>
-    ipc<void>('delete_connection', { connectionId }),
+	deleteConnection: (connectionId: string) => ipc<void>('delete_connection', { connectionId }),
 
-  getConnectionStatus: (connectionId: string) =>
-    ipc<ConnectionStatus>('get_connection_status', { connectionId }),
+	getConnectionStatus: (connectionId: string) =>
+		ipc<ConnectionStatus>('get_connection_status', { connectionId })
 };
 
 // Query commands
 export interface QueryStarted {
-  query_id: string;
+	query_id: string;
 }
 
 export interface RowBatch {
-  query_id: string;
-  batch_num: number;
-  rows: Value[][];
+	query_id: string;
+	batch_num: number;
+	rows: Value[][];
 }
 
 export interface QueryComplete {
-  query_id: string;
-  total_rows: number;
-  elapsed_ms: number;
-  command: string;
+	query_id: string;
+	total_rows: number;
+	elapsed_ms: number;
+	command: string;
 }
 
 export interface QueryError {
-  query_id: string;
-  error: TuskError;
+	query_id: string;
+	error: TuskError;
 }
 
 export interface QueryColumns {
-  query_id: string;
-  columns: ColumnMeta[];
+	query_id: string;
+	columns: ColumnMeta[];
 }
 
 export const queryCommands = {
-  executeQuery: (connectionId: string, sql: string, params: unknown[] = []) =>
-    ipc<QueryResult>('execute_query', { connectionId, sql, params }),
+	executeQuery: (connectionId: string, sql: string, params: unknown[] = []) =>
+		ipc<QueryResult>('execute_query', { connectionId, sql, params }),
 
-  executeQueryStream: (
-    connectionId: string,
-    sql: string,
-    params: unknown[] = [],
-    batchSize?: number
-  ) =>
-    ipc<QueryStarted>('execute_query_stream', {
-      connectionId,
-      sql,
-      params,
-      batchSize,
-    }),
+	executeQueryStream: (
+		connectionId: string,
+		sql: string,
+		params: unknown[] = [],
+		batchSize?: number
+	) =>
+		ipc<QueryStarted>('execute_query_stream', {
+			connectionId,
+			sql,
+			params,
+			batchSize
+		}),
 
-  cancelQuery: (queryId: string) =>
-    ipc<boolean>('cancel_query', { queryId }),
+	cancelQuery: (queryId: string) => ipc<boolean>('cancel_query', { queryId }),
 
-  explainQuery: (connectionId: string, sql: string, options: ExplainOptions) =>
-    ipc<QueryPlan>('explain_query', { connectionId, sql, options }),
+	explainQuery: (connectionId: string, sql: string, options: ExplainOptions) =>
+		ipc<QueryPlan>('explain_query', { connectionId, sql, options })
 };
 
 // Query event listeners
 export function onQueryColumns(callback: (data: QueryColumns) => void): Promise<UnlistenFn> {
-  return listen<QueryColumns>('query:columns', (event) => callback(event.payload));
+	return listen<QueryColumns>('query:columns', (event) => callback(event.payload));
 }
 
 export function onQueryRows(callback: (data: RowBatch) => void): Promise<UnlistenFn> {
-  return listen<RowBatch>('query:rows', (event) => callback(event.payload));
+	return listen<RowBatch>('query:rows', (event) => callback(event.payload));
 }
 
 export function onQueryComplete(callback: (data: QueryComplete) => void): Promise<UnlistenFn> {
-  return listen<QueryComplete>('query:complete', (event) => callback(event.payload));
+	return listen<QueryComplete>('query:complete', (event) => callback(event.payload));
 }
 
 export function onQueryError(callback: (data: QueryError) => void): Promise<UnlistenFn> {
-  return listen<QueryError>('query:error', (event) => callback(event.payload));
+	return listen<QueryError>('query:error', (event) => callback(event.payload));
 }
 
 // Schema commands
 export const schemaCommands = {
-  getSchema: (connectionId: string) =>
-    ipc<Schema>('get_schema', { connectionId }),
+	getSchema: (connectionId: string) => ipc<Schema>('get_schema', { connectionId }),
 
-  refreshSchema: (connectionId: string) =>
-    ipc<Schema>('refresh_schema', { connectionId }),
+	refreshSchema: (connectionId: string) => ipc<Schema>('refresh_schema', { connectionId }),
 
-  getTableColumns: (connectionId: string, schema: string, table: string) =>
-    ipc<Column[]>('get_table_columns', { connectionId, schema, table }),
+	getTableColumns: (connectionId: string, schema: string, table: string) =>
+		ipc<Column[]>('get_table_columns', { connectionId, schema, table }),
 
-  getTableIndexes: (connectionId: string, schema: string, table: string) =>
-    ipc<Index[]>('get_table_indexes', { connectionId, schema, table }),
+	getTableIndexes: (connectionId: string, schema: string, table: string) =>
+		ipc<Index[]>('get_table_indexes', { connectionId, schema, table }),
 
-  generateDdl: (connectionId: string, objectType: string, schema: string, name: string) =>
-    ipc<string>('generate_ddl', { connectionId, objectType, schema, name }),
+	generateDdl: (connectionId: string, objectType: string, schema: string, name: string) =>
+		ipc<string>('generate_ddl', { connectionId, objectType, schema, name })
 };
 
 // Admin commands
 export const adminCommands = {
-  getActivity: (connectionId: string) =>
-    ipc<Activity[]>('get_activity', { connectionId }),
+	getActivity: (connectionId: string) => ipc<Activity[]>('get_activity', { connectionId }),
 
-  getServerStats: (connectionId: string) =>
-    ipc<ServerStats>('get_server_stats', { connectionId }),
+	getServerStats: (connectionId: string) => ipc<ServerStats>('get_server_stats', { connectionId }),
 
-  getTableStats: (connectionId: string, schema?: string) =>
-    ipc<TableStats[]>('get_table_stats', { connectionId, schema }),
+	getTableStats: (connectionId: string, schema?: string) =>
+		ipc<TableStats[]>('get_table_stats', { connectionId, schema }),
 
-  getIndexStats: (connectionId: string, schema?: string) =>
-    ipc<IndexStats[]>('get_index_stats', { connectionId, schema }),
+	getIndexStats: (connectionId: string, schema?: string) =>
+		ipc<IndexStats[]>('get_index_stats', { connectionId, schema }),
 
-  getLocks: (connectionId: string) =>
-    ipc<Lock[]>('get_locks', { connectionId }),
+	getLocks: (connectionId: string) => ipc<Lock[]>('get_locks', { connectionId }),
 
-  killQuery: (connectionId: string, pid: number) =>
-    ipc<boolean>('kill_query', { connectionId, pid }),
+	killQuery: (connectionId: string, pid: number) =>
+		ipc<boolean>('kill_query', { connectionId, pid }),
 
-  vacuumTable: (connectionId: string, schema: string, table: string, options: VacuumOptions) =>
-    ipc<void>('vacuum_table', { connectionId, schema, table, options }),
+	vacuumTable: (connectionId: string, schema: string, table: string, options: VacuumOptions) =>
+		ipc<void>('vacuum_table', { connectionId, schema, table, options }),
 
-  reindex: (connectionId: string, target: ReindexTarget) =>
-    ipc<void>('reindex', { connectionId, target }),
+	reindex: (connectionId: string, target: ReindexTarget) =>
+		ipc<void>('reindex', { connectionId, target })
 };
 
 // Storage commands
 export const storageCommands = {
-  getQueryHistory: (connectionId: string, limit?: number) =>
-    ipc<QueryHistoryItem[]>('get_query_history', { connectionId, limit }),
+	getQueryHistory: (connectionId: string, limit?: number) =>
+		ipc<QueryHistoryItem[]>('get_query_history', { connectionId, limit }),
 
-  saveQuery: (query: SavedQuery) =>
-    ipc<void>('save_query', { query }),
+	saveQuery: (query: SavedQuery) => ipc<void>('save_query', { query }),
 
-  deleteQuery: (queryId: string) =>
-    ipc<void>('delete_query', { queryId }),
+	deleteQuery: (queryId: string) => ipc<void>('delete_query', { queryId }),
 
-  getSavedQueries: (connectionId?: string) =>
-    ipc<SavedQuery[]>('get_saved_queries', { connectionId }),
+	getSavedQueries: (connectionId?: string) =>
+		ipc<SavedQuery[]>('get_saved_queries', { connectionId }),
 
-  getSettings: () =>
-    ipc<Settings>('get_settings'),
+	getSettings: () => ipc<Settings>('get_settings'),
 
-  saveSettings: (settings: Settings) =>
-    ipc<void>('save_settings', { settings }),
+	saveSettings: (settings: Settings) => ipc<void>('save_settings', { settings })
 };
 
 // Credential commands
 export const credentialCommands = {
-  storePassword: (connectionId: string, password: string) =>
-    ipc<void>('store_password', { connectionId, password }),
+	storePassword: (connectionId: string, password: string) =>
+		ipc<void>('store_password', { connectionId, password }),
 
-  getPassword: (connectionId: string) =>
-    ipc<string | null>('get_password', { connectionId }),
+	getPassword: (connectionId: string) => ipc<string | null>('get_password', { connectionId }),
 
-  deletePassword: (connectionId: string) =>
-    ipc<void>('delete_password', { connectionId }),
+	deletePassword: (connectionId: string) => ipc<void>('delete_password', { connectionId })
 };
 ```
 
@@ -645,100 +627,100 @@ export const credentialCommands = {
 ```typescript
 // services/query.ts
 import {
-  queryCommands,
-  onQueryColumns,
-  onQueryRows,
-  onQueryComplete,
-  onQueryError,
-  type QueryColumns,
-  type RowBatch,
-  type QueryComplete,
-  type QueryError,
+	queryCommands,
+	onQueryColumns,
+	onQueryRows,
+	onQueryComplete,
+	onQueryError,
+	type QueryColumns,
+	type RowBatch,
+	type QueryComplete,
+	type QueryError
 } from './ipc';
 import type { ColumnMeta, Value } from '$types/query';
 
 export interface StreamingQueryCallbacks {
-  onColumns?: (columns: ColumnMeta[]) => void;
-  onRows?: (rows: Value[][], batchNum: number) => void;
-  onComplete?: (totalRows: number, elapsedMs: number, command: string) => void;
-  onError?: (error: QueryError['error']) => void;
+	onColumns?: (columns: ColumnMeta[]) => void;
+	onRows?: (rows: Value[][], batchNum: number) => void;
+	onComplete?: (totalRows: number, elapsedMs: number, command: string) => void;
+	onError?: (error: QueryError['error']) => void;
 }
 
 export class StreamingQuery {
-  private queryId: string | null = null;
-  private unlisteners: Array<() => void> = [];
-  private callbacks: StreamingQueryCallbacks;
+	private queryId: string | null = null;
+	private unlisteners: Array<() => void> = [];
+	private callbacks: StreamingQueryCallbacks;
 
-  constructor(callbacks: StreamingQueryCallbacks) {
-    this.callbacks = callbacks;
-  }
+	constructor(callbacks: StreamingQueryCallbacks) {
+		this.callbacks = callbacks;
+	}
 
-  async execute(connectionId: string, sql: string, params: unknown[] = []): Promise<void> {
-    // Set up listeners first
-    const [unlistenColumns, unlistenRows, unlistenComplete, unlistenError] = await Promise.all([
-      onQueryColumns((data) => this.handleColumns(data)),
-      onQueryRows((data) => this.handleRows(data)),
-      onQueryComplete((data) => this.handleComplete(data)),
-      onQueryError((data) => this.handleError(data)),
-    ]);
+	async execute(connectionId: string, sql: string, params: unknown[] = []): Promise<void> {
+		// Set up listeners first
+		const [unlistenColumns, unlistenRows, unlistenComplete, unlistenError] = await Promise.all([
+			onQueryColumns((data) => this.handleColumns(data)),
+			onQueryRows((data) => this.handleRows(data)),
+			onQueryComplete((data) => this.handleComplete(data)),
+			onQueryError((data) => this.handleError(data))
+		]);
 
-    this.unlisteners = [unlistenColumns, unlistenRows, unlistenComplete, unlistenError];
+		this.unlisteners = [unlistenColumns, unlistenRows, unlistenComplete, unlistenError];
 
-    try {
-      const result = await queryCommands.executeQueryStream(connectionId, sql, params);
-      this.queryId = result.query_id;
-    } catch (error) {
-      this.cleanup();
-      throw error;
-    }
-  }
+		try {
+			const result = await queryCommands.executeQueryStream(connectionId, sql, params);
+			this.queryId = result.query_id;
+		} catch (error) {
+			this.cleanup();
+			throw error;
+		}
+	}
 
-  async cancel(): Promise<boolean> {
-    if (this.queryId) {
-      const result = await queryCommands.cancelQuery(this.queryId);
-      this.cleanup();
-      return result;
-    }
-    return false;
-  }
+	async cancel(): Promise<boolean> {
+		if (this.queryId) {
+			const result = await queryCommands.cancelQuery(this.queryId);
+			this.cleanup();
+			return result;
+		}
+		return false;
+	}
 
-  private handleColumns(data: QueryColumns) {
-    if (data.query_id === this.queryId && this.callbacks.onColumns) {
-      this.callbacks.onColumns(data.columns);
-    }
-  }
+	private handleColumns(data: QueryColumns) {
+		if (data.query_id === this.queryId && this.callbacks.onColumns) {
+			this.callbacks.onColumns(data.columns);
+		}
+	}
 
-  private handleRows(data: RowBatch) {
-    if (data.query_id === this.queryId && this.callbacks.onRows) {
-      this.callbacks.onRows(data.rows, data.batch_num);
-    }
-  }
+	private handleRows(data: RowBatch) {
+		if (data.query_id === this.queryId && this.callbacks.onRows) {
+			this.callbacks.onRows(data.rows, data.batch_num);
+		}
+	}
 
-  private handleComplete(data: QueryComplete) {
-    if (data.query_id === this.queryId) {
-      if (this.callbacks.onComplete) {
-        this.callbacks.onComplete(data.total_rows, data.elapsed_ms, data.command);
-      }
-      this.cleanup();
-    }
-  }
+	private handleComplete(data: QueryComplete) {
+		if (data.query_id === this.queryId) {
+			if (this.callbacks.onComplete) {
+				this.callbacks.onComplete(data.total_rows, data.elapsed_ms, data.command);
+			}
+			this.cleanup();
+		}
+	}
 
-  private handleError(data: QueryError) {
-    if (data.query_id === this.queryId) {
-      if (this.callbacks.onError) {
-        this.callbacks.onError(data.error);
-      }
-      this.cleanup();
-    }
-  }
+	private handleError(data: QueryError) {
+		if (data.query_id === this.queryId) {
+			if (this.callbacks.onError) {
+				this.callbacks.onError(data.error);
+			}
+			this.cleanup();
+		}
+	}
 
-  private cleanup() {
-    for (const unlisten of this.unlisteners) {
-      unlisten();
-    }
-    this.unlisteners = [];
-    this.queryId = null;
-  }
+	private cleanup() {
+		for (const unlisten of this.unlisteners) {
+			unlisten();
+		}
+		this.unlisteners = [];
+		this.queryId = null;
+	}
 }
 ```
 

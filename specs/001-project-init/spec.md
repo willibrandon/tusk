@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: User description: "Initialize the Tusk project with Tauri v2, establishing the foundational build system, directory structure, and development tooling."
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Developer Starts Development Session (Priority: P1)
 
@@ -94,7 +94,7 @@ Users who prefer dark interfaces can use the application with a dark color schem
 - **Insufficient disk space**: Build process MUST fail with error message indicating required space and available space
 - **Missing signing certificates**: Production build MUST complete without signing (unsigned bundle) with warning message; signing is optional for development
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -121,7 +121,7 @@ Users who prefer dark interfaces can use the application with a dark color schem
 - **Build Configuration**: Settings that control how the application is compiled and packaged for different platforms and environments
 - **Development Environment**: The local setup that enables iterative development with immediate feedback through hot reloading
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -153,6 +153,7 @@ None - this is the foundational feature that all other features depend upon.
 ## Dependent Features
 
 All subsequent features depend on this project initialization being complete:
+
 - Backend architecture
 - Frontend architecture
 - All application features

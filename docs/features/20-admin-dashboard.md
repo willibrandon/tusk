@@ -26,136 +26,136 @@ The Admin Dashboard provides real-time monitoring of PostgreSQL server activity,
 // src/lib/types/admin.ts
 
 export interface ServerStats {
-  version: string;
-  startTime: Date;
-  uptime: string;
-  connectionCount: number;
-  maxConnections: number;
-  activeQueries: number;
-  databaseSizes: DatabaseSize[];
-  cacheHitRatio: number;
-  transactionsPerSecond: number;
-  replicationLag?: string;
-  checkpointStats?: CheckpointStats;
+	version: string;
+	startTime: Date;
+	uptime: string;
+	connectionCount: number;
+	maxConnections: number;
+	activeQueries: number;
+	databaseSizes: DatabaseSize[];
+	cacheHitRatio: number;
+	transactionsPerSecond: number;
+	replicationLag?: string;
+	checkpointStats?: CheckpointStats;
 }
 
 export interface DatabaseSize {
-  name: string;
-  sizeBytes: number;
-  sizeFormatted: string;
+	name: string;
+	sizeBytes: number;
+	sizeFormatted: string;
 }
 
 export interface CheckpointStats {
-  checkpointsTimedCount: number;
-  checkpointsRequestedCount: number;
-  buffersCheckpoint: number;
-  buffersClean: number;
-  maxWrittenClean: number;
-  buffersBackend: number;
-  buffersBackendFsync: number;
-  buffersAlloc: number;
+	checkpointsTimedCount: number;
+	checkpointsRequestedCount: number;
+	buffersCheckpoint: number;
+	buffersClean: number;
+	maxWrittenClean: number;
+	buffersBackend: number;
+	buffersBackendFsync: number;
+	buffersAlloc: number;
 }
 
 export interface ActiveQuery {
-  pid: number;
-  user: string;
-  database: string;
-  application: string;
-  clientAddr: string | null;
-  clientPort: number | null;
-  state: QueryState;
-  waitEventType: string | null;
-  waitEvent: string | null;
-  query: string;
-  queryStart: Date | null;
-  stateChange: Date | null;
-  duration: number | null; // milliseconds
-  backendStart: Date;
-  xactStart: Date | null;
-  backendType: string;
+	pid: number;
+	user: string;
+	database: string;
+	application: string;
+	clientAddr: string | null;
+	clientPort: number | null;
+	state: QueryState;
+	waitEventType: string | null;
+	waitEvent: string | null;
+	query: string;
+	queryStart: Date | null;
+	stateChange: Date | null;
+	duration: number | null; // milliseconds
+	backendStart: Date;
+	xactStart: Date | null;
+	backendType: string;
 }
 
 export type QueryState =
-  | 'active'
-  | 'idle'
-  | 'idle in transaction'
-  | 'idle in transaction (aborted)'
-  | 'fastpath function call'
-  | 'disabled';
+	| 'active'
+	| 'idle'
+	| 'idle in transaction'
+	| 'idle in transaction (aborted)'
+	| 'fastpath function call'
+	| 'disabled';
 
 export interface TableStats {
-  schemaName: string;
-  tableName: string;
-  rowCountEstimate: number;
-  totalSizeBytes: number;
-  tableSizeBytes: number;
-  indexSizeBytes: number;
-  seqScans: number;
-  seqTuplesRead: number;
-  idxScans: number;
-  idxTuplesFetch: number;
-  insertCount: number;
-  updateCount: number;
-  deleteCount: number;
-  hotUpdateCount: number;
-  liveRowCount: number;
-  deadRowCount: number;
-  lastVacuum: Date | null;
-  lastAutoVacuum: Date | null;
-  lastAnalyze: Date | null;
-  lastAutoAnalyze: Date | null;
-  vacuumCount: number;
-  autoVacuumCount: number;
-  analyzeCount: number;
-  autoAnalyzeCount: number;
+	schemaName: string;
+	tableName: string;
+	rowCountEstimate: number;
+	totalSizeBytes: number;
+	tableSizeBytes: number;
+	indexSizeBytes: number;
+	seqScans: number;
+	seqTuplesRead: number;
+	idxScans: number;
+	idxTuplesFetch: number;
+	insertCount: number;
+	updateCount: number;
+	deleteCount: number;
+	hotUpdateCount: number;
+	liveRowCount: number;
+	deadRowCount: number;
+	lastVacuum: Date | null;
+	lastAutoVacuum: Date | null;
+	lastAnalyze: Date | null;
+	lastAutoAnalyze: Date | null;
+	vacuumCount: number;
+	autoVacuumCount: number;
+	analyzeCount: number;
+	autoAnalyzeCount: number;
 }
 
 export interface IndexStats {
-  schemaName: string;
-  tableName: string;
-  indexName: string;
-  sizeBytes: number;
-  scans: number;
-  tuplesRead: number;
-  tuplesFetched: number;
-  isUnique: boolean;
-  isPrimary: boolean;
-  isValid: boolean;
-  definition: string;
-  // Computed
-  isUnused: boolean;
-  isDuplicate: boolean;
+	schemaName: string;
+	tableName: string;
+	indexName: string;
+	sizeBytes: number;
+	scans: number;
+	tuplesRead: number;
+	tuplesFetched: number;
+	isUnique: boolean;
+	isPrimary: boolean;
+	isValid: boolean;
+	definition: string;
+	// Computed
+	isUnused: boolean;
+	isDuplicate: boolean;
 }
 
 export interface LockInfo {
-  pid: number;
-  lockType: string;
-  database: string;
-  relation: string | null;
-  mode: string;
-  granted: boolean;
-  waitStart: Date | null;
-  query: string;
-  user: string;
-  // For blocked queries
-  blockingPid: number | null;
-  blockingQuery: string | null;
-  blockingUser: string | null;
+	pid: number;
+	lockType: string;
+	database: string;
+	relation: string | null;
+	mode: string;
+	granted: boolean;
+	waitStart: Date | null;
+	query: string;
+	user: string;
+	// For blocked queries
+	blockingPid: number | null;
+	blockingQuery: string | null;
+	blockingUser: string | null;
 }
 
 export interface ReplicationStats {
-  slotName: string;
-  slotType: string;
-  active: boolean;
-  clientAddr: string | null;
-  state: string;
-  sentLsn: string;
-  writeLsn: string;
-  flushLsn: string;
-  replayLsn: string;
-  writeLag: string | null;
-  flushLag: string | null;
-  replayLag: string | null;
+	slotName: string;
+	slotType: string;
+	active: boolean;
+	clientAddr: string | null;
+	state: string;
+	sentLsn: string;
+	writeLsn: string;
+	flushLsn: string;
+	replayLsn: string;
+	writeLag: string | null;
+	flushLag: string | null;
+	replayLag: string | null;
 }
 ```
 
@@ -853,206 +853,222 @@ pub async fn get_locks(
 // src/lib/stores/adminStore.svelte.ts
 
 import { invoke } from '@tauri-apps/api/core';
-import type {
-  ServerStats,
-  ActiveQuery,
-  TableStats,
-  IndexStats,
-  LockInfo,
-} from '$lib/types/admin';
+import type { ServerStats, ActiveQuery, TableStats, IndexStats, LockInfo } from '$lib/types/admin';
 
 type AdminTab = 'activity' | 'tables' | 'indexes' | 'locks';
 
 interface AdminState {
-  connId: string | null;
-  activeTab: AdminTab;
-  autoRefresh: boolean;
-  refreshInterval: number; // seconds
+	connId: string | null;
+	activeTab: AdminTab;
+	autoRefresh: boolean;
+	refreshInterval: number; // seconds
 
-  serverStats: ServerStats | null;
-  activeQueries: ActiveQuery[];
-  tableStats: TableStats[];
-  indexStats: IndexStats[];
-  locks: LockInfo[];
+	serverStats: ServerStats | null;
+	activeQueries: ActiveQuery[];
+	tableStats: TableStats[];
+	indexStats: IndexStats[];
+	locks: LockInfo[];
 
-  loading: boolean;
-  error: string | null;
+	loading: boolean;
+	error: string | null;
 }
 
 export function createAdminStore() {
-  let state = $state<AdminState>({
-    connId: null,
-    activeTab: 'activity',
-    autoRefresh: true,
-    refreshInterval: 5,
+	let state = $state<AdminState>({
+		connId: null,
+		activeTab: 'activity',
+		autoRefresh: true,
+		refreshInterval: 5,
 
-    serverStats: null,
-    activeQueries: [],
-    tableStats: [],
-    indexStats: [],
-    locks: [],
+		serverStats: null,
+		activeQueries: [],
+		tableStats: [],
+		indexStats: [],
+		locks: [],
 
-    loading: false,
-    error: null,
-  });
+		loading: false,
+		error: null
+	});
 
-  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+	let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
-  function setConnection(connId: string) {
-    state.connId = connId;
-    refresh();
-    startAutoRefresh();
-  }
+	function setConnection(connId: string) {
+		state.connId = connId;
+		refresh();
+		startAutoRefresh();
+	}
 
-  function setActiveTab(tab: AdminTab) {
-    state.activeTab = tab;
-    refresh();
-  }
+	function setActiveTab(tab: AdminTab) {
+		state.activeTab = tab;
+		refresh();
+	}
 
-  function setAutoRefresh(enabled: boolean) {
-    state.autoRefresh = enabled;
-    if (enabled) {
-      startAutoRefresh();
-    } else {
-      stopAutoRefresh();
-    }
-  }
+	function setAutoRefresh(enabled: boolean) {
+		state.autoRefresh = enabled;
+		if (enabled) {
+			startAutoRefresh();
+		} else {
+			stopAutoRefresh();
+		}
+	}
 
-  function setRefreshInterval(seconds: number) {
-    state.refreshInterval = seconds;
-    if (state.autoRefresh) {
-      startAutoRefresh();
-    }
-  }
+	function setRefreshInterval(seconds: number) {
+		state.refreshInterval = seconds;
+		if (state.autoRefresh) {
+			startAutoRefresh();
+		}
+	}
 
-  function startAutoRefresh() {
-    stopAutoRefresh();
-    if (state.autoRefresh && state.connId) {
-      refreshTimer = setInterval(() => {
-        refresh();
-      }, state.refreshInterval * 1000);
-    }
-  }
+	function startAutoRefresh() {
+		stopAutoRefresh();
+		if (state.autoRefresh && state.connId) {
+			refreshTimer = setInterval(() => {
+				refresh();
+			}, state.refreshInterval * 1000);
+		}
+	}
 
-  function stopAutoRefresh() {
-    if (refreshTimer) {
-      clearInterval(refreshTimer);
-      refreshTimer = null;
-    }
-  }
+	function stopAutoRefresh() {
+		if (refreshTimer) {
+			clearInterval(refreshTimer);
+			refreshTimer = null;
+		}
+	}
 
-  async function refresh() {
-    if (!state.connId) return;
+	async function refresh() {
+		if (!state.connId) return;
 
-    state.loading = true;
-    state.error = null;
+		state.loading = true;
+		state.error = null;
 
-    try {
-      // Always fetch server stats
-      state.serverStats = await invoke<ServerStats>('get_server_stats', {
-        connId: state.connId,
-      });
+		try {
+			// Always fetch server stats
+			state.serverStats = await invoke<ServerStats>('get_server_stats', {
+				connId: state.connId
+			});
 
-      // Fetch tab-specific data
-      switch (state.activeTab) {
-        case 'activity':
-          state.activeQueries = await invoke<ActiveQuery[]>('get_active_queries', {
-            connId: state.connId,
-          });
-          break;
+			// Fetch tab-specific data
+			switch (state.activeTab) {
+				case 'activity':
+					state.activeQueries = await invoke<ActiveQuery[]>('get_active_queries', {
+						connId: state.connId
+					});
+					break;
 
-        case 'tables':
-          state.tableStats = await invoke<TableStats[]>('get_table_stats', {
-            connId: state.connId,
-          });
-          break;
+				case 'tables':
+					state.tableStats = await invoke<TableStats[]>('get_table_stats', {
+						connId: state.connId
+					});
+					break;
 
-        case 'indexes':
-          state.indexStats = await invoke<IndexStats[]>('get_index_stats', {
-            connId: state.connId,
-          });
-          break;
+				case 'indexes':
+					state.indexStats = await invoke<IndexStats[]>('get_index_stats', {
+						connId: state.connId
+					});
+					break;
 
-        case 'locks':
-          state.locks = await invoke<LockInfo[]>('get_locks', {
-            connId: state.connId,
-          });
-          break;
-      }
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-    } finally {
-      state.loading = false;
-    }
-  }
+				case 'locks':
+					state.locks = await invoke<LockInfo[]>('get_locks', {
+						connId: state.connId
+					});
+					break;
+			}
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+		} finally {
+			state.loading = false;
+		}
+	}
 
-  async function cancelQuery(pid: number) {
-    if (!state.connId) return;
+	async function cancelQuery(pid: number) {
+		if (!state.connId) return;
 
-    try {
-      const success = await invoke<boolean>('cancel_query', {
-        connId: state.connId,
-        pid,
-      });
+		try {
+			const success = await invoke<boolean>('cancel_query', {
+				connId: state.connId,
+				pid
+			});
 
-      if (success) {
-        // Refresh to show updated state
-        await refresh();
-      }
+			if (success) {
+				// Refresh to show updated state
+				await refresh();
+			}
 
-      return success;
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-      return false;
-    }
-  }
+			return success;
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+			return false;
+		}
+	}
 
-  async function terminateConnection(pid: number) {
-    if (!state.connId) return;
+	async function terminateConnection(pid: number) {
+		if (!state.connId) return;
 
-    try {
-      const success = await invoke<boolean>('terminate_connection', {
-        connId: state.connId,
-        pid,
-      });
+		try {
+			const success = await invoke<boolean>('terminate_connection', {
+				connId: state.connId,
+				pid
+			});
 
-      if (success) {
-        await refresh();
-      }
+			if (success) {
+				await refresh();
+			}
 
-      return success;
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-      return false;
-    }
-  }
+			return success;
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+			return false;
+		}
+	}
 
-  function cleanup() {
-    stopAutoRefresh();
-  }
+	function cleanup() {
+		stopAutoRefresh();
+	}
 
-  return {
-    get connId() { return state.connId; },
-    get activeTab() { return state.activeTab; },
-    get autoRefresh() { return state.autoRefresh; },
-    get refreshInterval() { return state.refreshInterval; },
-    get serverStats() { return state.serverStats; },
-    get activeQueries() { return state.activeQueries; },
-    get tableStats() { return state.tableStats; },
-    get indexStats() { return state.indexStats; },
-    get locks() { return state.locks; },
-    get loading() { return state.loading; },
-    get error() { return state.error; },
+	return {
+		get connId() {
+			return state.connId;
+		},
+		get activeTab() {
+			return state.activeTab;
+		},
+		get autoRefresh() {
+			return state.autoRefresh;
+		},
+		get refreshInterval() {
+			return state.refreshInterval;
+		},
+		get serverStats() {
+			return state.serverStats;
+		},
+		get activeQueries() {
+			return state.activeQueries;
+		},
+		get tableStats() {
+			return state.tableStats;
+		},
+		get indexStats() {
+			return state.indexStats;
+		},
+		get locks() {
+			return state.locks;
+		},
+		get loading() {
+			return state.loading;
+		},
+		get error() {
+			return state.error;
+		},
 
-    setConnection,
-    setActiveTab,
-    setAutoRefresh,
-    setRefreshInterval,
-    refresh,
-    cancelQuery,
-    terminateConnection,
-    cleanup,
-  };
+		setConnection,
+		setActiveTab,
+		setAutoRefresh,
+		setRefreshInterval,
+		refresh,
+		cancelQuery,
+		terminateConnection,
+		cleanup
+	};
 }
 
 export const adminStore = createAdminStore();
@@ -1063,100 +1079,97 @@ export const adminStore = createAdminStore();
 ```svelte
 <!-- src/lib/components/admin/ServerStats.svelte -->
 <script lang="ts">
-  import type { ServerStats } from '$lib/types/admin';
+	import type { ServerStats } from '$lib/types/admin';
 
-  interface Props {
-    stats: ServerStats;
-  }
+	interface Props {
+		stats: ServerStats;
+	}
 
-  let { stats }: Props = $props();
+	let { stats }: Props = $props();
 
-  function formatBytes(bytes: number): string {
-    if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' GB';
-    if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(2) + ' MB';
-    if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return bytes + ' B';
-  }
+	function formatBytes(bytes: number): string {
+		if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' GB';
+		if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(2) + ' MB';
+		if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+		return bytes + ' B';
+	}
 
-  function getCacheHitColor(ratio: number): string {
-    if (ratio >= 99) return 'text-green-600 dark:text-green-400';
-    if (ratio >= 95) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  }
+	function getCacheHitColor(ratio: number): string {
+		if (ratio >= 99) return 'text-green-600 dark:text-green-400';
+		if (ratio >= 95) return 'text-yellow-600 dark:text-yellow-400';
+		return 'text-red-600 dark:text-red-400';
+	}
 
-  const connectionPercent = $derived(
-    (stats.connectionCount / stats.maxConnections) * 100
-  );
+	const connectionPercent = $derived((stats.connectionCount / stats.maxConnections) * 100);
 </script>
 
 <div class="grid grid-cols-4 gap-4">
-  <!-- Connections -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-    <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Connections</div>
-    <div class="flex items-end gap-2">
-      <span class="text-2xl font-bold">{stats.connectionCount}</span>
-      <span class="text-gray-400">/ {stats.maxConnections}</span>
-    </div>
-    <div class="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-      <div
-        class="h-full transition-all duration-300
-               {connectionPercent >= 90 ? 'bg-red-500' :
-                connectionPercent >= 70 ? 'bg-yellow-500' : 'bg-green-500'}"
-        style="width: {connectionPercent}%"
-      ></div>
-    </div>
-    <div class="text-xs text-gray-500 mt-1">
-      {stats.activeQueries} active queries
-    </div>
-  </div>
+	<!-- Connections -->
+	<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+		<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Connections</div>
+		<div class="flex items-end gap-2">
+			<span class="text-2xl font-bold">{stats.connectionCount}</span>
+			<span class="text-gray-400">/ {stats.maxConnections}</span>
+		</div>
+		<div class="mt-2 h-2 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
+			<div
+				class="h-full transition-all duration-300
+               {connectionPercent >= 90
+					? 'bg-red-500'
+					: connectionPercent >= 70
+						? 'bg-yellow-500'
+						: 'bg-green-500'}"
+				style="width: {connectionPercent}%"
+			></div>
+		</div>
+		<div class="text-xs text-gray-500 mt-1">
+			{stats.activeQueries} active queries
+		</div>
+	</div>
 
-  <!-- Cache Hit Ratio -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-    <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Cache Hit Ratio</div>
-    <div class="text-2xl font-bold {getCacheHitColor(stats.cacheHitRatio)}">
-      {stats.cacheHitRatio.toFixed(2)}%
-    </div>
-    <div class="text-xs text-gray-500 mt-1">
-      Target: &gt; 99%
-    </div>
-  </div>
+	<!-- Cache Hit Ratio -->
+	<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+		<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Cache Hit Ratio</div>
+		<div class="text-2xl font-bold {getCacheHitColor(stats.cacheHitRatio)}">
+			{stats.cacheHitRatio.toFixed(2)}%
+		</div>
+		<div class="text-xs text-gray-500 mt-1">Target: &gt; 99%</div>
+	</div>
 
-  <!-- TPS -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-    <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Transactions/sec</div>
-    <div class="text-2xl font-bold">
-      {stats.transactionsPerSecond.toFixed(1)}
-    </div>
-    <div class="text-xs text-gray-500 mt-1">
-      Average since stats reset
-    </div>
-  </div>
+	<!-- TPS -->
+	<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+		<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Transactions/sec</div>
+		<div class="text-2xl font-bold">
+			{stats.transactionsPerSecond.toFixed(1)}
+		</div>
+		<div class="text-xs text-gray-500 mt-1">Average since stats reset</div>
+	</div>
 
-  <!-- Uptime -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-    <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Uptime</div>
-    <div class="text-lg font-medium">
-      {stats.uptime}
-    </div>
-    <div class="text-xs text-gray-500 mt-1">
-      PostgreSQL {stats.version.split(' ')[1]}
-    </div>
-  </div>
+	<!-- Uptime -->
+	<div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+		<div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Uptime</div>
+		<div class="text-lg font-medium">
+			{stats.uptime}
+		</div>
+		<div class="text-xs text-gray-500 mt-1">
+			PostgreSQL {stats.version.split(' ')[1]}
+		</div>
+	</div>
 </div>
 
 <!-- Database Sizes -->
 <div class="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
-  <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Database Sizes</h3>
-  <div class="space-y-2">
-    {#each stats.databaseSizes as db}
-      <div class="flex items-center justify-between">
-        <span class="text-sm">{db.name}</span>
-        <span class="text-sm font-mono text-gray-600 dark:text-gray-400">
-          {db.sizeFormatted}
-        </span>
-      </div>
-    {/each}
-  </div>
+	<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Database Sizes</h3>
+	<div class="space-y-2">
+		{#each stats.databaseSizes as db}
+			<div class="flex items-center justify-between">
+				<span class="text-sm">{db.name}</span>
+				<span class="text-sm font-mono text-gray-600 dark:text-gray-400">
+					{db.sizeFormatted}
+				</span>
+			</div>
+		{/each}
+	</div>
 </div>
 ```
 
@@ -1165,225 +1178,238 @@ export const adminStore = createAdminStore();
 ```svelte
 <!-- src/lib/components/admin/ActiveQueries.svelte -->
 <script lang="ts">
-  import type { ActiveQuery } from '$lib/types/admin';
-  import { adminStore } from '$lib/stores/adminStore.svelte';
+	import type { ActiveQuery } from '$lib/types/admin';
+	import { adminStore } from '$lib/stores/adminStore.svelte';
 
-  interface Props {
-    queries: ActiveQuery[];
-  }
+	interface Props {
+		queries: ActiveQuery[];
+	}
 
-  let { queries }: Props = $props();
+	let { queries }: Props = $props();
 
-  let selectedPid = $state<number | null>(null);
-  let showCancelConfirm = $state(false);
-  let showTerminateConfirm = $state(false);
+	let selectedPid = $state<number | null>(null);
+	let showCancelConfirm = $state(false);
+	let showTerminateConfirm = $state(false);
 
-  function formatDuration(ms: number | null): string {
-    if (ms === null) return '-';
-    if (ms < 1000) return ms + 'ms';
-    if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
-    if (ms < 3600000) return (ms / 60000).toFixed(1) + 'm';
-    return (ms / 3600000).toFixed(1) + 'h';
-  }
+	function formatDuration(ms: number | null): string {
+		if (ms === null) return '-';
+		if (ms < 1000) return ms + 'ms';
+		if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+		if (ms < 3600000) return (ms / 60000).toFixed(1) + 'm';
+		return (ms / 3600000).toFixed(1) + 'h';
+	}
 
-  function getStateColor(state: string): string {
-    switch (state) {
-      case 'active': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-      case 'idle': return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
-      case 'idle in transaction': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-      case 'idle in transaction (aborted)': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
-    }
-  }
+	function getStateColor(state: string): string {
+		switch (state) {
+			case 'active':
+				return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+			case 'idle':
+				return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
+			case 'idle in transaction':
+				return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+			case 'idle in transaction (aborted)':
+				return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+			default:
+				return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
+		}
+	}
 
-  function getDurationWarning(ms: number | null): boolean {
-    return ms !== null && ms > 30000; // > 30 seconds
-  }
+	function getDurationWarning(ms: number | null): boolean {
+		return ms !== null && ms > 30000; // > 30 seconds
+	}
 
-  async function handleCancel() {
-    if (selectedPid !== null) {
-      await adminStore.cancelQuery(selectedPid);
-      showCancelConfirm = false;
-      selectedPid = null;
-    }
-  }
+	async function handleCancel() {
+		if (selectedPid !== null) {
+			await adminStore.cancelQuery(selectedPid);
+			showCancelConfirm = false;
+			selectedPid = null;
+		}
+	}
 
-  async function handleTerminate() {
-    if (selectedPid !== null) {
-      await adminStore.terminateConnection(selectedPid);
-      showTerminateConfirm = false;
-      selectedPid = null;
-    }
-  }
+	async function handleTerminate() {
+		if (selectedPid !== null) {
+			await adminStore.terminateConnection(selectedPid);
+			showTerminateConfirm = false;
+			selectedPid = null;
+		}
+	}
 
-  function showCancel(pid: number) {
-    selectedPid = pid;
-    showCancelConfirm = true;
-  }
+	function showCancel(pid: number) {
+		selectedPid = pid;
+		showCancelConfirm = true;
+	}
 
-  function showTerminate(pid: number) {
-    selectedPid = pid;
-    showTerminateConfirm = true;
-  }
+	function showTerminate(pid: number) {
+		selectedPid = pid;
+		showTerminateConfirm = true;
+	}
 
-  const selectedQuery = $derived(
-    queries.find(q => q.pid === selectedPid)
-  );
+	const selectedQuery = $derived(queries.find((q) => q.pid === selectedPid));
 </script>
 
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-  <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-    <thead class="bg-gray-50 dark:bg-gray-900/50">
-      <tr>
-        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          PID
-        </th>
-        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          User
-        </th>
-        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Database
-        </th>
-        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          State
-        </th>
-        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Duration
-        </th>
-        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Query
-        </th>
-        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Actions
-        </th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-      {#each queries as query (query.pid)}
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-          <td class="px-4 py-3 text-sm font-mono">
-            {query.pid}
-          </td>
-          <td class="px-4 py-3 text-sm">
-            {query.user}
-          </td>
-          <td class="px-4 py-3 text-sm">
-            {query.database}
-          </td>
-          <td class="px-4 py-3">
-            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {getStateColor(query.state)}">
-              {query.state}
-            </span>
-            {#if query.waitEventType}
-              <span class="ml-1 text-xs text-gray-500">
-                ({query.waitEventType}: {query.waitEvent})
-              </span>
-            {/if}
-          </td>
-          <td class="px-4 py-3 text-sm font-mono
-                     {getDurationWarning(query.durationMs) ? 'text-red-600 dark:text-red-400 font-bold' : ''}">
-            {formatDuration(query.durationMs)}
-            {#if getDurationWarning(query.durationMs)}
-              <span class="text-red-500">⚠</span>
-            {/if}
-          </td>
-          <td class="px-4 py-3 text-sm max-w-md">
-            <div class="truncate font-mono text-xs" title={query.query}>
-              {query.query || '-'}
-            </div>
-          </td>
-          <td class="px-4 py-3 text-right">
-            {#if query.state === 'active'}
-              <button
-                onclick={() => showCancel(query.pid)}
-                class="text-yellow-600 hover:text-yellow-700 dark:text-yellow-400
+	<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+		<thead class="bg-gray-50 dark:bg-gray-900/50">
+			<tr>
+				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+					PID
+				</th>
+				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+					User
+				</th>
+				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+					Database
+				</th>
+				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+					State
+				</th>
+				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+					Duration
+				</th>
+				<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+					Query
+				</th>
+				<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+					Actions
+				</th>
+			</tr>
+		</thead>
+		<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+			{#each queries as query (query.pid)}
+				<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+					<td class="px-4 py-3 text-sm font-mono">
+						{query.pid}
+					</td>
+					<td class="px-4 py-3 text-sm">
+						{query.user}
+					</td>
+					<td class="px-4 py-3 text-sm">
+						{query.database}
+					</td>
+					<td class="px-4 py-3">
+						<span
+							class="inline-flex px-2 py-0.5 rounded text-xs font-medium {getStateColor(
+								query.state
+							)}"
+						>
+							{query.state}
+						</span>
+						{#if query.waitEventType}
+							<span class="ml-1 text-xs text-gray-500">
+								({query.waitEventType}: {query.waitEvent})
+							</span>
+						{/if}
+					</td>
+					<td
+						class="px-4 py-3 text-sm font-mono
+                     {getDurationWarning(query.durationMs)
+							? 'text-red-600 dark:text-red-400 font-bold'
+							: ''}"
+					>
+						{formatDuration(query.durationMs)}
+						{#if getDurationWarning(query.durationMs)}
+							<span class="text-red-500">⚠</span>
+						{/if}
+					</td>
+					<td class="px-4 py-3 text-sm max-w-md">
+						<div class="truncate font-mono text-xs" title={query.query}>
+							{query.query || '-'}
+						</div>
+					</td>
+					<td class="px-4 py-3 text-right">
+						{#if query.state === 'active'}
+							<button
+								onclick={() => showCancel(query.pid)}
+								class="text-yellow-600 hover:text-yellow-700 dark:text-yellow-400
                        dark:hover:text-yellow-300 text-sm mr-2"
-                title="Cancel Query"
-              >
-                Cancel
-              </button>
-            {/if}
-            <button
-              onclick={() => showTerminate(query.pid)}
-              class="text-red-600 hover:text-red-700 dark:text-red-400
+								title="Cancel Query"
+							>
+								Cancel
+							</button>
+						{/if}
+						<button
+							onclick={() => showTerminate(query.pid)}
+							class="text-red-600 hover:text-red-700 dark:text-red-400
                      dark:hover:text-red-300 text-sm"
-              title="Terminate Connection"
-            >
-              Kill
-            </button>
-          </td>
-        </tr>
-      {:else}
-        <tr>
-          <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-            No active connections
-          </td>
-        </tr>
-      {/each}
-    </tbody>
-  </table>
+							title="Terminate Connection"
+						>
+							Kill
+						</button>
+					</td>
+				</tr>
+			{:else}
+				<tr>
+					<td colspan="7" class="px-4 py-8 text-center text-gray-500"> No active connections </td>
+				</tr>
+			{/each}
+		</tbody>
+	</table>
 </div>
 
 <!-- Cancel Confirmation Dialog -->
 {#if showCancelConfirm && selectedQuery}
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] p-6">
-      <h3 class="text-lg font-semibold mb-4">Cancel Query?</h3>
-      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        This will cancel the running query for PID {selectedQuery.pid} ({selectedQuery.user}).
-        The connection will remain open.
-      </p>
-      <div class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs mb-4 max-h-32 overflow-auto">
-        {selectedQuery.query}
-      </div>
-      <div class="flex justify-end gap-2">
-        <button
-          onclick={() => showCancelConfirm = false}
-          class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] p-6">
+			<h3 class="text-lg font-semibold mb-4">Cancel Query?</h3>
+			<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+				This will cancel the running query for PID {selectedQuery.pid} ({selectedQuery.user}). The
+				connection will remain open.
+			</p>
+			<div
+				class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs mb-4 max-h-32 overflow-auto"
+			>
+				{selectedQuery.query}
+			</div>
+			<div class="flex justify-end gap-2">
+				<button
+					onclick={() => (showCancelConfirm = false)}
+					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={handleCancel}
-          class="px-4 py-2 text-sm bg-yellow-600 text-white rounded hover:bg-yellow-700"
-        >
-          Cancel Query
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleCancel}
+					class="px-4 py-2 text-sm bg-yellow-600 text-white rounded hover:bg-yellow-700"
+				>
+					Cancel Query
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <!-- Terminate Confirmation Dialog -->
 {#if showTerminateConfirm && selectedQuery}
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] p-6">
-      <h3 class="text-lg font-semibold mb-4 text-red-600">Terminate Connection?</h3>
-      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-        This will forcefully terminate the connection for PID {selectedQuery.pid} ({selectedQuery.user}).
-        Any uncommitted transactions will be rolled back.
-      </p>
-      <div class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs mb-4 max-h-32 overflow-auto">
-        {selectedQuery.query || '(no active query)'}
-      </div>
-      <div class="flex justify-end gap-2">
-        <button
-          onclick={() => showTerminateConfirm = false}
-          class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] p-6">
+			<h3 class="text-lg font-semibold mb-4 text-red-600">Terminate Connection?</h3>
+			<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+				This will forcefully terminate the connection for PID {selectedQuery.pid} ({selectedQuery.user}).
+				Any uncommitted transactions will be rolled back.
+			</p>
+			<div
+				class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs mb-4 max-h-32 overflow-auto"
+			>
+				{selectedQuery.query || '(no active query)'}
+			</div>
+			<div class="flex justify-end gap-2">
+				<button
+					onclick={() => (showTerminateConfirm = false)}
+					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={handleTerminate}
-          class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Terminate
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleTerminate}
+					class="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+				>
+					Terminate
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1392,222 +1418,231 @@ export const adminStore = createAdminStore();
 ```svelte
 <!-- src/lib/components/admin/TableStats.svelte -->
 <script lang="ts">
-  import type { TableStats } from '$lib/types/admin';
+	import type { TableStats } from '$lib/types/admin';
 
-  interface Props {
-    stats: TableStats[];
-    onAction: (action: string, schema: string, table: string) => void;
-  }
+	interface Props {
+		stats: TableStats[];
+		onAction: (action: string, schema: string, table: string) => void;
+	}
 
-  let { stats, onAction }: Props = $props();
+	let { stats, onAction }: Props = $props();
 
-  let sortColumn = $state<keyof TableStats>('totalSizeBytes');
-  let sortDirection = $state<'asc' | 'desc'>('desc');
-  let filter = $state('');
+	let sortColumn = $state<keyof TableStats>('totalSizeBytes');
+	let sortDirection = $state<'asc' | 'desc'>('desc');
+	let filter = $state('');
 
-  function formatBytes(bytes: number): string {
-    if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' GB';
-    if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(2) + ' MB';
-    if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return bytes + ' B';
-  }
+	function formatBytes(bytes: number): string {
+		if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' GB';
+		if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(2) + ' MB';
+		if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+		return bytes + ' B';
+	}
 
-  function formatNumber(n: number): string {
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-    return n.toString();
-  }
+	function formatNumber(n: number): string {
+		if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+		if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+		return n.toString();
+	}
 
-  function formatDate(date: Date | null): string {
-    if (!date) return 'Never';
-    const now = new Date();
-    const diff = now.getTime() - new Date(date).getTime();
-    const hours = Math.floor(diff / 3600000);
-    if (hours < 1) return 'Just now';
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(date).toLocaleDateString();
-  }
+	function formatDate(date: Date | null): string {
+		if (!date) return 'Never';
+		const now = new Date();
+		const diff = now.getTime() - new Date(date).getTime();
+		const hours = Math.floor(diff / 3600000);
+		if (hours < 1) return 'Just now';
+		if (hours < 24) return `${hours}h ago`;
+		const days = Math.floor(hours / 24);
+		if (days < 7) return `${days}d ago`;
+		return new Date(date).toLocaleDateString();
+	}
 
-  function needsVacuum(stat: TableStats): boolean {
-    // Heuristic: needs vacuum if dead rows > 10% of live rows
-    return stat.deadRowCount > stat.liveRowCount * 0.1;
-  }
+	function needsVacuum(stat: TableStats): boolean {
+		// Heuristic: needs vacuum if dead rows > 10% of live rows
+		return stat.deadRowCount > stat.liveRowCount * 0.1;
+	}
 
-  function needsAnalyze(stat: TableStats): boolean {
-    // Heuristic: needs analyze if last analyze was > 7 days ago or never
-    if (!stat.lastAnalyze && !stat.lastAutoAnalyze) return true;
-    const lastAnalyze = stat.lastAutoAnalyze || stat.lastAnalyze;
-    if (!lastAnalyze) return true;
-    const daysSince = (Date.now() - new Date(lastAnalyze).getTime()) / 86400000;
-    return daysSince > 7;
-  }
+	function needsAnalyze(stat: TableStats): boolean {
+		// Heuristic: needs analyze if last analyze was > 7 days ago or never
+		if (!stat.lastAnalyze && !stat.lastAutoAnalyze) return true;
+		const lastAnalyze = stat.lastAutoAnalyze || stat.lastAnalyze;
+		if (!lastAnalyze) return true;
+		const daysSince = (Date.now() - new Date(lastAnalyze).getTime()) / 86400000;
+		return daysSince > 7;
+	}
 
-  function toggleSort(column: keyof TableStats) {
-    if (sortColumn === column) {
-      sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      sortColumn = column;
-      sortDirection = 'desc';
-    }
-  }
+	function toggleSort(column: keyof TableStats) {
+		if (sortColumn === column) {
+			sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortColumn = column;
+			sortDirection = 'desc';
+		}
+	}
 
-  const filteredStats = $derived(
-    stats.filter(s =>
-      !filter ||
-      s.tableName.toLowerCase().includes(filter.toLowerCase()) ||
-      s.schemaName.toLowerCase().includes(filter.toLowerCase())
-    )
-  );
+	const filteredStats = $derived(
+		stats.filter(
+			(s) =>
+				!filter ||
+				s.tableName.toLowerCase().includes(filter.toLowerCase()) ||
+				s.schemaName.toLowerCase().includes(filter.toLowerCase())
+		)
+	);
 
-  const sortedStats = $derived(
-    [...filteredStats].sort((a, b) => {
-      const aVal = a[sortColumn];
-      const bVal = b[sortColumn];
-      const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      return sortDirection === 'asc' ? cmp : -cmp;
-    })
-  );
+	const sortedStats = $derived(
+		[...filteredStats].sort((a, b) => {
+			const aVal = a[sortColumn];
+			const bVal = b[sortColumn];
+			const cmp = aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+			return sortDirection === 'asc' ? cmp : -cmp;
+		})
+	);
 </script>
 
 <div class="space-y-4">
-  <!-- Filter -->
-  <div class="flex items-center gap-4">
-    <input
-      type="text"
-      bind:value={filter}
-      placeholder="Filter tables..."
-      class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+	<!-- Filter -->
+	<div class="flex items-center gap-4">
+		<input
+			type="text"
+			bind:value={filter}
+			placeholder="Filter tables..."
+			class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
              bg-white dark:bg-gray-700 text-sm w-64"
-    />
-    <span class="text-sm text-gray-500">
-      {filteredStats.length} of {stats.length} tables
-    </span>
-  </div>
+		/>
+		<span class="text-sm text-gray-500">
+			{filteredStats.length} of {stats.length} tables
+		</span>
+	</div>
 
-  <!-- Table -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-      <thead class="bg-gray-50 dark:bg-gray-900/50">
-        <tr>
-          <th
-            class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-            onclick={() => toggleSort('tableName')}
-          >
-            Table
-            {#if sortColumn === 'tableName'}
-              <span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
-            {/if}
-          </th>
-          <th
-            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-            onclick={() => toggleSort('rowCountEstimate')}
-          >
-            Rows
-            {#if sortColumn === 'rowCountEstimate'}
-              <span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
-            {/if}
-          </th>
-          <th
-            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-            onclick={() => toggleSort('totalSizeBytes')}
-          >
-            Size
-            {#if sortColumn === 'totalSizeBytes'}
-              <span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
-            {/if}
-          </th>
-          <th
-            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-            onclick={() => toggleSort('seqScans')}
-          >
-            Seq Scans
-            {#if sortColumn === 'seqScans'}
-              <span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
-            {/if}
-          </th>
-          <th
-            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-            onclick={() => toggleSort('idxScans')}
-          >
-            Idx Scans
-            {#if sortColumn === 'idxScans'}
-              <span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
-            {/if}
-          </th>
-          <th
-            class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-            onclick={() => toggleSort('deadRowCount')}
-          >
-            Dead Rows
-            {#if sortColumn === 'deadRowCount'}
-              <span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
-            {/if}
-          </th>
-          <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Last Vacuum
-          </th>
-          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Actions
-          </th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-        {#each sortedStats as stat (stat.schemaName + '.' + stat.tableName)}
-          <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-            <td class="px-4 py-3 text-sm">
-              <span class="text-gray-500">{stat.schemaName}.</span>
-              <span class="font-medium">{stat.tableName}</span>
-            </td>
-            <td class="px-4 py-3 text-sm text-right font-mono">
-              {formatNumber(stat.rowCountEstimate)}
-            </td>
-            <td class="px-4 py-3 text-sm text-right font-mono">
-              {formatBytes(stat.totalSizeBytes)}
-            </td>
-            <td class="px-4 py-3 text-sm text-right font-mono">
-              {formatNumber(stat.seqScans)}
-            </td>
-            <td class="px-4 py-3 text-sm text-right font-mono">
-              {formatNumber(stat.idxScans)}
-            </td>
-            <td class="px-4 py-3 text-sm text-right font-mono
-                       {needsVacuum(stat) ? 'text-red-600 dark:text-red-400' : ''}">
-              {formatNumber(stat.deadRowCount)}
-              {#if needsVacuum(stat)}
-                <span title="High dead row count">⚠</span>
-              {/if}
-            </td>
-            <td class="px-4 py-3 text-sm text-center
-                       {needsAnalyze(stat) ? 'text-yellow-600 dark:text-yellow-400' : ''}">
-              {formatDate(stat.lastAutoVacuum || stat.lastVacuum)}
-            </td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex items-center justify-end gap-1">
-                <button
-                  onclick={() => onAction('vacuum', stat.schemaName, stat.tableName)}
-                  class="px-2 py-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30
+	<!-- Table -->
+	<div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
+		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+			<thead class="bg-gray-50 dark:bg-gray-900/50">
+				<tr>
+					<th
+						class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => toggleSort('tableName')}
+					>
+						Table
+						{#if sortColumn === 'tableName'}
+							<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => toggleSort('rowCountEstimate')}
+					>
+						Rows
+						{#if sortColumn === 'rowCountEstimate'}
+							<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => toggleSort('totalSizeBytes')}
+					>
+						Size
+						{#if sortColumn === 'totalSizeBytes'}
+							<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => toggleSort('seqScans')}
+					>
+						Seq Scans
+						{#if sortColumn === 'seqScans'}
+							<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => toggleSort('idxScans')}
+					>
+						Idx Scans
+						{#if sortColumn === 'idxScans'}
+							<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+						onclick={() => toggleSort('deadRowCount')}
+					>
+						Dead Rows
+						{#if sortColumn === 'deadRowCount'}
+							<span>{sortDirection === 'asc' ? '▲' : '▼'}</span>
+						{/if}
+					</th>
+					<th
+						class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Last Vacuum
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Actions
+					</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+				{#each sortedStats as stat (stat.schemaName + '.' + stat.tableName)}
+					<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+						<td class="px-4 py-3 text-sm">
+							<span class="text-gray-500">{stat.schemaName}.</span>
+							<span class="font-medium">{stat.tableName}</span>
+						</td>
+						<td class="px-4 py-3 text-sm text-right font-mono">
+							{formatNumber(stat.rowCountEstimate)}
+						</td>
+						<td class="px-4 py-3 text-sm text-right font-mono">
+							{formatBytes(stat.totalSizeBytes)}
+						</td>
+						<td class="px-4 py-3 text-sm text-right font-mono">
+							{formatNumber(stat.seqScans)}
+						</td>
+						<td class="px-4 py-3 text-sm text-right font-mono">
+							{formatNumber(stat.idxScans)}
+						</td>
+						<td
+							class="px-4 py-3 text-sm text-right font-mono
+                       {needsVacuum(stat) ? 'text-red-600 dark:text-red-400' : ''}"
+						>
+							{formatNumber(stat.deadRowCount)}
+							{#if needsVacuum(stat)}
+								<span title="High dead row count">⚠</span>
+							{/if}
+						</td>
+						<td
+							class="px-4 py-3 text-sm text-center
+                       {needsAnalyze(stat) ? 'text-yellow-600 dark:text-yellow-400' : ''}"
+						>
+							{formatDate(stat.lastAutoVacuum || stat.lastVacuum)}
+						</td>
+						<td class="px-4 py-3 text-right">
+							<div class="flex items-center justify-end gap-1">
+								<button
+									onclick={() => onAction('vacuum', stat.schemaName, stat.tableName)}
+									class="px-2 py-1 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30
                          dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                  title="VACUUM"
-                >
-                  Vacuum
-                </button>
-                <button
-                  onclick={() => onAction('analyze', stat.schemaName, stat.tableName)}
-                  class="px-2 py-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30
+									title="VACUUM"
+								>
+									Vacuum
+								</button>
+								<button
+									onclick={() => onAction('analyze', stat.schemaName, stat.tableName)}
+									class="px-2 py-1 text-xs bg-green-100 text-green-700 dark:bg-green-900/30
                          dark:text-green-400 rounded hover:bg-green-200 dark:hover:bg-green-900/50"
-                  title="ANALYZE"
-                >
-                  Analyze
-                </button>
-              </div>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+									title="ANALYZE"
+								>
+									Analyze
+								</button>
+							</div>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
 </div>
 ```
 
@@ -1616,137 +1651,150 @@ export const adminStore = createAdminStore();
 ```svelte
 <!-- src/lib/components/admin/AdminDashboard.svelte -->
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { adminStore } from '$lib/stores/adminStore.svelte';
-  import ServerStats from './ServerStats.svelte';
-  import ActiveQueries from './ActiveQueries.svelte';
-  import TableStats from './TableStats.svelte';
-  import IndexStats from './IndexStats.svelte';
-  import LocksView from './LocksView.svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { adminStore } from '$lib/stores/adminStore.svelte';
+	import ServerStats from './ServerStats.svelte';
+	import ActiveQueries from './ActiveQueries.svelte';
+	import TableStats from './TableStats.svelte';
+	import IndexStats from './IndexStats.svelte';
+	import LocksView from './LocksView.svelte';
 
-  interface Props {
-    connId: string;
-  }
+	interface Props {
+		connId: string;
+	}
 
-  let { connId }: Props = $props();
+	let { connId }: Props = $props();
 
-  onMount(() => {
-    adminStore.setConnection(connId);
-  });
+	onMount(() => {
+		adminStore.setConnection(connId);
+	});
 
-  onDestroy(() => {
-    adminStore.cleanup();
-  });
+	onDestroy(() => {
+		adminStore.cleanup();
+	});
 
-  function handleTableAction(action: string, schema: string, table: string) {
-    // Open maintenance dialog
-    console.log(`${action} on ${schema}.${table}`);
-  }
+	function handleTableAction(action: string, schema: string, table: string) {
+		// Open maintenance dialog
+		console.log(`${action} on ${schema}.${table}`);
+	}
 
-  const tabs = [
-    { id: 'activity', label: 'Activity', icon: '📊' },
-    { id: 'tables', label: 'Tables', icon: '📋' },
-    { id: 'indexes', label: 'Indexes', icon: '🔍' },
-    { id: 'locks', label: 'Locks', icon: '🔒' },
-  ] as const;
+	const tabs = [
+		{ id: 'activity', label: 'Activity', icon: '📊' },
+		{ id: 'tables', label: 'Tables', icon: '📋' },
+		{ id: 'indexes', label: 'Indexes', icon: '🔍' },
+		{ id: 'locks', label: 'Locks', icon: '🔒' }
+	] as const;
 </script>
 
 <div class="flex flex-col h-full">
-  <!-- Header -->
-  <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-    <h1 class="text-lg font-semibold">Admin Dashboard</h1>
+	<!-- Header -->
+	<div
+		class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700"
+	>
+		<h1 class="text-lg font-semibold">Admin Dashboard</h1>
 
-    <div class="flex items-center gap-4">
-      <!-- Auto-refresh toggle -->
-      <label class="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={adminStore.autoRefresh}
-          onchange={(e) => adminStore.setAutoRefresh(e.currentTarget.checked)}
-          class="rounded"
-        />
-        Auto-refresh
-      </label>
+		<div class="flex items-center gap-4">
+			<!-- Auto-refresh toggle -->
+			<label class="flex items-center gap-2 text-sm">
+				<input
+					type="checkbox"
+					checked={adminStore.autoRefresh}
+					onchange={(e) => adminStore.setAutoRefresh(e.currentTarget.checked)}
+					class="rounded"
+				/>
+				Auto-refresh
+			</label>
 
-      <!-- Refresh interval -->
-      <select
-        value={adminStore.refreshInterval}
-        onchange={(e) => adminStore.setRefreshInterval(parseInt(e.currentTarget.value))}
-        disabled={!adminStore.autoRefresh}
-        class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded
+			<!-- Refresh interval -->
+			<select
+				value={adminStore.refreshInterval}
+				onchange={(e) => adminStore.setRefreshInterval(parseInt(e.currentTarget.value))}
+				disabled={!adminStore.autoRefresh}
+				class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded
                bg-white dark:bg-gray-700 disabled:opacity-50"
-      >
-        <option value="1">1s</option>
-        <option value="5">5s</option>
-        <option value="10">10s</option>
-        <option value="30">30s</option>
-        <option value="60">60s</option>
-      </select>
+			>
+				<option value="1">1s</option>
+				<option value="5">5s</option>
+				<option value="10">10s</option>
+				<option value="30">30s</option>
+				<option value="60">60s</option>
+			</select>
 
-      <!-- Manual refresh -->
-      <button
-        onclick={() => adminStore.refresh()}
-        disabled={adminStore.loading}
-        class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700
+			<!-- Manual refresh -->
+			<button
+				onclick={() => adminStore.refresh()}
+				disabled={adminStore.loading}
+				class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700
                disabled:opacity-50 flex items-center gap-2"
-      >
-        {#if adminStore.loading}
-          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-        {:else}
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0
-                     0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        {/if}
-        Refresh
-      </button>
-    </div>
-  </div>
+			>
+				{#if adminStore.loading}
+					<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+						></circle>
+						<path
+							class="opacity-75"
+							fill="currentColor"
+							d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+						></path>
+					</svg>
+				{:else}
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0
+                     0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+				{/if}
+				Refresh
+			</button>
+		</div>
+	</div>
 
-  <!-- Server Stats -->
-  {#if adminStore.serverStats}
-    <div class="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
-      <ServerStats stats={adminStore.serverStats} />
-    </div>
-  {/if}
+	<!-- Server Stats -->
+	{#if adminStore.serverStats}
+		<div class="px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+			<ServerStats stats={adminStore.serverStats} />
+		</div>
+	{/if}
 
-  <!-- Tabs -->
-  <div class="flex border-b border-gray-200 dark:border-gray-700">
-    {#each tabs as tab}
-      <button
-        onclick={() => adminStore.setActiveTab(tab.id)}
-        class="px-4 py-3 text-sm font-medium transition-colors
+	<!-- Tabs -->
+	<div class="flex border-b border-gray-200 dark:border-gray-700">
+		{#each tabs as tab}
+			<button
+				onclick={() => adminStore.setActiveTab(tab.id)}
+				class="px-4 py-3 text-sm font-medium transition-colors
                {adminStore.activeTab === tab.id
-                 ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-      >
-        <span class="mr-2">{tab.icon}</span>
-        {tab.label}
-      </button>
-    {/each}
-  </div>
+					? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+					: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+			>
+				<span class="mr-2">{tab.icon}</span>
+				{tab.label}
+			</button>
+		{/each}
+	</div>
 
-  <!-- Content -->
-  <div class="flex-1 overflow-auto p-4">
-    {#if adminStore.error}
-      <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200
-                  dark:border-red-800 rounded text-red-700 dark:text-red-400">
-        {adminStore.error}
-      </div>
-    {:else if adminStore.activeTab === 'activity'}
-      <ActiveQueries queries={adminStore.activeQueries} />
-    {:else if adminStore.activeTab === 'tables'}
-      <TableStats stats={adminStore.tableStats} onAction={handleTableAction} />
-    {:else if adminStore.activeTab === 'indexes'}
-      <IndexStats stats={adminStore.indexStats} />
-    {:else if adminStore.activeTab === 'locks'}
-      <LocksView locks={adminStore.locks} />
-    {/if}
-  </div>
+	<!-- Content -->
+	<div class="flex-1 overflow-auto p-4">
+		{#if adminStore.error}
+			<div
+				class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200
+                  dark:border-red-800 rounded text-red-700 dark:text-red-400"
+			>
+				{adminStore.error}
+			</div>
+		{:else if adminStore.activeTab === 'activity'}
+			<ActiveQueries queries={adminStore.activeQueries} />
+		{:else if adminStore.activeTab === 'tables'}
+			<TableStats stats={adminStore.tableStats} onAction={handleTableAction} />
+		{:else if adminStore.activeTab === 'indexes'}
+			<IndexStats stats={adminStore.indexStats} />
+		{:else if adminStore.activeTab === 'locks'}
+			<LocksView locks={adminStore.locks} />
+		{/if}
+	</div>
 </div>
 ```
 
@@ -1793,29 +1841,29 @@ export const adminStore = createAdminStore();
 ```typescript
 // Connect to database
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'get_server_stats',
-  args: { connId: 'test-conn' }
+	command: 'get_server_stats',
+	args: { connId: 'test-conn' }
 });
 
 // Verify server stats display
 const snapshot = await mcp___hypothesi_tauri_mcp_server__webview_dom_snapshot({
-  type: 'accessibility'
+	type: 'accessibility'
 });
 
 // Test auto-refresh toggle
 await mcp___hypothesi_tauri_mcp_server__webview_click({
-  selector: 'input[type="checkbox"]:near(:text("Auto-refresh"))'
+	selector: 'input[type="checkbox"]:near(:text("Auto-refresh"))'
 });
 
 // Switch to Tables tab
 await mcp___hypothesi_tauri_mcp_server__webview_click({
-  selector: 'button:has-text("Tables")'
+	selector: 'button:has-text("Tables")'
 });
 
 // Verify table stats load
 await mcp___hypothesi_tauri_mcp_server__webview_wait_for({
-  type: 'selector',
-  value: 'table tbody tr'
+	type: 'selector',
+	value: 'table tbody tr'
 });
 ```
 
@@ -1824,7 +1872,7 @@ await mcp___hypothesi_tauri_mcp_server__webview_wait_for({
 ```typescript
 // Open admin dashboard
 await mcp__playwright__browser_navigate({
-  url: 'http://localhost:1420/admin'
+	url: 'http://localhost:1420/admin'
 });
 
 // Take snapshot of dashboard
@@ -1832,17 +1880,17 @@ await mcp__playwright__browser_snapshot({});
 
 // Test cancel query flow
 await mcp__playwright__browser_click({
-  element: 'Cancel query button',
-  ref: 'button:has-text("Cancel"):first'
+	element: 'Cancel query button',
+	ref: 'button:has-text("Cancel"):first'
 });
 
 // Verify confirmation dialog
 await mcp__playwright__browser_wait_for({
-  text: 'Cancel Query?'
+	text: 'Cancel Query?'
 });
 
 // Take screenshot
 await mcp__playwright__browser_take_screenshot({
-  filename: 'admin-dashboard.png'
+	filename: 'admin-dashboard.png'
 });
 ```

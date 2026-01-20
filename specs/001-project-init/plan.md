@@ -21,22 +21,24 @@ Initialize the Tusk project with a Tauri v2 + Svelte 5 foundation, establishing 
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle | Status | Verification |
-|-----------|--------|--------------|
-| I. Postgres Exclusivity | N/A | Project init has no database features yet |
-| II. Complete Local Privacy | PASS | No network calls, no telemetry in scaffold |
-| III. OS Keychain for Credentials | N/A | No credential handling in this feature |
-| IV. Complete Implementation | COMMIT | All scaffold files will be complete, no TODOs |
-| V. Task Immutability | COMMIT | Tasks once created will not be modified |
-| VI. Performance Discipline | PASS | Cold start < 1s target in acceptance criteria |
+| Principle                        | Status | Verification                                  |
+| -------------------------------- | ------ | --------------------------------------------- |
+| I. Postgres Exclusivity          | N/A    | Project init has no database features yet     |
+| II. Complete Local Privacy       | PASS   | No network calls, no telemetry in scaffold    |
+| III. OS Keychain for Credentials | N/A    | No credential handling in this feature        |
+| IV. Complete Implementation      | COMMIT | All scaffold files will be complete, no TODOs |
+| V. Task Immutability             | COMMIT | Tasks once created will not be modified       |
+| VI. Performance Discipline       | PASS   | Cold start < 1s target in acceptance criteria |
 
 **NON-NEGOTIABLE Principles (automatic failure if violated):**
+
 - Principle IV: Complete Implementation — No placeholders, TODOs, "future work", or scope reduction
 - Principle V: Task Immutability — Tasks MUST NEVER be removed, merged, renumbered, or reduced in scope
 
 **Security Requirements Compliance:**
+
 - No credentials in this feature (scaffold only)
 - Future credential handling will use OS keychain per constitution
 

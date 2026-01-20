@@ -35,7 +35,9 @@
 	<!-- Main Content -->
 	<main class="flex flex-1 flex-col">
 		<!-- Header -->
-		<header class="flex h-14 items-center border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800">
+		<header
+			class="flex h-14 items-center border-b border-gray-200 bg-white px-4 dark:border-gray-700 dark:bg-gray-800"
+		>
 			<span class="text-sm text-gray-600 dark:text-gray-300">Query Editor</span>
 		</header>
 
@@ -46,12 +48,16 @@
 				<p class="mb-6 text-gray-600 dark:text-gray-400">A fast, free, native Postgres client</p>
 
 				{#if error}
-					<div class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+					<div
+						class="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200"
+					>
 						<p class="font-medium">Error loading app info</p>
 						<p class="text-sm">{error}</p>
 					</div>
 				{:else if appInfo}
-					<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+					<div
+						class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+					>
 						<dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
 							<dt class="text-gray-500 dark:text-gray-400">App Name:</dt>
 							<dd class="font-medium text-gray-900 dark:text-white">{appInfo.name}</dd>
@@ -65,7 +71,9 @@
 					</div>
 				{:else}
 					<div class="flex items-center justify-center">
-						<div class="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"></div>
+						<div
+							class="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500"
+						></div>
 						<span class="ml-2 text-gray-500 dark:text-gray-400">Loading...</span>
 					</div>
 				{/if}
@@ -73,7 +81,9 @@
 		</div>
 
 		<!-- Status Bar -->
-		<footer class="flex h-6 items-center border-t border-gray-200 bg-gray-50 px-4 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+		<footer
+			class="flex h-6 items-center border-t border-gray-200 bg-gray-50 px-4 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+		>
 			<span>Ready</span>
 			<span class="ml-auto">{appInfo?.platform ?? 'Loading...'}</span>
 		</footer>

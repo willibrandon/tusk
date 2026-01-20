@@ -532,144 +532,119 @@ impl ConnectionPool {
 ```svelte
 <!-- components/dialogs/ConnectionDialog.svelte (SSL section) -->
 <script lang="ts">
-  // ... existing code ...
+	// ... existing code ...
 
-  const sslModes = [
-    { value: 'disable', label: 'Disable', description: 'No SSL' },
-    { value: 'prefer', label: 'Prefer', description: 'Use SSL if available' },
-    { value: 'require', label: 'Require', description: 'Require SSL, skip verification' },
-    { value: 'verify-ca', label: 'Verify CA', description: 'Verify server certificate' },
-    { value: 'verify-full', label: 'Verify Full', description: 'Verify certificate and hostname' },
-  ];
+	const sslModes = [
+		{ value: 'disable', label: 'Disable', description: 'No SSL' },
+		{ value: 'prefer', label: 'Prefer', description: 'Use SSL if available' },
+		{ value: 'require', label: 'Require', description: 'Require SSL, skip verification' },
+		{ value: 'verify-ca', label: 'Verify CA', description: 'Verify server certificate' },
+		{ value: 'verify-full', label: 'Verify Full', description: 'Verify certificate and hostname' }
+	];
 </script>
 
 <!-- SSL Tab -->
 <div class="space-y-4">
-  <FormField label="SSL Mode">
-    <Select
-      options={sslModes}
-      bind:value={config.sslMode}
-    />
-  </FormField>
+	<FormField label="SSL Mode">
+		<Select options={sslModes} bind:value={config.sslMode} />
+	</FormField>
 
-  {#if config.sslMode === 'verify-ca' || config.sslMode === 'verify-full'}
-    <FormField label="CA Certificate">
-      <div class="flex gap-2">
-        <Input
-          type="text"
-          bind:value={config.sslCaCert}
-          placeholder="/path/to/ca.crt"
-          class="flex-1"
-        />
-        <Button variant="secondary" onclick={browseCaCert}>Browse</Button>
-      </div>
-    </FormField>
-  {/if}
+	{#if config.sslMode === 'verify-ca' || config.sslMode === 'verify-full'}
+		<FormField label="CA Certificate">
+			<div class="flex gap-2">
+				<Input
+					type="text"
+					bind:value={config.sslCaCert}
+					placeholder="/path/to/ca.crt"
+					class="flex-1"
+				/>
+				<Button variant="secondary" onclick={browseCaCert}>Browse</Button>
+			</div>
+		</FormField>
+	{/if}
 
-  <FormField label="Client Certificate (optional)">
-    <div class="flex gap-2">
-      <Input
-        type="text"
-        bind:value={config.sslClientCert}
-        placeholder="/path/to/client.crt"
-        class="flex-1"
-      />
-      <Button variant="secondary" onclick={browseClientCert}>Browse</Button>
-    </div>
-  </FormField>
+	<FormField label="Client Certificate (optional)">
+		<div class="flex gap-2">
+			<Input
+				type="text"
+				bind:value={config.sslClientCert}
+				placeholder="/path/to/client.crt"
+				class="flex-1"
+			/>
+			<Button variant="secondary" onclick={browseClientCert}>Browse</Button>
+		</div>
+	</FormField>
 
-  <FormField label="Client Key (optional)">
-    <div class="flex gap-2">
-      <Input
-        type="text"
-        bind:value={config.sslClientKey}
-        placeholder="/path/to/client.key"
-        class="flex-1"
-      />
-      <Button variant="secondary" onclick={browseClientKey}>Browse</Button>
-    </div>
-  </FormField>
+	<FormField label="Client Key (optional)">
+		<div class="flex gap-2">
+			<Input
+				type="text"
+				bind:value={config.sslClientKey}
+				placeholder="/path/to/client.key"
+				class="flex-1"
+			/>
+			<Button variant="secondary" onclick={browseClientKey}>Browse</Button>
+		</div>
+	</FormField>
 </div>
 
 <!-- SSH Tunnel Tab -->
 <div class="space-y-4">
-  <Checkbox
-    bind:checked={config.sshTunnel.enabled}
-    label="Use SSH Tunnel"
-  />
+	<Checkbox bind:checked={config.sshTunnel.enabled} label="Use SSH Tunnel" />
 
-  {#if config.sshTunnel?.enabled}
-    <div class="grid grid-cols-2 gap-4">
-      <FormField label="SSH Host">
-        <Input
-          type="text"
-          bind:value={config.sshTunnel.host}
-          placeholder="ssh.example.com"
-          required
-        />
-      </FormField>
+	{#if config.sshTunnel?.enabled}
+		<div class="grid grid-cols-2 gap-4">
+			<FormField label="SSH Host">
+				<Input
+					type="text"
+					bind:value={config.sshTunnel.host}
+					placeholder="ssh.example.com"
+					required
+				/>
+			</FormField>
 
-      <FormField label="SSH Port">
-        <Input
-          type="number"
-          bind:value={config.sshTunnel.port}
-          min="1"
-          max="65535"
-        />
-      </FormField>
-    </div>
+			<FormField label="SSH Port">
+				<Input type="number" bind:value={config.sshTunnel.port} min="1" max="65535" />
+			</FormField>
+		</div>
 
-    <FormField label="SSH Username">
-      <Input
-        type="text"
-        bind:value={config.sshTunnel.username}
-        required
-      />
-    </FormField>
+		<FormField label="SSH Username">
+			<Input type="text" bind:value={config.sshTunnel.username} required />
+		</FormField>
 
-    <FormField label="Authentication Method">
-      <Select
-        options={[
-          { value: 'password', label: 'Password' },
-          { value: 'key', label: 'SSH Key' },
-        ]}
-        bind:value={config.sshTunnel.auth}
-      />
-    </FormField>
+		<FormField label="Authentication Method">
+			<Select
+				options={[
+					{ value: 'password', label: 'Password' },
+					{ value: 'key', label: 'SSH Key' }
+				]}
+				bind:value={config.sshTunnel.auth}
+			/>
+		</FormField>
 
-    {#if config.sshTunnel.auth === 'password'}
-      <FormField label="SSH Password">
-        <Input
-          type="password"
-          bind:value={sshPassword}
-          autocomplete="off"
-        />
-        <p class="text-xs text-gray-500 mt-1">
-          Stored securely in your system keychain
-        </p>
-      </FormField>
-    {:else}
-      <FormField label="SSH Key">
-        <div class="flex gap-2">
-          <Input
-            type="text"
-            bind:value={config.sshTunnel.keyPath}
-            placeholder="~/.ssh/id_rsa"
-            class="flex-1"
-          />
-          <Button variant="secondary" onclick={browseSshKey}>Browse</Button>
-        </div>
-      </FormField>
+		{#if config.sshTunnel.auth === 'password'}
+			<FormField label="SSH Password">
+				<Input type="password" bind:value={sshPassword} autocomplete="off" />
+				<p class="text-xs text-gray-500 mt-1">Stored securely in your system keychain</p>
+			</FormField>
+		{:else}
+			<FormField label="SSH Key">
+				<div class="flex gap-2">
+					<Input
+						type="text"
+						bind:value={config.sshTunnel.keyPath}
+						placeholder="~/.ssh/id_rsa"
+						class="flex-1"
+					/>
+					<Button variant="secondary" onclick={browseSshKey}>Browse</Button>
+				</div>
+			</FormField>
 
-      <FormField label="Key Passphrase (if encrypted)">
-        <Input
-          type="password"
-          bind:value={sshPassphrase}
-          autocomplete="off"
-        />
-      </FormField>
-    {/if}
-  {/if}
+			<FormField label="Key Passphrase (if encrypted)">
+				<Input type="password" bind:value={sshPassphrase} autocomplete="off" />
+			</FormField>
+		{/if}
+	{/if}
 </div>
 ```
 
@@ -680,40 +655,40 @@ impl ConnectionPool {
 import { open } from '@tauri-apps/plugin-dialog';
 
 export async function browseFile(options?: {
-  title?: string;
-  filters?: { name: string; extensions: string[] }[];
-  defaultPath?: string;
+	title?: string;
+	filters?: { name: string; extensions: string[] }[];
+	defaultPath?: string;
 }): Promise<string | null> {
-  const result = await open({
-    title: options?.title || 'Select File',
-    filters: options?.filters,
-    defaultPath: options?.defaultPath,
-    multiple: false,
-    directory: false,
-  });
+	const result = await open({
+		title: options?.title || 'Select File',
+		filters: options?.filters,
+		defaultPath: options?.defaultPath,
+		multiple: false,
+		directory: false
+	});
 
-  return result as string | null;
+	return result as string | null;
 }
 
 export async function browseCertificate(): Promise<string | null> {
-  return browseFile({
-    title: 'Select Certificate',
-    filters: [
-      { name: 'Certificates', extensions: ['crt', 'pem', 'cer'] },
-      { name: 'All Files', extensions: ['*'] },
-    ],
-  });
+	return browseFile({
+		title: 'Select Certificate',
+		filters: [
+			{ name: 'Certificates', extensions: ['crt', 'pem', 'cer'] },
+			{ name: 'All Files', extensions: ['*'] }
+		]
+	});
 }
 
 export async function browseSshKey(): Promise<string | null> {
-  return browseFile({
-    title: 'Select SSH Key',
-    filters: [
-      { name: 'SSH Keys', extensions: ['pem', 'key'] },
-      { name: 'All Files', extensions: ['*'] },
-    ],
-    defaultPath: '~/.ssh',
-  });
+	return browseFile({
+		title: 'Select SSH Key',
+		filters: [
+			{ name: 'SSH Keys', extensions: ['pem', 'key'] },
+			{ name: 'All Files', extensions: ['*'] }
+		],
+		defaultPath: '~/.ssh'
+	});
 }
 ```
 

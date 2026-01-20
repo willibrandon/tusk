@@ -26,100 +26,100 @@ Role Management provides a comprehensive interface for managing PostgreSQL roles
 // src/lib/types/roles.ts
 
 export interface Role {
-  oid: number;
-  name: string;
-  isSuperuser: boolean;
-  canLogin: boolean;
-  canCreateDb: boolean;
-  canCreateRole: boolean;
-  inheritPrivileges: boolean;
-  isReplication: boolean;
-  bypassRls: boolean;
-  connectionLimit: number; // -1 = unlimited
-  validUntil: Date | null;
-  config: RoleConfig[];
-  memberOf: string[];
-  members: string[];
-  comment: string | null;
+	oid: number;
+	name: string;
+	isSuperuser: boolean;
+	canLogin: boolean;
+	canCreateDb: boolean;
+	canCreateRole: boolean;
+	inheritPrivileges: boolean;
+	isReplication: boolean;
+	bypassRls: boolean;
+	connectionLimit: number; // -1 = unlimited
+	validUntil: Date | null;
+	config: RoleConfig[];
+	memberOf: string[];
+	members: string[];
+	comment: string | null;
 }
 
 export interface RoleConfig {
-  name: string;
-  value: string;
+	name: string;
+	value: string;
 }
 
 export interface RoleCreateOptions {
-  name: string;
-  password?: string;
-  superuser: boolean;
-  createdb: boolean;
-  createrole: boolean;
-  inherit: boolean;
-  login: boolean;
-  replication: boolean;
-  bypassrls: boolean;
-  connectionLimit: number;
-  validUntil: Date | null;
-  inRoles: string[];
-  roles: string[];
-  adminRoles: string[];
+	name: string;
+	password?: string;
+	superuser: boolean;
+	createdb: boolean;
+	createrole: boolean;
+	inherit: boolean;
+	login: boolean;
+	replication: boolean;
+	bypassrls: boolean;
+	connectionLimit: number;
+	validUntil: Date | null;
+	inRoles: string[];
+	roles: string[];
+	adminRoles: string[];
 }
 
 export interface RoleAlterOptions {
-  name?: string;
-  password?: string;
-  superuser?: boolean;
-  createdb?: boolean;
-  createrole?: boolean;
-  inherit?: boolean;
-  login?: boolean;
-  replication?: boolean;
-  bypassrls?: boolean;
-  connectionLimit?: number;
-  validUntil?: Date | null;
+	name?: string;
+	password?: string;
+	superuser?: boolean;
+	createdb?: boolean;
+	createrole?: boolean;
+	inherit?: boolean;
+	login?: boolean;
+	replication?: boolean;
+	bypassrls?: boolean;
+	connectionLimit?: number;
+	validUntil?: Date | null;
 }
 
 export interface Privilege {
-  grantee: string;
-  objectType: PrivilegeObjectType;
-  schema: string | null;
-  objectName: string;
-  privileges: PrivilegeType[];
-  grantOption: boolean;
-  grantor: string;
+	grantee: string;
+	objectType: PrivilegeObjectType;
+	schema: string | null;
+	objectName: string;
+	privileges: PrivilegeType[];
+	grantOption: boolean;
+	grantor: string;
 }
 
 export type PrivilegeObjectType =
-  | 'table'
-  | 'view'
-  | 'sequence'
-  | 'function'
-  | 'schema'
-  | 'database'
-  | 'tablespace'
-  | 'type';
+	| 'table'
+	| 'view'
+	| 'sequence'
+	| 'function'
+	| 'schema'
+	| 'database'
+	| 'tablespace'
+	| 'type';
 
 export type PrivilegeType =
-  | 'SELECT'
-  | 'INSERT'
-  | 'UPDATE'
-  | 'DELETE'
-  | 'TRUNCATE'
-  | 'REFERENCES'
-  | 'TRIGGER'
-  | 'USAGE'
-  | 'CREATE'
-  | 'CONNECT'
-  | 'TEMPORARY'
-  | 'EXECUTE'
-  | 'ALL';
+	| 'SELECT'
+	| 'INSERT'
+	| 'UPDATE'
+	| 'DELETE'
+	| 'TRUNCATE'
+	| 'REFERENCES'
+	| 'TRIGGER'
+	| 'USAGE'
+	| 'CREATE'
+	| 'CONNECT'
+	| 'TEMPORARY'
+	| 'EXECUTE'
+	| 'ALL';
 
 export interface DefaultPrivilege {
-  role: string;
-  schema: string | null;
-  objectType: PrivilegeObjectType;
-  grantee: string;
-  privileges: PrivilegeType[];
+	role: string;
+	schema: string | null;
+	objectType: PrivilegeObjectType;
+	grantee: string;
+	privileges: PrivilegeType[];
 }
 ```
 
@@ -762,133 +762,138 @@ import { invoke } from '@tauri-apps/api/core';
 import type { Role, RoleCreateOptions, RoleAlterOptions, Privilege } from '$lib/types/roles';
 
 interface RoleState {
-  roles: Role[];
-  selectedRole: Role | null;
-  privileges: Privilege[];
-  loading: boolean;
-  error: string | null;
+	roles: Role[];
+	selectedRole: Role | null;
+	privileges: Privilege[];
+	loading: boolean;
+	error: string | null;
 }
 
 export function createRoleStore() {
-  let state = $state<RoleState>({
-    roles: [],
-    selectedRole: null,
-    privileges: [],
-    loading: false,
-    error: null,
-  });
+	let state = $state<RoleState>({
+		roles: [],
+		selectedRole: null,
+		privileges: [],
+		loading: false,
+		error: null
+	});
 
-  async function loadRoles(connId: string) {
-    state.loading = true;
-    state.error = null;
+	async function loadRoles(connId: string) {
+		state.loading = true;
+		state.error = null;
 
-    try {
-      state.roles = await invoke<Role[]>('get_roles', { connId });
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-    } finally {
-      state.loading = false;
-    }
-  }
+		try {
+			state.roles = await invoke<Role[]>('get_roles', { connId });
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+		} finally {
+			state.loading = false;
+		}
+	}
 
-  async function selectRole(connId: string, role: Role) {
-    state.selectedRole = role;
+	async function selectRole(connId: string, role: Role) {
+		state.selectedRole = role;
 
-    try {
-      state.privileges = await invoke<Privilege[]>('get_role_privileges', {
-        connId,
-        roleName: role.name,
-      });
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-    }
-  }
+		try {
+			state.privileges = await invoke<Privilege[]>('get_role_privileges', {
+				connId,
+				roleName: role.name
+			});
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+		}
+	}
 
-  async function createRole(connId: string, options: RoleCreateOptions) {
-    try {
-      await invoke('create_role', { connId, options });
-      await loadRoles(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function createRole(connId: string, options: RoleCreateOptions) {
+		try {
+			await invoke('create_role', { connId, options });
+			await loadRoles(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function alterRole(connId: string, roleName: string, options: RoleAlterOptions) {
-    try {
-      await invoke('alter_role', { connId, roleName, options });
-      await loadRoles(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function alterRole(connId: string, roleName: string, options: RoleAlterOptions) {
+		try {
+			await invoke('alter_role', { connId, roleName, options });
+			await loadRoles(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function dropRole(connId: string, roleName: string) {
-    try {
-      await invoke('drop_role', { connId, roleName });
-      if (state.selectedRole?.name === roleName) {
-        state.selectedRole = null;
-        state.privileges = [];
-      }
-      await loadRoles(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function dropRole(connId: string, roleName: string) {
+		try {
+			await invoke('drop_role', { connId, roleName });
+			if (state.selectedRole?.name === roleName) {
+				state.selectedRole = null;
+				state.privileges = [];
+			}
+			await loadRoles(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function grantMembership(
-    connId: string,
-    role: string,
-    member: string,
-    withAdmin: boolean
-  ) {
-    try {
-      await invoke('grant_role_membership', { connId, role, member, withAdmin });
-      await loadRoles(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function grantMembership(connId: string, role: string, member: string, withAdmin: boolean) {
+		try {
+			await invoke('grant_role_membership', { connId, role, member, withAdmin });
+			await loadRoles(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function revokeMembership(connId: string, role: string, member: string) {
-    try {
-      await invoke('revoke_role_membership', { connId, role, member });
-      await loadRoles(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function revokeMembership(connId: string, role: string, member: string) {
+		try {
+			await invoke('revoke_role_membership', { connId, role, member });
+			await loadRoles(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function generateCreateSql(options: RoleCreateOptions): Promise<string> {
-    return await invoke<string>('generate_create_role_sql', { options });
-  }
+	async function generateCreateSql(options: RoleCreateOptions): Promise<string> {
+		return await invoke<string>('generate_create_role_sql', { options });
+	}
 
-  async function generateAlterSql(roleName: string, options: RoleAlterOptions): Promise<string> {
-    return await invoke<string>('generate_alter_role_sql', { roleName, options });
-  }
+	async function generateAlterSql(roleName: string, options: RoleAlterOptions): Promise<string> {
+		return await invoke<string>('generate_alter_role_sql', { roleName, options });
+	}
 
-  function clearSelection() {
-    state.selectedRole = null;
-    state.privileges = [];
-  }
+	function clearSelection() {
+		state.selectedRole = null;
+		state.privileges = [];
+	}
 
-  return {
-    get roles() { return state.roles; },
-    get selectedRole() { return state.selectedRole; },
-    get privileges() { return state.privileges; },
-    get loading() { return state.loading; },
-    get error() { return state.error; },
+	return {
+		get roles() {
+			return state.roles;
+		},
+		get selectedRole() {
+			return state.selectedRole;
+		},
+		get privileges() {
+			return state.privileges;
+		},
+		get loading() {
+			return state.loading;
+		},
+		get error() {
+			return state.error;
+		},
 
-    loadRoles,
-    selectRole,
-    createRole,
-    alterRole,
-    dropRole,
-    grantMembership,
-    revokeMembership,
-    generateCreateSql,
-    generateAlterSql,
-    clearSelection,
-  };
+		loadRoles,
+		selectRole,
+		createRole,
+		alterRole,
+		dropRole,
+		grantMembership,
+		revokeMembership,
+		generateCreateSql,
+		generateAlterSql,
+		clearSelection
+	};
 }
 
 export const roleStore = createRoleStore();
@@ -899,168 +904,194 @@ export const roleStore = createRoleStore();
 ```svelte
 <!-- src/lib/components/roles/RoleList.svelte -->
 <script lang="ts">
-  import type { Role } from '$lib/types/roles';
-  import { roleStore } from '$lib/stores/roleStore.svelte';
+	import type { Role } from '$lib/types/roles';
+	import { roleStore } from '$lib/stores/roleStore.svelte';
 
-  interface Props {
-    connId: string;
-    onEdit: (role: Role) => void;
-    onCreate: () => void;
-  }
+	interface Props {
+		connId: string;
+		onEdit: (role: Role) => void;
+		onCreate: () => void;
+	}
 
-  let { connId, onEdit, onCreate }: Props = $props();
+	let { connId, onEdit, onCreate }: Props = $props();
 
-  let filter = $state('');
-  let showLoginOnly = $state(false);
+	let filter = $state('');
+	let showLoginOnly = $state(false);
 
-  const filteredRoles = $derived(
-    roleStore.roles.filter(r => {
-      if (filter && !r.name.toLowerCase().includes(filter.toLowerCase())) {
-        return false;
-      }
-      if (showLoginOnly && !r.canLogin) {
-        return false;
-      }
-      return true;
-    })
-  );
+	const filteredRoles = $derived(
+		roleStore.roles.filter((r) => {
+			if (filter && !r.name.toLowerCase().includes(filter.toLowerCase())) {
+				return false;
+			}
+			if (showLoginOnly && !r.canLogin) {
+				return false;
+			}
+			return true;
+		})
+	);
 
-  function getBadges(role: Role): Array<{ label: string; color: string }> {
-    const badges = [];
+	function getBadges(role: Role): Array<{ label: string; color: string }> {
+		const badges = [];
 
-    if (role.isSuperuser) {
-      badges.push({ label: 'Superuser', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' });
-    }
-    if (role.canLogin) {
-      badges.push({ label: 'Login', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' });
-    }
-    if (role.canCreateDb) {
-      badges.push({ label: 'Create DB', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' });
-    }
-    if (role.canCreateRole) {
-      badges.push({ label: 'Create Role', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' });
-    }
-    if (role.isReplication) {
-      badges.push({ label: 'Replication', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' });
-    }
+		if (role.isSuperuser) {
+			badges.push({
+				label: 'Superuser',
+				color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+			});
+		}
+		if (role.canLogin) {
+			badges.push({
+				label: 'Login',
+				color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+			});
+		}
+		if (role.canCreateDb) {
+			badges.push({
+				label: 'Create DB',
+				color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+			});
+		}
+		if (role.canCreateRole) {
+			badges.push({
+				label: 'Create Role',
+				color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+			});
+		}
+		if (role.isReplication) {
+			badges.push({
+				label: 'Replication',
+				color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+			});
+		}
 
-    return badges;
-  }
+		return badges;
+	}
 
-  function handleSelect(role: Role) {
-    roleStore.selectRole(connId, role);
-  }
+	function handleSelect(role: Role) {
+		roleStore.selectRole(connId, role);
+	}
 </script>
 
 <div class="flex flex-col h-full">
-  <!-- Toolbar -->
-  <div class="flex items-center gap-2 p-4 border-b border-gray-200 dark:border-gray-700">
-    <input
-      type="text"
-      bind:value={filter}
-      placeholder="Filter roles..."
-      class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+	<!-- Toolbar -->
+	<div class="flex items-center gap-2 p-4 border-b border-gray-200 dark:border-gray-700">
+		<input
+			type="text"
+			bind:value={filter}
+			placeholder="Filter roles..."
+			class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
              bg-white dark:bg-gray-700 text-sm"
-    />
-    <label class="flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        bind:checked={showLoginOnly}
-        class="rounded border-gray-300"
-      />
-      Login only
-    </label>
-    <button
-      onclick={onCreate}
-      class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-    >
-      + New Role
-    </button>
-  </div>
+		/>
+		<label class="flex items-center gap-2 text-sm">
+			<input type="checkbox" bind:checked={showLoginOnly} class="rounded border-gray-300" />
+			Login only
+		</label>
+		<button
+			onclick={onCreate}
+			class="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+		>
+			+ New Role
+		</button>
+	</div>
 
-  <!-- Role List -->
-  <div class="flex-1 overflow-auto">
-    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-      <thead class="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
-        <tr>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Role
-          </th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Attributes
-          </th>
-          <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Connections
-          </th>
-          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Member Of
-          </th>
-          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Actions
-          </th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-        {#each filteredRoles as role (role.oid)}
-          <tr
-            class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer
-                   {roleStore.selectedRole?.oid === role.oid ? 'bg-blue-50 dark:bg-blue-900/20' : ''}"
-            onclick={() => handleSelect(role)}
-          >
-            <td class="px-4 py-3">
-              <div class="font-medium">{role.name}</div>
-              {#if role.comment}
-                <div class="text-xs text-gray-500 truncate max-w-xs">{role.comment}</div>
-              {/if}
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-1">
-                {#each getBadges(role) as badge}
-                  <span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {badge.color}">
-                    {badge.label}
-                  </span>
-                {/each}
-              </div>
-            </td>
-            <td class="px-4 py-3 text-center text-sm">
-              {role.connectionLimit === -1 ? '∞' : role.connectionLimit}
-            </td>
-            <td class="px-4 py-3 text-sm">
-              {#if role.memberOf.length > 0}
-                <div class="flex flex-wrap gap-1">
-                  {#each role.memberOf.slice(0, 3) as memberRole}
-                    <span class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">
-                      {memberRole}
-                    </span>
-                  {/each}
-                  {#if role.memberOf.length > 3}
-                    <span class="text-xs text-gray-500">+{role.memberOf.length - 3}</span>
-                  {/if}
-                </div>
-              {:else}
-                <span class="text-gray-400">-</span>
-              {/if}
-            </td>
-            <td class="px-4 py-3 text-right">
-              <button
-                onclick={(e) => { e.stopPropagation(); onEdit(role); }}
-                class="text-blue-600 hover:text-blue-700 dark:text-blue-400
+	<!-- Role List -->
+	<div class="flex-1 overflow-auto">
+		<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+			<thead class="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
+				<tr>
+					<th
+						class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Role
+					</th>
+					<th
+						class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Attributes
+					</th>
+					<th
+						class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Connections
+					</th>
+					<th
+						class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Member Of
+					</th>
+					<th
+						class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+					>
+						Actions
+					</th>
+				</tr>
+			</thead>
+			<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+				{#each filteredRoles as role (role.oid)}
+					<tr
+						class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer
+                   {roleStore.selectedRole?.oid === role.oid
+							? 'bg-blue-50 dark:bg-blue-900/20'
+							: ''}"
+						onclick={() => handleSelect(role)}
+					>
+						<td class="px-4 py-3">
+							<div class="font-medium">{role.name}</div>
+							{#if role.comment}
+								<div class="text-xs text-gray-500 truncate max-w-xs">{role.comment}</div>
+							{/if}
+						</td>
+						<td class="px-4 py-3">
+							<div class="flex flex-wrap gap-1">
+								{#each getBadges(role) as badge}
+									<span class="inline-flex px-1.5 py-0.5 rounded text-xs font-medium {badge.color}">
+										{badge.label}
+									</span>
+								{/each}
+							</div>
+						</td>
+						<td class="px-4 py-3 text-center text-sm">
+							{role.connectionLimit === -1 ? '∞' : role.connectionLimit}
+						</td>
+						<td class="px-4 py-3 text-sm">
+							{#if role.memberOf.length > 0}
+								<div class="flex flex-wrap gap-1">
+									{#each role.memberOf.slice(0, 3) as memberRole}
+										<span class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">
+											{memberRole}
+										</span>
+									{/each}
+									{#if role.memberOf.length > 3}
+										<span class="text-xs text-gray-500">+{role.memberOf.length - 3}</span>
+									{/if}
+								</div>
+							{:else}
+								<span class="text-gray-400">-</span>
+							{/if}
+						</td>
+						<td class="px-4 py-3 text-right">
+							<button
+								onclick={(e) => {
+									e.stopPropagation();
+									onEdit(role);
+								}}
+								class="text-blue-600 hover:text-blue-700 dark:text-blue-400
                        dark:hover:text-blue-300 text-sm"
-              >
-                Edit
-              </button>
-            </td>
-          </tr>
-        {:else}
-          <tr>
-            <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-              {filter ? 'No roles match the filter' : 'No roles found'}
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
+							>
+								Edit
+							</button>
+						</td>
+					</tr>
+				{:else}
+					<tr>
+						<td colspan="5" class="px-4 py-8 text-center text-gray-500">
+							{filter ? 'No roles match the filter' : 'No roles found'}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
 </div>
 ```
 
@@ -1069,364 +1100,366 @@ export const roleStore = createRoleStore();
 ```svelte
 <!-- src/lib/components/roles/RoleEditor.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { Role, RoleCreateOptions, RoleAlterOptions } from '$lib/types/roles';
-  import { roleStore } from '$lib/stores/roleStore.svelte';
+	import { createEventDispatcher } from 'svelte';
+	import type { Role, RoleCreateOptions, RoleAlterOptions } from '$lib/types/roles';
+	import { roleStore } from '$lib/stores/roleStore.svelte';
 
-  interface Props {
-    open: boolean;
-    connId: string;
-    role?: Role; // undefined for create, Role for edit
-    availableRoles: string[];
-  }
+	interface Props {
+		open: boolean;
+		connId: string;
+		role?: Role; // undefined for create, Role for edit
+		availableRoles: string[];
+	}
 
-  let { open = $bindable(), connId, role, availableRoles }: Props = $props();
+	let { open = $bindable(), connId, role, availableRoles }: Props = $props();
 
-  const dispatch = createEventDispatcher<{
-    save: void;
-    cancel: void;
-  }>();
+	const dispatch = createEventDispatcher<{
+		save: void;
+		cancel: void;
+	}>();
 
-  const isEdit = $derived(!!role);
+	const isEdit = $derived(!!role);
 
-  // Form state
-  let name = $state(role?.name ?? '');
-  let password = $state('');
-  let confirmPassword = $state('');
-  let superuser = $state(role?.isSuperuser ?? false);
-  let createdb = $state(role?.canCreateDb ?? false);
-  let createrole = $state(role?.canCreateRole ?? false);
-  let inherit = $state(role?.inheritPrivileges ?? true);
-  let login = $state(role?.canLogin ?? true);
-  let replication = $state(role?.isReplication ?? false);
-  let bypassrls = $state(role?.bypassRls ?? false);
-  let connectionLimit = $state(role?.connectionLimit ?? -1);
-  let validUntil = $state<string>(
-    role?.validUntil ? new Date(role.validUntil).toISOString().split('T')[0] : ''
-  );
-  let memberOf = $state<string[]>(role?.memberOf ?? []);
+	// Form state
+	let name = $state(role?.name ?? '');
+	let password = $state('');
+	let confirmPassword = $state('');
+	let superuser = $state(role?.isSuperuser ?? false);
+	let createdb = $state(role?.canCreateDb ?? false);
+	let createrole = $state(role?.canCreateRole ?? false);
+	let inherit = $state(role?.inheritPrivileges ?? true);
+	let login = $state(role?.canLogin ?? true);
+	let replication = $state(role?.isReplication ?? false);
+	let bypassrls = $state(role?.bypassRls ?? false);
+	let connectionLimit = $state(role?.connectionLimit ?? -1);
+	let validUntil = $state<string>(
+		role?.validUntil ? new Date(role.validUntil).toISOString().split('T')[0] : ''
+	);
+	let memberOf = $state<string[]>(role?.memberOf ?? []);
 
-  let showSql = $state(false);
-  let generatedSql = $state('');
-  let saving = $state(false);
-  let error = $state<string | null>(null);
+	let showSql = $state(false);
+	let generatedSql = $state('');
+	let saving = $state(false);
+	let error = $state<string | null>(null);
 
-  const passwordError = $derived(
-    password && confirmPassword && password !== confirmPassword
-      ? 'Passwords do not match'
-      : null
-  );
+	const passwordError = $derived(
+		password && confirmPassword && password !== confirmPassword ? 'Passwords do not match' : null
+	);
 
-  const otherRoles = $derived(
-    availableRoles.filter(r => r !== role?.name)
-  );
+	const otherRoles = $derived(availableRoles.filter((r) => r !== role?.name));
 
-  async function generateSql() {
-    if (isEdit) {
-      const options: RoleAlterOptions = {
-        superuser,
-        createdb,
-        createrole,
-        inherit,
-        login,
-        replication,
-        bypassrls,
-        connectionLimit,
-        validUntil: validUntil ? new Date(validUntil) : undefined,
-        password: password || undefined,
-      };
-      generatedSql = await roleStore.generateAlterSql(role!.name, options);
-    } else {
-      const options: RoleCreateOptions = {
-        name,
-        password: password || undefined,
-        superuser,
-        createdb,
-        createrole,
-        inherit,
-        login,
-        replication,
-        bypassrls,
-        connectionLimit,
-        validUntil: validUntil ? new Date(validUntil) : null,
-        inRoles: memberOf,
-        roles: [],
-        adminRoles: [],
-      };
-      generatedSql = await roleStore.generateCreateSql(options);
-    }
-    showSql = true;
-  }
+	async function generateSql() {
+		if (isEdit) {
+			const options: RoleAlterOptions = {
+				superuser,
+				createdb,
+				createrole,
+				inherit,
+				login,
+				replication,
+				bypassrls,
+				connectionLimit,
+				validUntil: validUntil ? new Date(validUntil) : undefined,
+				password: password || undefined
+			};
+			generatedSql = await roleStore.generateAlterSql(role!.name, options);
+		} else {
+			const options: RoleCreateOptions = {
+				name,
+				password: password || undefined,
+				superuser,
+				createdb,
+				createrole,
+				inherit,
+				login,
+				replication,
+				bypassrls,
+				connectionLimit,
+				validUntil: validUntil ? new Date(validUntil) : null,
+				inRoles: memberOf,
+				roles: [],
+				adminRoles: []
+			};
+			generatedSql = await roleStore.generateCreateSql(options);
+		}
+		showSql = true;
+	}
 
-  async function handleSave() {
-    if (passwordError) return;
+	async function handleSave() {
+		if (passwordError) return;
 
-    saving = true;
-    error = null;
+		saving = true;
+		error = null;
 
-    try {
-      if (isEdit) {
-        const options: RoleAlterOptions = {
-          superuser,
-          createdb,
-          createrole,
-          inherit,
-          login,
-          replication,
-          bypassrls,
-          connectionLimit,
-          validUntil: validUntil ? new Date(validUntil) : undefined,
-          password: password || undefined,
-        };
-        await roleStore.alterRole(connId, role!.name, options);
+		try {
+			if (isEdit) {
+				const options: RoleAlterOptions = {
+					superuser,
+					createdb,
+					createrole,
+					inherit,
+					login,
+					replication,
+					bypassrls,
+					connectionLimit,
+					validUntil: validUntil ? new Date(validUntil) : undefined,
+					password: password || undefined
+				};
+				await roleStore.alterRole(connId, role!.name, options);
 
-        // Handle membership changes
-        const originalMemberOf = new Set(role!.memberOf);
-        const newMemberOf = new Set(memberOf);
+				// Handle membership changes
+				const originalMemberOf = new Set(role!.memberOf);
+				const newMemberOf = new Set(memberOf);
 
-        // Revoke removed memberships
-        for (const r of originalMemberOf) {
-          if (!newMemberOf.has(r)) {
-            await roleStore.revokeMembership(connId, r, role!.name);
-          }
-        }
+				// Revoke removed memberships
+				for (const r of originalMemberOf) {
+					if (!newMemberOf.has(r)) {
+						await roleStore.revokeMembership(connId, r, role!.name);
+					}
+				}
 
-        // Grant new memberships
-        for (const r of newMemberOf) {
-          if (!originalMemberOf.has(r)) {
-            await roleStore.grantMembership(connId, r, role!.name, false);
-          }
-        }
-      } else {
-        const options: RoleCreateOptions = {
-          name,
-          password: password || undefined,
-          superuser,
-          createdb,
-          createrole,
-          inherit,
-          login,
-          replication,
-          bypassrls,
-          connectionLimit,
-          validUntil: validUntil ? new Date(validUntil) : null,
-          inRoles: memberOf,
-          roles: [],
-          adminRoles: [],
-        };
-        await roleStore.createRole(connId, options);
-      }
+				// Grant new memberships
+				for (const r of newMemberOf) {
+					if (!originalMemberOf.has(r)) {
+						await roleStore.grantMembership(connId, r, role!.name, false);
+					}
+				}
+			} else {
+				const options: RoleCreateOptions = {
+					name,
+					password: password || undefined,
+					superuser,
+					createdb,
+					createrole,
+					inherit,
+					login,
+					replication,
+					bypassrls,
+					connectionLimit,
+					validUntil: validUntil ? new Date(validUntil) : null,
+					inRoles: memberOf,
+					roles: [],
+					adminRoles: []
+				};
+				await roleStore.createRole(connId, options);
+			}
 
-      dispatch('save');
-      open = false;
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
-    } finally {
-      saving = false;
-    }
-  }
+			dispatch('save');
+			open = false;
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		} finally {
+			saving = false;
+		}
+	}
 
-  function handleCancel() {
-    dispatch('cancel');
-    open = false;
-  }
+	function handleCancel() {
+		dispatch('cancel');
+		open = false;
+	}
 
-  function toggleMembership(roleName: string) {
-    if (memberOf.includes(roleName)) {
-      memberOf = memberOf.filter(r => r !== roleName);
-    } else {
-      memberOf = [...memberOf, roleName];
-    }
-  }
+	function toggleMembership(roleName: string) {
+		if (memberOf.includes(roleName)) {
+			memberOf = memberOf.filter((r) => r !== roleName);
+		} else {
+			memberOf = [...memberOf, roleName];
+		}
+	}
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[600px] max-h-[80vh] overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold">
-          {isEdit ? `Edit Role: ${role.name}` : 'Create New Role'}
-        </h2>
-      </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[600px] max-h-[80vh] overflow-hidden"
+		>
+			<!-- Header -->
+			<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+				<h2 class="text-lg font-semibold">
+					{isEdit ? `Edit Role: ${role.name}` : 'Create New Role'}
+				</h2>
+			</div>
 
-      <!-- Body -->
-      <div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
-        {#if error}
-          <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200
-                      dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400">
-            {error}
-          </div>
-        {/if}
+			<!-- Body -->
+			<div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+				{#if error}
+					<div
+						class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200
+                      dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400"
+					>
+						{error}
+					</div>
+				{/if}
 
-        <!-- Name -->
-        <div>
-          <label class="block text-sm font-medium mb-1">Role Name</label>
-          <input
-            type="text"
-            bind:value={name}
-            disabled={isEdit}
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+				<!-- Name -->
+				<div>
+					<label class="block text-sm font-medium mb-1">Role Name</label>
+					<input
+						type="text"
+						bind:value={name}
+						disabled={isEdit}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                    bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-          />
-        </div>
+					/>
+				</div>
 
-        <!-- Password -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">
-              {isEdit ? 'New Password' : 'Password'}
-            </label>
-            <input
-              type="password"
-              bind:value={password}
-              placeholder={isEdit ? 'Leave empty to keep current' : ''}
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+				<!-- Password -->
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="block text-sm font-medium mb-1">
+							{isEdit ? 'New Password' : 'Password'}
+						</label>
+						<input
+							type="password"
+							bind:value={password}
+							placeholder={isEdit ? 'Leave empty to keep current' : ''}
+							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Confirm Password</label>
-            <input
-              type="password"
-              bind:value={confirmPassword}
-              class="w-full px-3 py-2 border rounded text-sm
+						/>
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Confirm Password</label>
+						<input
+							type="password"
+							bind:value={confirmPassword}
+							class="w-full px-3 py-2 border rounded text-sm
                      {passwordError
-                       ? 'border-red-500 dark:border-red-500'
-                       : 'border-gray-300 dark:border-gray-600'}
+								? 'border-red-500 dark:border-red-500'
+								: 'border-gray-300 dark:border-gray-600'}
                      bg-white dark:bg-gray-700"
-            />
-            {#if passwordError}
-              <p class="text-xs text-red-500 mt-1">{passwordError}</p>
-            {/if}
-          </div>
-        </div>
+						/>
+						{#if passwordError}
+							<p class="text-xs text-red-500 mt-1">{passwordError}</p>
+						{/if}
+					</div>
+				</div>
 
-        <!-- Privileges -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Privileges</label>
-          <div class="grid grid-cols-2 gap-3">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={login} class="rounded" />
-              <span class="text-sm">Can login</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={superuser} class="rounded" />
-              <span class="text-sm">Superuser</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={createdb} class="rounded" />
-              <span class="text-sm">Create databases</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={createrole} class="rounded" />
-              <span class="text-sm">Create roles</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={inherit} class="rounded" />
-              <span class="text-sm">Inherit privileges</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={replication} class="rounded" />
-              <span class="text-sm">Replication</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" bind:checked={bypassrls} class="rounded" />
-              <span class="text-sm">Bypass RLS</span>
-            </label>
-          </div>
-        </div>
+				<!-- Privileges -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Privileges</label>
+					<div class="grid grid-cols-2 gap-3">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={login} class="rounded" />
+							<span class="text-sm">Can login</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={superuser} class="rounded" />
+							<span class="text-sm">Superuser</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={createdb} class="rounded" />
+							<span class="text-sm">Create databases</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={createrole} class="rounded" />
+							<span class="text-sm">Create roles</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={inherit} class="rounded" />
+							<span class="text-sm">Inherit privileges</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={replication} class="rounded" />
+							<span class="text-sm">Replication</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={bypassrls} class="rounded" />
+							<span class="text-sm">Bypass RLS</span>
+						</label>
+					</div>
+				</div>
 
-        <!-- Limits -->
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1">Connection Limit</label>
-            <input
-              type="number"
-              bind:value={connectionLimit}
-              min="-1"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+				<!-- Limits -->
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="block text-sm font-medium mb-1">Connection Limit</label>
+						<input
+							type="number"
+							bind:value={connectionLimit}
+							min="-1"
+							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            />
-            <p class="text-xs text-gray-500 mt-1">-1 = unlimited</p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium mb-1">Valid Until</label>
-            <input
-              type="date"
-              bind:value={validUntil}
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+						/>
+						<p class="text-xs text-gray-500 mt-1">-1 = unlimited</p>
+					</div>
+					<div>
+						<label class="block text-sm font-medium mb-1">Valid Until</label>
+						<input
+							type="date"
+							bind:value={validUntil}
+							class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            />
-            <p class="text-xs text-gray-500 mt-1">Leave empty for no expiration</p>
-          </div>
-        </div>
+						/>
+						<p class="text-xs text-gray-500 mt-1">Leave empty for no expiration</p>
+					</div>
+				</div>
 
-        <!-- Membership -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Member Of</label>
-          <div class="max-h-32 overflow-y-auto border border-gray-200 dark:border-gray-700
-                      rounded p-2 space-y-1">
-            {#each otherRoles as r}
-              <label class="flex items-center gap-2 cursor-pointer text-sm">
-                <input
-                  type="checkbox"
-                  checked={memberOf.includes(r)}
-                  onchange={() => toggleMembership(r)}
-                  class="rounded"
-                />
-                <span>{r}</span>
-              </label>
-            {:else}
-              <p class="text-sm text-gray-500 py-2 text-center">No other roles available</p>
-            {/each}
-          </div>
-        </div>
+				<!-- Membership -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Member Of</label>
+					<div
+						class="max-h-32 overflow-y-auto border border-gray-200 dark:border-gray-700
+                      rounded p-2 space-y-1"
+					>
+						{#each otherRoles as r}
+							<label class="flex items-center gap-2 cursor-pointer text-sm">
+								<input
+									type="checkbox"
+									checked={memberOf.includes(r)}
+									onchange={() => toggleMembership(r)}
+									class="rounded"
+								/>
+								<span>{r}</span>
+							</label>
+						{:else}
+							<p class="text-sm text-gray-500 py-2 text-center">No other roles available</p>
+						{/each}
+					</div>
+				</div>
 
-        <!-- SQL Preview -->
-        {#if showSql}
-          <div>
-            <label class="block text-sm font-medium mb-2">Generated SQL</label>
-            <pre class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs overflow-auto">
+				<!-- SQL Preview -->
+				{#if showSql}
+					<div>
+						<label class="block text-sm font-medium mb-2">Generated SQL</label>
+						<pre class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs overflow-auto">
 {generatedSql}
             </pre>
-          </div>
-        {/if}
-      </div>
+					</div>
+				{/if}
+			</div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
-        <button
-          onclick={generateSql}
-          class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400
+			<!-- Footer -->
+			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+				<button
+					onclick={generateSql}
+					class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400
                  hover:text-gray-900 dark:hover:text-gray-100"
-        >
-          View SQL
-        </button>
-        <div class="flex gap-2">
-          <button
-            onclick={handleCancel}
-            class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+				>
+					View SQL
+				</button>
+				<div class="flex gap-2">
+					<button
+						onclick={handleCancel}
+						class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                    hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            Cancel
-          </button>
-          <button
-            onclick={handleSave}
-            disabled={saving || !!passwordError || (!isEdit && !name)}
-            class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700
+					>
+						Cancel
+					</button>
+					<button
+						onclick={handleSave}
+						disabled={saving || !!passwordError || (!isEdit && !name)}
+						class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700
                    disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : (isEdit ? 'Save Changes' : 'Create Role')}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+					>
+						{saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Role'}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1467,43 +1500,43 @@ export const roleStore = createRoleStore();
 ```typescript
 // Load roles
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'get_roles',
-  args: { connId: 'test-conn' }
+	command: 'get_roles',
+	args: { connId: 'test-conn' }
 });
 
 // Create a new role
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'create_role',
-  args: {
-    connId: 'test-conn',
-    options: {
-      name: 'test_user',
-      password: 'secure_password',
-      superuser: false,
-      createdb: false,
-      createrole: false,
-      inherit: true,
-      login: true,
-      replication: false,
-      bypassrls: false,
-      connectionLimit: 10,
-      validUntil: null,
-      inRoles: [],
-      roles: [],
-      adminRoles: []
-    }
-  }
+	command: 'create_role',
+	args: {
+		connId: 'test-conn',
+		options: {
+			name: 'test_user',
+			password: 'secure_password',
+			superuser: false,
+			createdb: false,
+			createrole: false,
+			inherit: true,
+			login: true,
+			replication: false,
+			bypassrls: false,
+			connectionLimit: 10,
+			validUntil: null,
+			inRoles: [],
+			roles: [],
+			adminRoles: []
+		}
+	}
 });
 
 // Grant role membership
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'grant_role_membership',
-  args: {
-    connId: 'test-conn',
-    role: 'readonly',
-    member: 'test_user',
-    withAdmin: false
-  }
+	command: 'grant_role_membership',
+	args: {
+		connId: 'test-conn',
+		role: 'readonly',
+		member: 'test_user',
+		withAdmin: false
+	}
 });
 ```
 
@@ -1512,32 +1545,42 @@ await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
 ```typescript
 // Navigate to roles
 await mcp__playwright__browser_navigate({
-  url: 'http://localhost:1420/roles'
+	url: 'http://localhost:1420/roles'
 });
 
 // Click create button
 await mcp__playwright__browser_click({
-  element: 'New Role button',
-  ref: 'button:has-text("New Role")'
+	element: 'New Role button',
+	ref: 'button:has-text("New Role")'
 });
 
 // Fill form
 await mcp__playwright__browser_fill_form({
-  fields: [
-    { name: 'Role Name', type: 'textbox', ref: 'input[name="name"]', value: 'test_user' },
-    { name: 'Password', type: 'textbox', ref: 'input[type="password"]:first', value: 'password123' },
-    { name: 'Confirm Password', type: 'textbox', ref: 'input[type="password"]:last', value: 'password123' }
-  ]
+	fields: [
+		{ name: 'Role Name', type: 'textbox', ref: 'input[name="name"]', value: 'test_user' },
+		{
+			name: 'Password',
+			type: 'textbox',
+			ref: 'input[type="password"]:first',
+			value: 'password123'
+		},
+		{
+			name: 'Confirm Password',
+			type: 'textbox',
+			ref: 'input[type="password"]:last',
+			value: 'password123'
+		}
+	]
 });
 
 // Check login option
 await mcp__playwright__browser_click({
-  element: 'Can login checkbox',
-  ref: 'input[type="checkbox"]:near(:text("Can login"))'
+	element: 'Can login checkbox',
+	ref: 'input[type="checkbox"]:near(:text("Can login"))'
 });
 
 // Take screenshot
 await mcp__playwright__browser_take_screenshot({
-  filename: 'role-editor.png'
+	filename: 'role-editor.png'
 });
 ```

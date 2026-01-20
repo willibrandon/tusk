@@ -957,95 +957,91 @@ import { writable, derived } from 'svelte/store';
 export type ErrorSeverity = 'error' | 'warning' | 'notice' | 'info';
 
 export type ErrorActionType =
-  | 'retry'
-  | 'reconnect'
-  | 'google_error'
-  | 'copy_error'
-  | 'edit_connection'
-  | 'view_position'
-  | 'dismiss';
+	| 'retry'
+	| 'reconnect'
+	| 'google_error'
+	| 'copy_error'
+	| 'edit_connection'
+	| 'view_position'
+	| 'dismiss';
 
 export interface ErrorAction {
-  id: string;
-  label: string;
-  action_type: ErrorActionType;
+	id: string;
+	label: string;
+	action_type: ErrorActionType;
 }
 
 export interface ErrorResponse {
-  code: string;
-  message: string;
-  detail: string | null;
-  hint: string | null;
-  position: number | null;
-  severity: ErrorSeverity;
-  recoverable: boolean;
-  actions: ErrorAction[];
+	code: string;
+	message: string;
+	detail: string | null;
+	hint: string | null;
+	position: number | null;
+	severity: ErrorSeverity;
+	recoverable: boolean;
+	actions: ErrorAction[];
 }
 
 export interface AppError extends ErrorResponse {
-  id: string;
-  timestamp: number;
-  connectionId?: string;
-  queryId?: string;
-  dismissed: boolean;
+	id: string;
+	timestamp: number;
+	connectionId?: string;
+	queryId?: string;
+	dismissed: boolean;
 }
 
 function createErrorStore() {
-  const { subscribe, update, set } = writable<AppError[]>([]);
+	const { subscribe, update, set } = writable<AppError[]>([]);
 
-  let errorId = 0;
+	let errorId = 0;
 
-  return {
-    subscribe,
+	return {
+		subscribe,
 
-    add(error: ErrorResponse, context?: { connectionId?: string; queryId?: string }) {
-      const appError: AppError = {
-        ...error,
-        id: `error-${++errorId}`,
-        timestamp: Date.now(),
-        connectionId: context?.connectionId,
-        queryId: context?.queryId,
-        dismissed: false,
-      };
+		add(error: ErrorResponse, context?: { connectionId?: string; queryId?: string }) {
+			const appError: AppError = {
+				...error,
+				id: `error-${++errorId}`,
+				timestamp: Date.now(),
+				connectionId: context?.connectionId,
+				queryId: context?.queryId,
+				dismissed: false
+			};
 
-      update(errors => [...errors, appError]);
-      return appError.id;
-    },
+			update((errors) => [...errors, appError]);
+			return appError.id;
+		},
 
-    dismiss(errorId: string) {
-      update(errors =>
-        errors.map(e => (e.id === errorId ? { ...e, dismissed: true } : e))
-      );
-    },
+		dismiss(errorId: string) {
+			update((errors) => errors.map((e) => (e.id === errorId ? { ...e, dismissed: true } : e)));
+		},
 
-    remove(errorId: string) {
-      update(errors => errors.filter(e => e.id !== errorId));
-    },
+		remove(errorId: string) {
+			update((errors) => errors.filter((e) => e.id !== errorId));
+		},
 
-    clear() {
-      set([]);
-    },
+		clear() {
+			set([]);
+		},
 
-    clearForConnection(connectionId: string) {
-      update(errors => errors.filter(e => e.connectionId !== connectionId));
-    },
+		clearForConnection(connectionId: string) {
+			update((errors) => errors.filter((e) => e.connectionId !== connectionId));
+		},
 
-    clearForQuery(queryId: string) {
-      update(errors => errors.filter(e => e.queryId !== queryId));
-    },
-  };
+		clearForQuery(queryId: string) {
+			update((errors) => errors.filter((e) => e.queryId !== queryId));
+		}
+	};
 }
 
 export const errorStore = createErrorStore();
 
 // Active (non-dismissed) errors
-export const activeErrors = derived(errorStore, $errors =>
-  $errors.filter(e => !e.dismissed)
-);
+export const activeErrors = derived(errorStore, ($errors) => $errors.filter((e) => !e.dismissed));
 
 // Latest error
-export const latestError = derived(activeErrors, $errors =>
-  $errors.length > 0 ? $errors[$errors.length - 1] : null
+export const latestError = derived(activeErrors, ($errors) =>
+	$errors.length > 0 ? $errors[$errors.length - 1] : null
 );
 ```
 
@@ -1055,256 +1051,263 @@ export const latestError = derived(activeErrors, $errors =>
 
 ```svelte
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-  import { open } from '@tauri-apps/plugin-shell';
-  import { errorStore, type AppError, type ErrorActionType } from '$lib/stores/error';
-  import { connectionStore } from '$lib/stores/connection';
-  import { queryStore } from '$lib/stores/query';
-  import { dialogStore } from '$lib/stores/dialog';
-  import { AlertCircle, AlertTriangle, Info, X, ExternalLink, Copy, RefreshCw, Edit } from 'lucide-svelte';
-  import Button from '$lib/components/common/Button.svelte';
+	import { invoke } from '@tauri-apps/api/core';
+	import { writeText } from '@tauri-apps/plugin-clipboard-manager';
+	import { open } from '@tauri-apps/plugin-shell';
+	import { errorStore, type AppError, type ErrorActionType } from '$lib/stores/error';
+	import { connectionStore } from '$lib/stores/connection';
+	import { queryStore } from '$lib/stores/query';
+	import { dialogStore } from '$lib/stores/dialog';
+	import {
+		AlertCircle,
+		AlertTriangle,
+		Info,
+		X,
+		ExternalLink,
+		Copy,
+		RefreshCw,
+		Edit
+	} from 'lucide-svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
-  export let error: AppError;
-  export let compact = false;
+	export let error: AppError;
+	export let compact = false;
 
-  const severityIcons = {
-    error: AlertCircle,
-    warning: AlertTriangle,
-    notice: Info,
-    info: Info,
-  };
+	const severityIcons = {
+		error: AlertCircle,
+		warning: AlertTriangle,
+		notice: Info,
+		info: Info
+	};
 
-  const severityColors = {
-    error: 'var(--error-color)',
-    warning: 'var(--warning-color)',
-    notice: 'var(--info-color)',
-    info: 'var(--text-secondary)',
-  };
+	const severityColors = {
+		error: 'var(--error-color)',
+		warning: 'var(--warning-color)',
+		notice: 'var(--info-color)',
+		info: 'var(--text-secondary)'
+	};
 
-  $: Icon = severityIcons[error.severity];
-  $: color = severityColors[error.severity];
+	$: Icon = severityIcons[error.severity];
+	$: color = severityColors[error.severity];
 
-  async function handleAction(actionType: ErrorActionType) {
-    switch (actionType) {
-      case 'retry':
-        if (error.queryId) {
-          queryStore.retry(error.queryId);
-        }
-        errorStore.dismiss(error.id);
-        break;
+	async function handleAction(actionType: ErrorActionType) {
+		switch (actionType) {
+			case 'retry':
+				if (error.queryId) {
+					queryStore.retry(error.queryId);
+				}
+				errorStore.dismiss(error.id);
+				break;
 
-      case 'reconnect':
-        if (error.connectionId) {
-          try {
-            await invoke('reconnect', { connectionId: error.connectionId });
-            errorStore.dismiss(error.id);
-          } catch (e) {
-            // Reconnect failed, error will be shown
-          }
-        }
-        break;
+			case 'reconnect':
+				if (error.connectionId) {
+					try {
+						await invoke('reconnect', { connectionId: error.connectionId });
+						errorStore.dismiss(error.id);
+					} catch (e) {
+						// Reconnect failed, error will be shown
+					}
+				}
+				break;
 
-      case 'google_error':
-        const query = encodeURIComponent(`postgres ${error.code} ${error.message}`);
-        await open(`https://www.google.com/search?q=${query}`);
-        break;
+			case 'google_error':
+				const query = encodeURIComponent(`postgres ${error.code} ${error.message}`);
+				await open(`https://www.google.com/search?q=${query}`);
+				break;
 
-      case 'copy_error':
-        const errorText = formatErrorForCopy(error);
-        await writeText(errorText);
-        break;
+			case 'copy_error':
+				const errorText = formatErrorForCopy(error);
+				await writeText(errorText);
+				break;
 
-      case 'edit_connection':
-        if (error.connectionId) {
-          dialogStore.open('connection', { connectionId: error.connectionId, mode: 'edit' });
-        }
-        errorStore.dismiss(error.id);
-        break;
+			case 'edit_connection':
+				if (error.connectionId) {
+					dialogStore.open('connection', { connectionId: error.connectionId, mode: 'edit' });
+				}
+				errorStore.dismiss(error.id);
+				break;
 
-      case 'view_position':
-        if (error.position !== null && error.queryId) {
-          queryStore.setCursorPosition(error.queryId, error.position);
-        }
-        break;
+			case 'view_position':
+				if (error.position !== null && error.queryId) {
+					queryStore.setCursorPosition(error.queryId, error.position);
+				}
+				break;
 
-      case 'dismiss':
-        errorStore.dismiss(error.id);
-        break;
-    }
-  }
+			case 'dismiss':
+				errorStore.dismiss(error.id);
+				break;
+		}
+	}
 
-  function formatErrorForCopy(error: AppError): string {
-    let text = `Error: ${error.code}\n${error.message}`;
-    if (error.detail) text += `\nDetail: ${error.detail}`;
-    if (error.hint) text += `\nHint: ${error.hint}`;
-    if (error.position !== null) text += `\nPosition: ${error.position}`;
-    return text;
-  }
+	function formatErrorForCopy(error: AppError): string {
+		let text = `Error: ${error.code}\n${error.message}`;
+		if (error.detail) text += `\nDetail: ${error.detail}`;
+		if (error.hint) text += `\nHint: ${error.hint}`;
+		if (error.position !== null) text += `\nPosition: ${error.position}`;
+		return text;
+	}
 
-  function dismiss() {
-    errorStore.dismiss(error.id);
-  }
+	function dismiss() {
+		errorStore.dismiss(error.id);
+	}
 </script>
 
 <div
-  class="error-display"
-  class:compact
-  class:error={error.severity === 'error'}
-  class:warning={error.severity === 'warning'}
-  style="--severity-color: {color}"
+	class="error-display"
+	class:compact
+	class:error={error.severity === 'error'}
+	class:warning={error.severity === 'warning'}
+	style="--severity-color: {color}"
 >
-  <div class="error-icon">
-    <svelte:component this={Icon} size={compact ? 16 : 20} />
-  </div>
+	<div class="error-icon">
+		<svelte:component this={Icon} size={compact ? 16 : 20} />
+	</div>
 
-  <div class="error-content">
-    <div class="error-header">
-      <span class="error-code">{error.code}</span>
-      {#if !compact}
-        <button class="dismiss-btn" on:click={dismiss} title="Dismiss">
-          <X size={14} />
-        </button>
-      {/if}
-    </div>
+	<div class="error-content">
+		<div class="error-header">
+			<span class="error-code">{error.code}</span>
+			{#if !compact}
+				<button class="dismiss-btn" on:click={dismiss} title="Dismiss">
+					<X size={14} />
+				</button>
+			{/if}
+		</div>
 
-    <p class="error-message">{error.message}</p>
+		<p class="error-message">{error.message}</p>
 
-    {#if !compact}
-      {#if error.detail}
-        <p class="error-detail">
-          <strong>Detail:</strong> {error.detail}
-        </p>
-      {/if}
+		{#if !compact}
+			{#if error.detail}
+				<p class="error-detail">
+					<strong>Detail:</strong>
+					{error.detail}
+				</p>
+			{/if}
 
-      {#if error.hint}
-        <p class="error-hint">
-          <strong>Hint:</strong> {error.hint}
-        </p>
-      {/if}
+			{#if error.hint}
+				<p class="error-hint">
+					<strong>Hint:</strong>
+					{error.hint}
+				</p>
+			{/if}
 
-      {#if error.position !== null}
-        <p class="error-position">
-          Error at position {error.position}
-        </p>
-      {/if}
+			{#if error.position !== null}
+				<p class="error-position">
+					Error at position {error.position}
+				</p>
+			{/if}
 
-      {#if error.actions.length > 0}
-        <div class="error-actions">
-          {#each error.actions as action}
-            <Button
-              variant="ghost"
-              size="sm"
-              on:click={() => handleAction(action.action_type)}
-            >
-              {#if action.action_type === 'retry' || action.action_type === 'reconnect'}
-                <RefreshCw size={14} />
-              {:else if action.action_type === 'google_error'}
-                <ExternalLink size={14} />
-              {:else if action.action_type === 'copy_error'}
-                <Copy size={14} />
-              {:else if action.action_type === 'edit_connection'}
-                <Edit size={14} />
-              {/if}
-              {action.label}
-            </Button>
-          {/each}
-        </div>
-      {/if}
-    {/if}
-  </div>
+			{#if error.actions.length > 0}
+				<div class="error-actions">
+					{#each error.actions as action}
+						<Button variant="ghost" size="sm" on:click={() => handleAction(action.action_type)}>
+							{#if action.action_type === 'retry' || action.action_type === 'reconnect'}
+								<RefreshCw size={14} />
+							{:else if action.action_type === 'google_error'}
+								<ExternalLink size={14} />
+							{:else if action.action_type === 'copy_error'}
+								<Copy size={14} />
+							{:else if action.action_type === 'edit_connection'}
+								<Edit size={14} />
+							{/if}
+							{action.label}
+						</Button>
+					{/each}
+				</div>
+			{/if}
+		{/if}
+	</div>
 </div>
 
 <style>
-  .error-display {
-    display: flex;
-    gap: 12px;
-    padding: 12px 16px;
-    background: color-mix(in srgb, var(--severity-color) 10%, var(--bg-primary));
-    border: 1px solid color-mix(in srgb, var(--severity-color) 30%, transparent);
-    border-radius: 8px;
-    border-left: 3px solid var(--severity-color);
-  }
+	.error-display {
+		display: flex;
+		gap: 12px;
+		padding: 12px 16px;
+		background: color-mix(in srgb, var(--severity-color) 10%, var(--bg-primary));
+		border: 1px solid color-mix(in srgb, var(--severity-color) 30%, transparent);
+		border-radius: 8px;
+		border-left: 3px solid var(--severity-color);
+	}
 
-  .error-display.compact {
-    padding: 8px 12px;
-    gap: 8px;
-  }
+	.error-display.compact {
+		padding: 8px 12px;
+		gap: 8px;
+	}
 
-  .error-icon {
-    color: var(--severity-color);
-    flex-shrink: 0;
-  }
+	.error-icon {
+		color: var(--severity-color);
+		flex-shrink: 0;
+	}
 
-  .error-content {
-    flex: 1;
-    min-width: 0;
-  }
+	.error-content {
+		flex: 1;
+		min-width: 0;
+	}
 
-  .error-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-  }
+	.error-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 4px;
+	}
 
-  .error-code {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--severity-color);
-  }
+	.error-code {
+		font-family: var(--font-mono);
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--severity-color);
+	}
 
-  .dismiss-btn {
-    padding: 4px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-tertiary);
-    border-radius: 4px;
-  }
+	.dismiss-btn {
+		padding: 4px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-tertiary);
+		border-radius: 4px;
+	}
 
-  .dismiss-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
+	.dismiss-btn:hover {
+		background: var(--bg-hover);
+		color: var(--text-primary);
+	}
 
-  .error-message {
-    font-size: 14px;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-  }
+	.error-message {
+		font-size: 14px;
+		color: var(--text-primary);
+		margin-bottom: 8px;
+	}
 
-  .compact .error-message {
-    font-size: 13px;
-    margin-bottom: 0;
-  }
+	.compact .error-message {
+		font-size: 13px;
+		margin-bottom: 0;
+	}
 
-  .error-detail,
-  .error-hint {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
-  }
+	.error-detail,
+	.error-hint {
+		font-size: 13px;
+		color: var(--text-secondary);
+		margin-bottom: 4px;
+	}
 
-  .error-detail strong,
-  .error-hint strong {
-    color: var(--text-primary);
-  }
+	.error-detail strong,
+	.error-hint strong {
+		color: var(--text-primary);
+	}
 
-  .error-position {
-    font-size: 12px;
-    color: var(--text-tertiary);
-    font-family: var(--font-mono);
-    margin-bottom: 8px;
-  }
+	.error-position {
+		font-size: 12px;
+		color: var(--text-tertiary);
+		font-family: var(--font-mono);
+		margin-bottom: 8px;
+	}
 
-  .error-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-  }
+	.error-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 12px;
+	}
 </style>
 ```
 
@@ -1314,206 +1317,210 @@ export const latestError = derived(activeErrors, $errors =>
 
 ```svelte
 <script lang="ts">
-  import { listen } from '@tauri-apps/api/event';
-  import { invoke } from '@tauri-apps/api/core';
-  import { onMount, onDestroy } from 'svelte';
-  import { Loader, WifiOff, RefreshCw, X } from 'lucide-svelte';
-  import Button from '$lib/components/common/Button.svelte';
+	import { listen } from '@tauri-apps/api/event';
+	import { invoke } from '@tauri-apps/api/core';
+	import { onMount, onDestroy } from 'svelte';
+	import { Loader, WifiOff, RefreshCw, X } from 'lucide-svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
-  export let connectionId: string;
+	export let connectionId: string;
 
-  let visible = false;
-  let attempt = 0;
-  let maxAttempts = 5;
-  let status: 'attempting' | 'failed' | 'success' = 'attempting';
-  let errorMessage: string | null = null;
+	let visible = false;
+	let attempt = 0;
+	let maxAttempts = 5;
+	let status: 'attempting' | 'failed' | 'success' = 'attempting';
+	let errorMessage: string | null = null;
 
-  const unlisten: (() => void)[] = [];
+	const unlisten: (() => void)[] = [];
 
-  onMount(async () => {
-    unlisten.push(
-      await listen<{ connection_id: string }>('connection:dropped', (event) => {
-        if (event.payload.connection_id === connectionId) {
-          visible = true;
-          status = 'attempting';
-          attempt = 0;
-        }
-      })
-    );
+	onMount(async () => {
+		unlisten.push(
+			await listen<{ connection_id: string }>('connection:dropped', (event) => {
+				if (event.payload.connection_id === connectionId) {
+					visible = true;
+					status = 'attempting';
+					attempt = 0;
+				}
+			})
+		);
 
-    unlisten.push(
-      await listen<{ connection_id: string; attempt: number; max_attempts: number }>(
-        'reconnect:attempt',
-        (event) => {
-          if (event.payload.connection_id === connectionId) {
-            attempt = event.payload.attempt;
-            maxAttempts = event.payload.max_attempts;
-            status = 'attempting';
-          }
-        }
-      )
-    );
+		unlisten.push(
+			await listen<{ connection_id: string; attempt: number; max_attempts: number }>(
+				'reconnect:attempt',
+				(event) => {
+					if (event.payload.connection_id === connectionId) {
+						attempt = event.payload.attempt;
+						maxAttempts = event.payload.max_attempts;
+						status = 'attempting';
+					}
+				}
+			)
+		);
 
-    unlisten.push(
-      await listen<{ connection_id: string; error: string }>('reconnect:failed', (event) => {
-        if (event.payload.connection_id === connectionId) {
-          errorMessage = event.payload.error;
-        }
-      })
-    );
+		unlisten.push(
+			await listen<{ connection_id: string; error: string }>('reconnect:failed', (event) => {
+				if (event.payload.connection_id === connectionId) {
+					errorMessage = event.payload.error;
+				}
+			})
+		);
 
-    unlisten.push(
-      await listen<{ connection_id: string }>('reconnect:success', (event) => {
-        if (event.payload.connection_id === connectionId) {
-          status = 'success';
-          setTimeout(() => {
-            visible = false;
-          }, 1500);
-        }
-      })
-    );
+		unlisten.push(
+			await listen<{ connection_id: string }>('reconnect:success', (event) => {
+				if (event.payload.connection_id === connectionId) {
+					status = 'success';
+					setTimeout(() => {
+						visible = false;
+					}, 1500);
+				}
+			})
+		);
 
-    unlisten.push(
-      await listen<{ connection_id: string }>('reconnect:exhausted', (event) => {
-        if (event.payload.connection_id === connectionId) {
-          status = 'failed';
-        }
-      })
-    );
-  });
+		unlisten.push(
+			await listen<{ connection_id: string }>('reconnect:exhausted', (event) => {
+				if (event.payload.connection_id === connectionId) {
+					status = 'failed';
+				}
+			})
+		);
+	});
 
-  onDestroy(() => {
-    unlisten.forEach((fn) => fn());
-  });
+	onDestroy(() => {
+		unlisten.forEach((fn) => fn());
+	});
 
-  async function manualReconnect() {
-    status = 'attempting';
-    attempt = 0;
-    errorMessage = null;
+	async function manualReconnect() {
+		status = 'attempting';
+		attempt = 0;
+		errorMessage = null;
 
-    try {
-      await invoke('reconnect', { connectionId, maxAttempts: 1 });
-    } catch (e) {
-      status = 'failed';
-      errorMessage = e instanceof Error ? e.message : String(e);
-    }
-  }
+		try {
+			await invoke('reconnect', { connectionId, maxAttempts: 1 });
+		} catch (e) {
+			status = 'failed';
+			errorMessage = e instanceof Error ? e.message : String(e);
+		}
+	}
 
-  function dismiss() {
-    visible = false;
-  }
+	function dismiss() {
+		visible = false;
+	}
 </script>
 
 {#if visible}
-  <div class="reconnect-overlay">
-    <div class="reconnect-card">
-      {#if status === 'attempting'}
-        <div class="reconnect-icon attempting">
-          <Loader size={32} class="spin" />
-        </div>
-        <h3>Connection Lost</h3>
-        <p>Attempting to reconnect... ({attempt}/{maxAttempts})</p>
-        {#if errorMessage}
-          <p class="error-text">{errorMessage}</p>
-        {/if}
-      {:else if status === 'success'}
-        <div class="reconnect-icon success">
-          <RefreshCw size={32} />
-        </div>
-        <h3>Reconnected!</h3>
-        <p>Connection restored successfully</p>
-      {:else}
-        <div class="reconnect-icon failed">
-          <WifiOff size={32} />
-        </div>
-        <h3>Connection Failed</h3>
-        <p>Unable to reconnect after {maxAttempts} attempts</p>
-        {#if errorMessage}
-          <p class="error-text">{errorMessage}</p>
-        {/if}
-        <div class="reconnect-actions">
-          <Button variant="ghost" on:click={dismiss}>
-            <X size={16} />
-            Dismiss
-          </Button>
-          <Button variant="primary" on:click={manualReconnect}>
-            <RefreshCw size={16} />
-            Try Again
-          </Button>
-        </div>
-      {/if}
-    </div>
-  </div>
+	<div class="reconnect-overlay">
+		<div class="reconnect-card">
+			{#if status === 'attempting'}
+				<div class="reconnect-icon attempting">
+					<Loader size={32} class="spin" />
+				</div>
+				<h3>Connection Lost</h3>
+				<p>Attempting to reconnect... ({attempt}/{maxAttempts})</p>
+				{#if errorMessage}
+					<p class="error-text">{errorMessage}</p>
+				{/if}
+			{:else if status === 'success'}
+				<div class="reconnect-icon success">
+					<RefreshCw size={32} />
+				</div>
+				<h3>Reconnected!</h3>
+				<p>Connection restored successfully</p>
+			{:else}
+				<div class="reconnect-icon failed">
+					<WifiOff size={32} />
+				</div>
+				<h3>Connection Failed</h3>
+				<p>Unable to reconnect after {maxAttempts} attempts</p>
+				{#if errorMessage}
+					<p class="error-text">{errorMessage}</p>
+				{/if}
+				<div class="reconnect-actions">
+					<Button variant="ghost" on:click={dismiss}>
+						<X size={16} />
+						Dismiss
+					</Button>
+					<Button variant="primary" on:click={manualReconnect}>
+						<RefreshCw size={16} />
+						Try Again
+					</Button>
+				</div>
+			{/if}
+		</div>
+	</div>
 {/if}
 
 <style>
-  .reconnect-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    backdrop-filter: blur(4px);
-  }
+	.reconnect-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		backdrop-filter: blur(4px);
+	}
 
-  .reconnect-card {
-    background: var(--bg-primary);
-    border-radius: 12px;
-    padding: 32px;
-    text-align: center;
-    max-width: 400px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  }
+	.reconnect-card {
+		background: var(--bg-primary);
+		border-radius: 12px;
+		padding: 32px;
+		text-align: center;
+		max-width: 400px;
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+	}
 
-  .reconnect-icon {
-    margin-bottom: 16px;
-  }
+	.reconnect-icon {
+		margin-bottom: 16px;
+	}
 
-  .reconnect-icon.attempting {
-    color: var(--primary-color);
-  }
+	.reconnect-icon.attempting {
+		color: var(--primary-color);
+	}
 
-  .reconnect-icon.success {
-    color: var(--success-color);
-  }
+	.reconnect-icon.success {
+		color: var(--success-color);
+	}
 
-  .reconnect-icon.failed {
-    color: var(--error-color);
-  }
+	.reconnect-icon.failed {
+		color: var(--error-color);
+	}
 
-  h3 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 8px;
-  }
+	h3 {
+		font-size: 18px;
+		font-weight: 600;
+		margin-bottom: 8px;
+	}
 
-  p {
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-  }
+	p {
+		color: var(--text-secondary);
+		margin-bottom: 8px;
+	}
 
-  .error-text {
-    font-size: 13px;
-    color: var(--error-color);
-  }
+	.error-text {
+		font-size: 13px;
+		color: var(--error-color);
+	}
 
-  .reconnect-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-    margin-top: 24px;
-  }
+	.reconnect-actions {
+		display: flex;
+		gap: 12px;
+		justify-content: center;
+		margin-top: 24px;
+	}
 
-  :global(.spin) {
-    animation: spin 1s linear infinite;
-  }
+	:global(.spin) {
+		animation: spin 1s linear infinite;
+	}
 
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
 </style>
 ```
 
@@ -1525,87 +1532,87 @@ export const latestError = derived(activeErrors, $errors =>
 import type * as monaco from 'monaco-editor';
 
 export interface EditorError {
-  position: number;
-  message: string;
-  code: string;
+	position: number;
+	message: string;
+	code: string;
 }
 
 export function highlightError(
-  editor: monaco.editor.IStandaloneCodeEditor,
-  model: monaco.editor.ITextModel,
-  error: EditorError
+	editor: monaco.editor.IStandaloneCodeEditor,
+	model: monaco.editor.ITextModel,
+	error: EditorError
 ): monaco.IDisposable[] {
-  const disposables: monaco.IDisposable[] = [];
+	const disposables: monaco.IDisposable[] = [];
 
-  // Convert character position to line/column
-  const pos = model.getPositionAt(error.position);
+	// Convert character position to line/column
+	const pos = model.getPositionAt(error.position);
 
-  // Find the word or token at the error position
-  const wordAtPos = model.getWordAtPosition(pos);
-  const startColumn = wordAtPos ? wordAtPos.startColumn : pos.column;
-  const endColumn = wordAtPos ? wordAtPos.endColumn : pos.column + 1;
+	// Find the word or token at the error position
+	const wordAtPos = model.getWordAtPosition(pos);
+	const startColumn = wordAtPos ? wordAtPos.startColumn : pos.column;
+	const endColumn = wordAtPos ? wordAtPos.endColumn : pos.column + 1;
 
-  // Create decoration for error highlight
-  const decorations = editor.createDecorationsCollection([
-    {
-      range: {
-        startLineNumber: pos.lineNumber,
-        startColumn,
-        endLineNumber: pos.lineNumber,
-        endColumn,
-      },
-      options: {
-        isWholeLine: false,
-        className: 'error-highlight',
-        glyphMarginClassName: 'error-glyph',
-        hoverMessage: {
-          value: `**${error.code}**\n\n${error.message}`,
-        },
-        overviewRuler: {
-          color: '#ef4444',
-          position: 4, // Right
-        },
-      },
-    },
-  ]);
+	// Create decoration for error highlight
+	const decorations = editor.createDecorationsCollection([
+		{
+			range: {
+				startLineNumber: pos.lineNumber,
+				startColumn,
+				endLineNumber: pos.lineNumber,
+				endColumn
+			},
+			options: {
+				isWholeLine: false,
+				className: 'error-highlight',
+				glyphMarginClassName: 'error-glyph',
+				hoverMessage: {
+					value: `**${error.code}**\n\n${error.message}`
+				},
+				overviewRuler: {
+					color: '#ef4444',
+					position: 4 // Right
+				}
+			}
+		}
+	]);
 
-  disposables.push({
-    dispose: () => decorations.clear(),
-  });
+	disposables.push({
+		dispose: () => decorations.clear()
+	});
 
-  // Add line highlight
-  const lineDecorations = editor.createDecorationsCollection([
-    {
-      range: {
-        startLineNumber: pos.lineNumber,
-        startColumn: 1,
-        endLineNumber: pos.lineNumber,
-        endColumn: 1,
-      },
-      options: {
-        isWholeLine: true,
-        className: 'error-line',
-        marginClassName: 'error-margin',
-      },
-    },
-  ]);
+	// Add line highlight
+	const lineDecorations = editor.createDecorationsCollection([
+		{
+			range: {
+				startLineNumber: pos.lineNumber,
+				startColumn: 1,
+				endLineNumber: pos.lineNumber,
+				endColumn: 1
+			},
+			options: {
+				isWholeLine: true,
+				className: 'error-line',
+				marginClassName: 'error-margin'
+			}
+		}
+	]);
 
-  disposables.push({
-    dispose: () => lineDecorations.clear(),
-  });
+	disposables.push({
+		dispose: () => lineDecorations.clear()
+	});
 
-  // Scroll to error position
-  editor.revealLineInCenter(pos.lineNumber);
+	// Scroll to error position
+	editor.revealLineInCenter(pos.lineNumber);
 
-  // Set cursor to error position
-  editor.setPosition(pos);
-  editor.focus();
+	// Set cursor to error position
+	editor.setPosition(pos);
+	editor.focus();
 
-  return disposables;
+	return disposables;
 }
 
 export function clearErrorHighlights(disposables: monaco.IDisposable[]): void {
-  disposables.forEach((d) => d.dispose());
+	disposables.forEach((d) => d.dispose());
 }
 
 // CSS styles to inject
@@ -1645,48 +1652,48 @@ import { invoke } from '@tauri-apps/api/core';
 let autoSaveInterval: number | null = null;
 
 export function startAutoSave(intervalMs = 5000) {
-  if (autoSaveInterval) return;
+	if (autoSaveInterval) return;
 
-  autoSaveInterval = window.setInterval(async () => {
-    const state = get(queryStore);
+	autoSaveInterval = window.setInterval(async () => {
+		const state = get(queryStore);
 
-    for (const tab of state.tabs) {
-      if (tab.isDirty) {
-        await invoke('persist_query', {
-          query: {
-            id: tab.id,
-            connection_id: tab.connectionId,
-            sql: tab.sql,
-            cursor_position: tab.cursorPosition ?? 0,
-            file_path: tab.filePath,
-            is_dirty: tab.isDirty,
-            saved_at: Date.now(),
-          },
-        });
-      }
-    }
-  }, intervalMs);
+		for (const tab of state.tabs) {
+			if (tab.isDirty) {
+				await invoke('persist_query', {
+					query: {
+						id: tab.id,
+						connection_id: tab.connectionId,
+						sql: tab.sql,
+						cursor_position: tab.cursorPosition ?? 0,
+						file_path: tab.filePath,
+						is_dirty: tab.isDirty,
+						saved_at: Date.now()
+					}
+				});
+			}
+		}
+	}, intervalMs);
 }
 
 export function stopAutoSave() {
-  if (autoSaveInterval) {
-    window.clearInterval(autoSaveInterval);
-    autoSaveInterval = null;
-  }
+	if (autoSaveInterval) {
+		window.clearInterval(autoSaveInterval);
+		autoSaveInterval = null;
+	}
 }
 
 export async function restoreSession() {
-  const persisted = await invoke<PersistedQuery[]>('load_persisted_queries');
+	const persisted = await invoke<PersistedQuery[]>('load_persisted_queries');
 
-  for (const query of persisted) {
-    queryStore.addTab({
-      id: query.id,
-      connectionId: query.connection_id,
-      sql: query.sql,
-      filePath: query.file_path,
-      isDirty: query.is_dirty,
-    });
-  }
+	for (const query of persisted) {
+		queryStore.addTab({
+			id: query.id,
+			connectionId: query.connection_id,
+			sql: query.sql,
+			filePath: query.file_path,
+			isDirty: query.is_dirty
+		});
+	}
 }
 ```
 
@@ -1740,9 +1747,9 @@ await driver_session({ action: 'start', port: 9223 });
 
 // Execute invalid SQL
 await webview_keyboard({
-  action: 'type',
-  selector: '.monaco-editor textarea',
-  text: 'SELECT * FROM nonexistent_table'
+	action: 'type',
+	selector: '.monaco-editor textarea',
+	text: 'SELECT * FROM nonexistent_table'
 });
 
 await webview_keyboard({ action: 'press', key: 'Meta+Enter' });
@@ -1759,8 +1766,8 @@ console.log('Error displayed:', snapshot);
 
 // Test reconnection
 await ipc_execute_command({
-  command: 'reconnect',
-  args: { connectionId: 'test-conn', maxAttempts: 3 }
+	command: 'reconnect',
+	args: { connectionId: 'test-conn', maxAttempts: 3 }
 });
 
 await driver_session({ action: 'stop' });
@@ -1774,9 +1781,9 @@ await browser_navigate({ url: 'http://localhost:1420' });
 
 // Type invalid query
 await browser_type({
-  element: 'Query editor',
-  ref: '.monaco-editor textarea',
-  text: 'SELEC * FORM users' // Intentional typos
+	element: 'Query editor',
+	ref: '.monaco-editor textarea',
+	text: 'SELEC * FORM users' // Intentional typos
 });
 
 // Execute
@@ -1794,7 +1801,7 @@ await browser_take_screenshot({ filename: 'error-display.png' });
 
 // Test copy error action
 await browser_click({
-  element: 'Copy Error button',
-  ref: '[data-action="copy_error"]'
+	element: 'Copy Error button',
+	ref: '[data-action="copy_error"]'
 });
 ```

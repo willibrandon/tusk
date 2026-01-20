@@ -662,19 +662,17 @@ pub async fn keychain_backend() -> String {
 
 ```json
 {
-  "plugins": {
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://releases.tusk-app.dev/{{target}}/{{arch}}/{{current_version}}"
-      ],
-      "dialog": true,
-      "pubkey": "YOUR_PUBLIC_KEY_HERE",
-      "windows": {
-        "installMode": "passive"
-      }
-    }
-  }
+	"plugins": {
+		"updater": {
+			"active": true,
+			"endpoints": ["https://releases.tusk-app.dev/{{target}}/{{arch}}/{{current_version}}"],
+			"dialog": true,
+			"pubkey": "YOUR_PUBLIC_KEY_HERE",
+			"windows": {
+				"installMode": "passive"
+			}
+		}
+	}
 }
 ```
 
@@ -800,89 +798,89 @@ pub async fn install_update(app: AppHandle) -> Result<()> {
 
 ```json
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Tusk",
-  "version": "0.1.0",
-  "identifier": "dev.tusk.postgres",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "withGlobalTauri": false,
-    "windows": [
-      {
-        "title": "Tusk",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "center": true,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "transparent": false,
-        "titleBarStyle": "Visible"
-      }
-    ],
-    "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:"
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "resources": [],
-    "copyright": "© 2024 Tusk",
-    "category": "DeveloperTool",
-    "shortDescription": "Fast, native Postgres client",
-    "longDescription": "Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.",
-    "macOS": {
-      "entitlements": null,
-      "exceptionDomain": "",
-      "frameworks": [],
-      "providerShortName": null,
-      "signingIdentity": null,
-      "minimumSystemVersion": "10.15"
-    },
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "",
-      "wix": {
-        "language": "en-US"
-      },
-      "nsis": {
-        "installerIcon": "icons/icon.ico",
-        "headerImage": "icons/header.bmp",
-        "sidebarImage": "icons/sidebar.bmp",
-        "license": "LICENSE",
-        "installMode": "currentUser",
-        "languages": ["English"],
-        "displayLanguageSelector": false
-      }
-    },
-    "linux": {
-      "appimage": {
-        "bundleMediaFramework": false
-      },
-      "deb": {
-        "depends": ["libssl3", "libwebkit2gtk-4.1-0"]
-      },
-      "rpm": {
-        "depends": ["openssl", "webkit2gtk4.1"]
-      }
-    }
-  }
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "Tusk",
+	"version": "0.1.0",
+	"identifier": "dev.tusk.postgres",
+	"build": {
+		"beforeDevCommand": "npm run dev",
+		"devUrl": "http://localhost:1420",
+		"beforeBuildCommand": "npm run build",
+		"frontendDist": "../dist"
+	},
+	"app": {
+		"withGlobalTauri": false,
+		"windows": [
+			{
+				"title": "Tusk",
+				"width": 1280,
+				"height": 800,
+				"minWidth": 800,
+				"minHeight": 600,
+				"center": true,
+				"resizable": true,
+				"fullscreen": false,
+				"decorations": true,
+				"transparent": false,
+				"titleBarStyle": "Visible"
+			}
+		],
+		"security": {
+			"csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:"
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": "all",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"resources": [],
+		"copyright": "© 2024 Tusk",
+		"category": "DeveloperTool",
+		"shortDescription": "Fast, native Postgres client",
+		"longDescription": "Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.",
+		"macOS": {
+			"entitlements": null,
+			"exceptionDomain": "",
+			"frameworks": [],
+			"providerShortName": null,
+			"signingIdentity": null,
+			"minimumSystemVersion": "10.15"
+		},
+		"windows": {
+			"certificateThumbprint": null,
+			"digestAlgorithm": "sha256",
+			"timestampUrl": "",
+			"wix": {
+				"language": "en-US"
+			},
+			"nsis": {
+				"installerIcon": "icons/icon.ico",
+				"headerImage": "icons/header.bmp",
+				"sidebarImage": "icons/sidebar.bmp",
+				"license": "LICENSE",
+				"installMode": "currentUser",
+				"languages": ["English"],
+				"displayLanguageSelector": false
+			}
+		},
+		"linux": {
+			"appimage": {
+				"bundleMediaFramework": false
+			},
+			"deb": {
+				"depends": ["libssl3", "libwebkit2gtk-4.1-0"]
+			},
+			"rpm": {
+				"depends": ["openssl", "webkit2gtk4.1"]
+			}
+		}
+	}
 }
 ```
 
@@ -898,50 +896,50 @@ import { listen } from '@tauri-apps/api/event';
 export type Platform = 'macos' | 'windows' | 'linux';
 
 export interface PlatformInfo {
-  platform: Platform;
-  os_version: string;
-  arch: string;
-  primary_modifier: string;
-  secondary_modifier: string;
-  config_dir: string;
-  data_dir: string;
+	platform: Platform;
+	os_version: string;
+	arch: string;
+	primary_modifier: string;
+	secondary_modifier: string;
+	config_dir: string;
+	data_dir: string;
 }
 
 function createPlatformStore() {
-  const { subscribe, set } = writable<PlatformInfo | null>(null);
+	const { subscribe, set } = writable<PlatformInfo | null>(null);
 
-  return {
-    subscribe,
+	return {
+		subscribe,
 
-    async init() {
-      const info = await invoke<PlatformInfo>('get_platform_info');
-      set(info);
-      return info;
-    },
-  };
+		async init() {
+			const info = await invoke<PlatformInfo>('get_platform_info');
+			set(info);
+			return info;
+		}
+	};
 }
 
 export const platformStore = createPlatformStore();
 
 // Derived helpers
-export const platform = derived(platformStore, $p => $p?.platform ?? 'linux');
-export const isMac = derived(platform, $p => $p === 'macos');
-export const isWindows = derived(platform, $p => $p === 'windows');
-export const isLinux = derived(platform, $p => $p === 'linux');
-export const primaryMod = derived(platformStore, $p => $p?.primary_modifier ?? 'Ctrl');
-export const secondaryMod = derived(platformStore, $p => $p?.secondary_modifier ?? 'Alt');
+export const platform = derived(platformStore, ($p) => $p?.platform ?? 'linux');
+export const isMac = derived(platform, ($p) => $p === 'macos');
+export const isWindows = derived(platform, ($p) => $p === 'windows');
+export const isLinux = derived(platform, ($p) => $p === 'linux');
+export const primaryMod = derived(platformStore, ($p) => $p?.primary_modifier ?? 'Ctrl');
+export const secondaryMod = derived(platformStore, ($p) => $p?.secondary_modifier ?? 'Alt');
 
 // Format shortcut for display
 export function formatShortcut(shortcut: string): string {
-  let info: PlatformInfo | null = null;
-  platformStore.subscribe(p => info = p)();
+	let info: PlatformInfo | null = null;
+	platformStore.subscribe((p) => (info = p))();
 
-  if (!info) return shortcut;
+	if (!info) return shortcut;
 
-  // Replace generic modifiers with platform-specific ones
-  return shortcut
-    .replace(/Mod\+/g, `${info.primary_modifier}+`)
-    .replace(/Alt\+/g, `${info.secondary_modifier}+`);
+	// Replace generic modifiers with platform-specific ones
+	return shortcut
+		.replace(/Mod\+/g, `${info.primary_modifier}+`)
+		.replace(/Alt\+/g, `${info.secondary_modifier}+`);
 }
 ```
 
@@ -955,66 +953,66 @@ import { uiStore } from '$lib/stores/ui';
 import { dialogStore } from '$lib/stores/dialog';
 
 export async function setupMenuListeners() {
-  // File menu
-  listen('menu:new-query', () => {
-    queryStore.createTab();
-  });
+	// File menu
+	listen('menu:new-query', () => {
+		queryStore.createTab();
+	});
 
-  listen('menu:new-connection', () => {
-    dialogStore.open('connection');
-  });
+	listen('menu:new-connection', () => {
+		dialogStore.open('connection');
+	});
 
-  listen('menu:preferences', () => {
-    goto('/settings');
-  });
+	listen('menu:preferences', () => {
+		goto('/settings');
+	});
 
-  // Query menu
-  listen('menu:execute', () => {
-    queryStore.executeCurrent();
-  });
+	// Query menu
+	listen('menu:execute', () => {
+		queryStore.executeCurrent();
+	});
 
-  listen('menu:execute-all', () => {
-    queryStore.executeAll();
-  });
+	listen('menu:execute-all', () => {
+		queryStore.executeAll();
+	});
 
-  listen('menu:cancel', () => {
-    queryStore.cancelCurrent();
-  });
+	listen('menu:cancel', () => {
+		queryStore.cancelCurrent();
+	});
 
-  listen('menu:format', () => {
-    queryStore.formatCurrent();
-  });
+	listen('menu:format', () => {
+		queryStore.formatCurrent();
+	});
 
-  // View menu
-  listen('menu:toggle-sidebar', () => {
-    uiStore.toggleSidebar();
-  });
+	// View menu
+	listen('menu:toggle-sidebar', () => {
+		uiStore.toggleSidebar();
+	});
 
-  // Tools menu
-  listen('menu:backup', () => {
-    dialogStore.open('backup');
-  });
+	// Tools menu
+	listen('menu:backup', () => {
+		dialogStore.open('backup');
+	});
 
-  listen('menu:restore', () => {
-    dialogStore.open('restore');
-  });
+	listen('menu:restore', () => {
+		dialogStore.open('restore');
+	});
 
-  listen('menu:import', () => {
-    dialogStore.open('import');
-  });
+	listen('menu:import', () => {
+		dialogStore.open('import');
+	});
 
-  listen('menu:er-diagram', () => {
-    dialogStore.open('er-diagram');
-  });
+	listen('menu:er-diagram', () => {
+		dialogStore.open('er-diagram');
+	});
 
-  // Help menu
-  listen('menu:check-updates', () => {
-    dialogStore.open('update-check');
-  });
+	// Help menu
+	listen('menu:check-updates', () => {
+		dialogStore.open('update-check');
+	});
 
-  listen('menu:about', () => {
-    dialogStore.open('about');
-  });
+	listen('menu:about', () => {
+		dialogStore.open('about');
+	});
 }
 ```
 
@@ -1022,245 +1020,249 @@ export async function setupMenuListeners() {
 
 ```svelte
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import { listen } from '@tauri-apps/api/event';
-  import { onMount, onDestroy } from 'svelte';
-  import Dialog from '$lib/components/common/Dialog.svelte';
-  import Button from '$lib/components/common/Button.svelte';
-  import { Download, CheckCircle, XCircle, Loader } from 'lucide-svelte';
+	import { invoke } from '@tauri-apps/api/core';
+	import { listen } from '@tauri-apps/api/event';
+	import { onMount, onDestroy } from 'svelte';
+	import Dialog from '$lib/components/common/Dialog.svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import { Download, CheckCircle, XCircle, Loader } from 'lucide-svelte';
 
-  export let open = false;
+	export let open = false;
 
-  interface UpdateInfo {
-    version: string;
-    notes: string;
-    pub_date: string;
-  }
+	interface UpdateInfo {
+		version: string;
+		notes: string;
+		pub_date: string;
+	}
 
-  interface UpdateCheckResult {
-    available: boolean;
-    current_version: string;
-    update: UpdateInfo | null;
-  }
+	interface UpdateCheckResult {
+		available: boolean;
+		current_version: string;
+		update: UpdateInfo | null;
+	}
 
-  let checking = false;
-  let installing = false;
-  let result: UpdateCheckResult | null = null;
-  let error: string | null = null;
-  let progress = 0;
+	let checking = false;
+	let installing = false;
+	let result: UpdateCheckResult | null = null;
+	let error: string | null = null;
+	let progress = 0;
 
-  let unlistenProgress: (() => void) | null = null;
+	let unlistenProgress: (() => void) | null = null;
 
-  onMount(async () => {
-    unlistenProgress = await listen<number>('update:progress', (event) => {
-      progress = event.payload;
-    });
-  });
+	onMount(async () => {
+		unlistenProgress = await listen<number>('update:progress', (event) => {
+			progress = event.payload;
+		});
+	});
 
-  onDestroy(() => {
-    unlistenProgress?.();
-  });
+	onDestroy(() => {
+		unlistenProgress?.();
+	});
 
-  async function checkForUpdates() {
-    checking = true;
-    error = null;
+	async function checkForUpdates() {
+		checking = true;
+		error = null;
 
-    try {
-      result = await invoke<UpdateCheckResult>('check_updates');
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    } finally {
-      checking = false;
-    }
-  }
+		try {
+			result = await invoke<UpdateCheckResult>('check_updates');
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		} finally {
+			checking = false;
+		}
+	}
 
-  async function installUpdate() {
-    installing = true;
-    progress = 0;
-    error = null;
+	async function installUpdate() {
+		installing = true;
+		progress = 0;
+		error = null;
 
-    try {
-      await invoke('install_update');
-      // App will restart automatically
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-      installing = false;
-    }
-  }
+		try {
+			await invoke('install_update');
+			// App will restart automatically
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+			installing = false;
+		}
+	}
 
-  $: if (open && !result && !checking) {
-    checkForUpdates();
-  }
+	$: if (open && !result && !checking) {
+		checkForUpdates();
+	}
 
-  function close() {
-    open = false;
-    result = null;
-    error = null;
-    progress = 0;
-  }
+	function close() {
+		open = false;
+		result = null;
+		error = null;
+		progress = 0;
+	}
 </script>
 
 <Dialog bind:open title="Software Update" on:close={close}>
-  <div class="update-content">
-    {#if checking}
-      <div class="status">
-        <Loader class="spin" size={32} />
-        <p>Checking for updates...</p>
-      </div>
-    {:else if error}
-      <div class="status error">
-        <XCircle size={32} />
-        <p>Failed to check for updates</p>
-        <span class="error-text">{error}</span>
-      </div>
-    {:else if result}
-      {#if result.available && result.update}
-        <div class="update-available">
-          <h3>Update Available</h3>
-          <p class="version-info">
-            Version {result.update.version} is available (you have {result.current_version})
-          </p>
+	<div class="update-content">
+		{#if checking}
+			<div class="status">
+				<Loader class="spin" size={32} />
+				<p>Checking for updates...</p>
+			</div>
+		{:else if error}
+			<div class="status error">
+				<XCircle size={32} />
+				<p>Failed to check for updates</p>
+				<span class="error-text">{error}</span>
+			</div>
+		{:else if result}
+			{#if result.available && result.update}
+				<div class="update-available">
+					<h3>Update Available</h3>
+					<p class="version-info">
+						Version {result.update.version} is available (you have {result.current_version})
+					</p>
 
-          {#if result.update.notes}
-            <div class="release-notes">
-              <h4>Release Notes:</h4>
-              <div class="notes-content">{result.update.notes}</div>
-            </div>
-          {/if}
+					{#if result.update.notes}
+						<div class="release-notes">
+							<h4>Release Notes:</h4>
+							<div class="notes-content">{result.update.notes}</div>
+						</div>
+					{/if}
 
-          {#if installing}
-            <div class="progress-container">
-              <div class="progress-bar" style="width: {progress}%"></div>
-              <span class="progress-text">{progress}%</span>
-            </div>
-            <p class="installing-text">Downloading and installing update...</p>
-          {/if}
-        </div>
-      {:else}
-        <div class="status success">
-          <CheckCircle size={32} />
-          <p>You're up to date!</p>
-          <span class="version">Version {result.current_version}</span>
-        </div>
-      {/if}
-    {/if}
-  </div>
+					{#if installing}
+						<div class="progress-container">
+							<div class="progress-bar" style="width: {progress}%"></div>
+							<span class="progress-text">{progress}%</span>
+						</div>
+						<p class="installing-text">Downloading and installing update...</p>
+					{/if}
+				</div>
+			{:else}
+				<div class="status success">
+					<CheckCircle size={32} />
+					<p>You're up to date!</p>
+					<span class="version">Version {result.current_version}</span>
+				</div>
+			{/if}
+		{/if}
+	</div>
 
-  <svelte:fragment slot="footer">
-    {#if result?.available && !installing}
-      <Button variant="ghost" on:click={close}>Later</Button>
-      <Button variant="primary" on:click={installUpdate}>
-        <Download size={16} />
-        Install Update
-      </Button>
-    {:else if !checking && !installing}
-      <Button variant="ghost" on:click={close}>Close</Button>
-      <Button variant="primary" on:click={checkForUpdates}>Check Again</Button>
-    {/if}
-  </svelte:fragment>
+	<svelte:fragment slot="footer">
+		{#if result?.available && !installing}
+			<Button variant="ghost" on:click={close}>Later</Button>
+			<Button variant="primary" on:click={installUpdate}>
+				<Download size={16} />
+				Install Update
+			</Button>
+		{:else if !checking && !installing}
+			<Button variant="ghost" on:click={close}>Close</Button>
+			<Button variant="primary" on:click={checkForUpdates}>Check Again</Button>
+		{/if}
+	</svelte:fragment>
 </Dialog>
 
 <style>
-  .update-content {
-    min-height: 150px;
-    display: flex;
-    flex-direction: column;
-  }
+	.update-content {
+		min-height: 150px;
+		display: flex;
+		flex-direction: column;
+	}
 
-  .status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 32px;
-    text-align: center;
-  }
+	.status {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		padding: 32px;
+		text-align: center;
+	}
 
-  .status.error {
-    color: var(--error-color);
-  }
+	.status.error {
+		color: var(--error-color);
+	}
 
-  .status.success {
-    color: var(--success-color);
-  }
+	.status.success {
+		color: var(--success-color);
+	}
 
-  .error-text {
-    color: var(--text-secondary);
-    font-size: 13px;
-  }
+	.error-text {
+		color: var(--text-secondary);
+		font-size: 13px;
+	}
 
-  .version {
-    color: var(--text-secondary);
-  }
+	.version {
+		color: var(--text-secondary);
+	}
 
-  .update-available h3 {
-    margin-bottom: 8px;
-  }
+	.update-available h3 {
+		margin-bottom: 8px;
+	}
 
-  .version-info {
-    color: var(--text-secondary);
-    margin-bottom: 16px;
-  }
+	.version-info {
+		color: var(--text-secondary);
+		margin-bottom: 16px;
+	}
 
-  .release-notes {
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 16px;
-  }
+	.release-notes {
+		background: var(--bg-secondary);
+		border-radius: 6px;
+		padding: 12px;
+		margin-bottom: 16px;
+	}
 
-  .release-notes h4 {
-    font-size: 13px;
-    margin-bottom: 8px;
-  }
+	.release-notes h4 {
+		font-size: 13px;
+		margin-bottom: 8px;
+	}
 
-  .notes-content {
-    font-size: 13px;
-    color: var(--text-secondary);
-    max-height: 150px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-  }
+	.notes-content {
+		font-size: 13px;
+		color: var(--text-secondary);
+		max-height: 150px;
+		overflow-y: auto;
+		white-space: pre-wrap;
+	}
 
-  .progress-container {
-    height: 8px;
-    background: var(--bg-tertiary);
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
-  }
+	.progress-container {
+		height: 8px;
+		background: var(--bg-tertiary);
+		border-radius: 4px;
+		overflow: hidden;
+		position: relative;
+	}
 
-  .progress-bar {
-    height: 100%;
-    background: var(--primary-color);
-    transition: width 0.3s ease;
-  }
+	.progress-bar {
+		height: 100%;
+		background: var(--primary-color);
+		transition: width 0.3s ease;
+	}
 
-  .progress-text {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
+	.progress-text {
+		position: absolute;
+		right: 8px;
+		top: 50%;
+		transform: translateY(-50%);
+		font-size: 11px;
+		color: var(--text-secondary);
+	}
 
-  .installing-text {
-    text-align: center;
-    margin-top: 8px;
-    color: var(--text-secondary);
-    font-size: 13px;
-  }
+	.installing-text {
+		text-align: center;
+		margin-top: 8px;
+		color: var(--text-secondary);
+		font-size: 13px;
+	}
 
-  :global(.spin) {
-    animation: spin 1s linear infinite;
-  }
+	:global(.spin) {
+		animation: spin 1s linear infinite;
+	}
 
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
+	@keyframes spin {
+		from {
+			transform: rotate(0deg);
+		}
+		to {
+			transform: rotate(360deg);
+		}
+	}
 </style>
 ```
 
@@ -1270,24 +1272,24 @@ export async function setupMenuListeners() {
 
 ```json
 {
-  "bundle": {
-    "fileAssociations": [
-      {
-        "ext": ["sql"],
-        "name": "SQL File",
-        "description": "SQL Script File",
-        "role": "Editor",
-        "mimeType": "application/sql"
-      },
-      {
-        "ext": ["pgsql"],
-        "name": "PostgreSQL File",
-        "description": "PostgreSQL Script File",
-        "role": "Editor",
-        "mimeType": "application/x-postgresql"
-      }
-    ]
-  }
+	"bundle": {
+		"fileAssociations": [
+			{
+				"ext": ["sql"],
+				"name": "SQL File",
+				"description": "SQL Script File",
+				"role": "Editor",
+				"mimeType": "application/sql"
+			},
+			{
+				"ext": ["pgsql"],
+				"name": "PostgreSQL File",
+				"description": "PostgreSQL Script File",
+				"role": "Editor",
+				"mimeType": "application/x-postgresql"
+			}
+		]
+	}
 }
 ```
 
@@ -1386,19 +1388,19 @@ console.log('Platform:', state.platform);
 
 // Test keychain
 await ipc_execute_command({
-  command: 'keychain_store',
-  args: { connectionId: 'test', password: 'secret123' }
+	command: 'keychain_store',
+	args: { connectionId: 'test', password: 'secret123' }
 });
 
 const password = await ipc_execute_command({
-  command: 'keychain_get',
-  args: { connectionId: 'test' }
+	command: 'keychain_get',
+	args: { connectionId: 'test' }
 });
 console.log('Retrieved password:', password ? 'yes' : 'no');
 
 // Check for updates
 const updateResult = await ipc_execute_command({
-  command: 'check_updates'
+	command: 'check_updates'
 });
 console.log('Update available:', updateResult.available);
 
@@ -1417,9 +1419,9 @@ await browser_navigate({ url: 'http://localhost:1420' });
 
 // Execute query with keyboard shortcut
 await browser_type({
-  element: 'Query editor',
-  ref: '.monaco-editor textarea',
-  text: 'SELECT 1'
+	element: 'Query editor',
+	ref: '.monaco-editor textarea',
+	text: 'SELECT 1'
 });
 
 // Platform-specific execute shortcut

@@ -12,9 +12,11 @@ All technology choices are defined by the constitution. This research validates 
 ## 1. Tauri v2 Project Structure
 
 ### Decision
+
 Use Tauri v2 with SvelteKit in SPA mode (adapter-static).
 
 ### Rationale
+
 - Tauri v2 (2.9.x) is stable with capability-based security model
 - SvelteKit adapter-static generates proper build output for Tauri
 - SPA mode required because Tauri WebView doesn't support SSR
@@ -22,22 +24,24 @@ Use Tauri v2 with SvelteKit in SPA mode (adapter-static).
 ### Configuration Requirements
 
 **tauri.conf.json (v2 schema):**
+
 ```json
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Tusk",
-  "version": "0.1.0",
-  "identifier": "com.tusk.app",
-  "build": {
-    "frontendDist": "../build",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
-  }
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "Tusk",
+	"version": "0.1.0",
+	"identifier": "com.tusk.app",
+	"build": {
+		"frontendDist": "../build",
+		"devUrl": "http://localhost:5173",
+		"beforeDevCommand": "npm run dev",
+		"beforeBuildCommand": "npm run build"
+	}
 }
 ```
 
 **Key v2 Changes from v1:**
+
 - `@tauri-apps/api/tauri` → `@tauri-apps/api/core`
 - `Window` → `WebviewWindow`
 - `get_window()` → `get_webview_window()`
@@ -45,6 +49,7 @@ Use Tauri v2 with SvelteKit in SPA mode (adapter-static).
 - Plugin configuration in `plugins` key
 
 ### Alternatives Considered
+
 - Tauri v1: Rejected (v2 is stable, v1 entering maintenance)
 - Electron: Rejected (larger memory footprint, violates performance targets)
 
@@ -53,24 +58,26 @@ Use Tauri v2 with SvelteKit in SPA mode (adapter-static).
 ## 2. Frontend Stack Versions
 
 ### Decision
+
 Use Svelte 5.47.x + SvelteKit 2.50.x + Vite + TypeScript 5.x
 
 ### Rationale
+
 - Svelte 5 is stable with runes-based reactivity
 - SvelteKit 2.50 is current stable (v3 not released)
 - TypeScript in component markup now supported
 
 ### Package Versions (January 2026)
 
-| Package | Version | Notes |
-|---------|---------|-------|
-| svelte | 5.47.x | TypeScript in markup supported |
-| @sveltejs/kit | 2.50.x | Current stable |
-| @sveltejs/adapter-static | 3.0.x | v3 breaking change from v2 |
-| vite | 6.x | Current stable |
-| typescript | 5.7.x | Current stable |
-| tailwindcss | 4.x | Vite plugin approach |
-| @tailwindcss/vite | 4.x | Replace postcss setup |
+| Package                  | Version | Notes                          |
+| ------------------------ | ------- | ------------------------------ |
+| svelte                   | 5.47.x  | TypeScript in markup supported |
+| @sveltejs/kit            | 2.50.x  | Current stable                 |
+| @sveltejs/adapter-static | 3.0.x   | v3 breaking change from v2     |
+| vite                     | 6.x     | Current stable                 |
+| typescript               | 5.7.x   | Current stable                 |
+| tailwindcss              | 4.x     | Vite plugin approach           |
+| @tailwindcss/vite        | 4.x     | Replace postcss setup          |
 
 ### SvelteKit Adapter Configuration
 
@@ -79,25 +86,27 @@ Use Svelte 5.47.x + SvelteKit 2.50.x + Vite + TypeScript 5.x
 import adapter from '@sveltejs/adapter-static';
 
 export default {
-  kit: {
-    adapter: adapter({
-      pages: 'build',
-      assets: 'build',
-      fallback: 'index.html',  // SPA mode
-      precompress: false,
-      strict: false
-    })
-  }
+	kit: {
+		adapter: adapter({
+			pages: 'build',
+			assets: 'build',
+			fallback: 'index.html', // SPA mode
+			precompress: false,
+			strict: false
+		})
+	}
 };
 ```
 
 **Critical**: Disable SSR in root layout:
+
 ```typescript
 // src/routes/+layout.ts
 export const ssr = false;
 ```
 
 ### Alternatives Considered
+
 - Svelte 4: Rejected (v5 stable with better reactivity model)
 - Next.js/React: Rejected (constitution specifies Svelte)
 - Vue: Rejected (constitution specifies Svelte)
@@ -107,9 +116,11 @@ export const ssr = false;
 ## 3. ESLint v9 Configuration
 
 ### Decision
+
 Use ESLint v9 flat config with eslint-plugin-svelte.
 
 ### Rationale
+
 - ESLint v9 requires flat config (no .eslintrc.cjs)
 - eslint-plugin-svelte v3 supports Svelte 5 rules
 
@@ -123,34 +134,35 @@ import globals from 'globals';
 import ts from 'typescript-eslint';
 
 export default ts.config(
-  js.configs.recommended,
-  ...ts.configs.recommended,
-  ...svelte.configs.recommended,
-  {
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.node
-      }
-    }
-  },
-  {
-    files: ['**/*.svelte', '**/*.svelte.ts'],
-    languageOptions: {
-      parserOptions: {
-        projectService: true,
-        extraFileExtensions: ['.svelte'],
-        parser: ts.parser
-      }
-    }
-  },
-  {
-    ignores: ['build/', '.svelte-kit/', 'node_modules/']
-  }
+	js.configs.recommended,
+	...ts.configs.recommended,
+	...svelte.configs.recommended,
+	{
+		languageOptions: {
+			globals: {
+				...globals.browser,
+				...globals.node
+			}
+		}
+	},
+	{
+		files: ['**/*.svelte', '**/*.svelte.ts'],
+		languageOptions: {
+			parserOptions: {
+				projectService: true,
+				extraFileExtensions: ['.svelte'],
+				parser: ts.parser
+			}
+		}
+	},
+	{
+		ignores: ['build/', '.svelte-kit/', 'node_modules/']
+	}
 );
 ```
 
 ### Alternatives Considered
+
 - ESLint v8: Rejected (v9 is current, flat config is future)
 - Biome: Considered but eslint-plugin-svelte integration better
 
@@ -159,9 +171,11 @@ export default ts.config(
 ## 4. Tailwind CSS Setup
 
 ### Decision
+
 Use Tailwind v4 with Vite plugin (not PostCSS).
 
 ### Rationale
+
 - Tailwind v4 has native Vite plugin
 - Simpler config than PostCSS approach
 - Better build performance
@@ -169,35 +183,36 @@ Use Tailwind v4 with Vite plugin (not PostCSS).
 ### Configuration
 
 **vite.config.ts:**
+
 ```typescript
 import { defineConfig } from 'vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [
-    sveltekit(),
-    tailwindcss()
-  ]
+	plugins: [sveltekit(), tailwindcss()]
 });
 ```
 
 **app.css:**
+
 ```css
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
-  --color-tusk-500: #0ea5e9;
-  /* Custom colors defined here */
+	--color-tusk-500: #0ea5e9;
+	/* Custom colors defined here */
 }
 ```
 
 ### Key v4 Changes
+
 - Single `@import "tailwindcss"` replaces `@tailwind` directives
 - Custom colors via `@theme` directive, not tailwind.config.js
 - `@apply` works in global styles only
 
 ### Alternatives Considered
+
 - Tailwind v3: Fallback if `@apply` needed in components
 - CSS-in-JS: Rejected (Tailwind specified in constitution)
 
@@ -206,6 +221,7 @@ export default defineConfig({
 ## 5. Rust Dependencies
 
 ### Decision
+
 Use current stable crate versions with constitution-specified libraries.
 
 ### Cargo.toml Dependencies
@@ -294,12 +310,14 @@ strip = true
 ```
 
 ### Version Notes
+
 - Tauri 2.9.x: Latest stable with capability-based security
 - russh 0.54.x: Latest with security fixes
 - keyring 3.6.x: Latest with native OS support
 - rusqlite 0.32.x: Constitution specifies; version per existing project
 
 ### Alternatives Considered
+
 - sqlx: Rejected (tokio-postgres specified in constitution)
 - bb8 pool: Rejected (deadpool specified in constitution)
 
@@ -308,30 +326,32 @@ strip = true
 ## 6. TypeScript Configuration
 
 ### Decision
+
 Extend @tsconfig/svelte with strict mode and bundler resolution.
 
 ### Configuration
 
 ```json
 {
-  "extends": "./.svelte-kit/tsconfig.json",
-  "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "sourceMap": true,
-    "strict": true,
-    "moduleResolution": "bundler",
-    "verbatimModuleSyntax": true,
-    "target": "ES2020"
-  }
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"moduleResolution": "bundler",
+		"verbatimModuleSyntax": true,
+		"target": "ES2020"
+	}
 }
 ```
 
 ### Key Settings
+
 - `verbatimModuleSyntax`: Required for Svelte 5
 - `moduleResolution: bundler`: Modern resolution for Vite
 - `target: ES2020`: Required (ES2015 breaks classes)
@@ -341,24 +361,23 @@ Extend @tsconfig/svelte with strict mode and bundler resolution.
 ## 7. Capabilities and Permissions (Tauri v2)
 
 ### Decision
+
 Use minimal capabilities for project init (expand in later features).
 
 ### Initial Capability (src-tauri/capabilities/default.json)
 
 ```json
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Default capability for main window",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "shell:allow-open"
-  ]
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "default",
+	"description": "Default capability for main window",
+	"windows": ["main"],
+	"permissions": ["core:default", "shell:allow-open"]
 }
 ```
 
 ### Notes
+
 - Full permission configuration deferred to features that need them
 - Database, filesystem, and IPC permissions added in later features
 
@@ -366,19 +385,19 @@ Use minimal capabilities for project init (expand in later features).
 
 ## Summary of Decisions
 
-| Area | Decision | Rationale |
-|------|----------|-----------|
-| Framework | Tauri v2.9.x | Stable, capability-based security |
-| Frontend | Svelte 5.47.x + SvelteKit 2.50.x | Constitution, runes reactivity |
-| Build | Vite 6.x + adapter-static | SPA mode for Tauri |
-| Styling | Tailwind v4 (Vite plugin) | Simpler than PostCSS |
-| Linting | ESLint v9 flat config | Current standard |
-| TypeScript | 5.7.x strict mode | Type safety |
-| Backend | Rust 1.75+ with Tauri | Constitution |
-| Database | tokio-postgres 0.7.x | Constitution |
-| Pooling | deadpool-postgres 0.14.x | Constitution |
-| Storage | rusqlite 0.32.x | Constitution |
-| Credentials | keyring 3.6.x | Constitution (OS keychain) |
-| SSH | russh 0.54.x | Constitution |
+| Area        | Decision                         | Rationale                         |
+| ----------- | -------------------------------- | --------------------------------- |
+| Framework   | Tauri v2.9.x                     | Stable, capability-based security |
+| Frontend    | Svelte 5.47.x + SvelteKit 2.50.x | Constitution, runes reactivity    |
+| Build       | Vite 6.x + adapter-static        | SPA mode for Tauri                |
+| Styling     | Tailwind v4 (Vite plugin)        | Simpler than PostCSS              |
+| Linting     | ESLint v9 flat config            | Current standard                  |
+| TypeScript  | 5.7.x strict mode                | Type safety                       |
+| Backend     | Rust 1.75+ with Tauri            | Constitution                      |
+| Database    | tokio-postgres 0.7.x             | Constitution                      |
+| Pooling     | deadpool-postgres 0.14.x         | Constitution                      |
+| Storage     | rusqlite 0.32.x                  | Constitution                      |
+| Credentials | keyring 3.6.x                    | Constitution (OS keychain)        |
+| SSH         | russh 0.54.x                     | Constitution                      |
 
 All NEEDS CLARIFICATION items resolved. Ready for Phase 1 design.

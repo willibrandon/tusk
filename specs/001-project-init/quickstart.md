@@ -38,17 +38,17 @@ npm run tauri dev
 
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run tauri dev` | Start app with hot reload |
-| `npm run tauri build` | Build production binary |
-| `npm run dev` | Start Vite dev server only |
-| `npm run build` | Build frontend only |
-| `npm run check` | TypeScript type checking |
-| `npm run lint` | ESLint code linting |
-| `npm run lint:fix` | ESLint with auto-fix |
-| `npm run format` | Prettier formatting |
-| `npm test` | Run Vitest unit tests |
+| Command               | Description                |
+| --------------------- | -------------------------- |
+| `npm run tauri dev`   | Start app with hot reload  |
+| `npm run tauri build` | Build production binary    |
+| `npm run dev`         | Start Vite dev server only |
+| `npm run build`       | Build frontend only        |
+| `npm run check`       | TypeScript type checking   |
+| `npm run lint`        | ESLint code linting        |
+| `npm run lint:fix`    | ESLint with auto-fix       |
+| `npm run format`      | Prettier formatting        |
+| `npm test`            | Run Vitest unit tests      |
 
 ---
 
@@ -105,12 +105,14 @@ After setup, verify everything works:
 ## Common Issues
 
 ### Port 5173 in use
+
 ```bash
 # Kill process on port
 lsof -ti:5173 | xargs kill -9
 ```
 
 ### Rust dependencies fail to compile
+
 ```bash
 # Update Rust toolchain
 rustup update stable
@@ -120,6 +122,7 @@ cd src-tauri && cargo clean && cargo build
 ```
 
 ### WebKit not found (Linux)
+
 ```bash
 # Ubuntu/Debian
 sudo apt install libwebkit2gtk-4.1-dev
@@ -129,6 +132,7 @@ sudo dnf install webkit2gtk4.1-devel
 ```
 
 ### macOS code signing issues
+
 Development builds don't require signing. For distribution, configure signing in `tauri.conf.json`.
 
 ---

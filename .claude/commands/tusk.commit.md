@@ -17,11 +17,13 @@ You are creating a git commit for staged changes in the repository. Your job is 
 Follow this execution flow:
 
 1. Check git status to see what files are staged:
+
    ```bash
    git status
    ```
 
 2. Review the staged changes to understand what was modified:
+
    ```bash
    git diff --cached
    ```
@@ -51,6 +53,7 @@ Follow this execution flow:
 5. If user provided specific instructions in $ARGUMENTS, incorporate them into the commit message while following all rules above.
 
 6. Create the commit using:
+
    ```bash
    git commit -m "type(scope): message"
    ```
@@ -63,12 +66,14 @@ Follow this execution flow:
 ## Examples of Good vs Bad Commit Messages
 
 **GOOD:**
+
 - `feat(api): add user authentication endpoint`
 - `fix(parser): handle null values in JSON response`
 - `docs(readme): update installation steps for Windows`
 - `refactor(db): extract query logic into separate module`
 
 **BAD (avoid these patterns):**
+
 - `feat: implement comprehensive user authentication system` ❌ (uses "comprehensive")
 - `fix: enhance error handling for improved clarity` ❌ (uses "enhance" and "clarity")
 - `docs: update documentation to be more robust` ❌ (uses "robust")
@@ -78,12 +83,14 @@ Follow this execution flow:
 ## Commit Message Body (Optional)
 
 If changes require additional context, add a body after a blank line:
+
 - Explain WHY the change was necessary
 - Reference issue numbers if applicable
 - Note breaking changes with "BREAKING CHANGE:" prefix
 - Keep lines under 72 characters
 
 Format:
+
 ```
 type(scope): subject line
 
@@ -96,6 +103,7 @@ Fixes #123
 ## Validation Before Committing
 
 Before executing `git commit`, verify:
+
 - [ ] No AI-sounding words in message
 - [ ] No emojis
 - [ ] No Claude attribution or co-author lines
@@ -109,6 +117,7 @@ If any validation fails, revise the message and revalidate.
 ## Output to User
 
 After creating the commit, provide:
+
 - The commit hash and message
 - Files that were committed
 - Next suggested action (e.g., push changes, create PR, continue development)

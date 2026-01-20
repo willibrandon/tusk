@@ -16,59 +16,59 @@ Project initialization establishes the foundational structure but does not intro
 **Location**: `src-tauri/tauri.conf.json`
 **Purpose**: Application metadata, window settings, build configuration
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| productName | string | Yes | Display name: "Tusk" |
-| version | string | Yes | Semantic version: "0.1.0" |
-| identifier | string | Yes | Bundle ID: "com.tusk.app" |
-| build.devUrl | string | Yes | Dev server URL |
-| build.frontendDist | string | Yes | Production build path |
-| app.windows | Window[] | Yes | Window configurations |
-| bundle.targets | string[] | Yes | Build targets per platform |
+| Field              | Type     | Required | Description                |
+| ------------------ | -------- | -------- | -------------------------- |
+| productName        | string   | Yes      | Display name: "Tusk"       |
+| version            | string   | Yes      | Semantic version: "0.1.0"  |
+| identifier         | string   | Yes      | Bundle ID: "com.tusk.app"  |
+| build.devUrl       | string   | Yes      | Dev server URL             |
+| build.frontendDist | string   | Yes      | Production build path      |
+| app.windows        | Window[] | Yes      | Window configurations      |
+| bundle.targets     | string[] | Yes      | Build targets per platform |
 
 ### 2. WindowConfiguration
 
 **Location**: `src-tauri/tauri.conf.json` (nested in app.windows)
 **Purpose**: Main window properties
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| title | string | "Tusk" | Window title |
-| width | number | 1400 | Initial width in pixels |
-| height | number | 900 | Initial height in pixels |
-| minWidth | number | 800 | Minimum width constraint |
-| minHeight | number | 600 | Minimum height constraint |
-| resizable | boolean | true | Allow window resize |
-| center | boolean | true | Center on screen at launch |
-| decorations | boolean | true | Show window chrome |
+| Field       | Type    | Default | Description                |
+| ----------- | ------- | ------- | -------------------------- |
+| title       | string  | "Tusk"  | Window title               |
+| width       | number  | 1400    | Initial width in pixels    |
+| height      | number  | 900     | Initial height in pixels   |
+| minWidth    | number  | 800     | Minimum width constraint   |
+| minHeight   | number  | 600     | Minimum height constraint  |
+| resizable   | boolean | true    | Allow window resize        |
+| center      | boolean | true    | Center on screen at launch |
+| decorations | boolean | true    | Show window chrome         |
 
 ### 3. CargoConfiguration
 
 **Location**: `src-tauri/Cargo.toml`
 **Purpose**: Rust dependencies and build settings
 
-| Field | Type | Description |
-|-------|------|-------------|
-| package.name | string | Crate name: "tusk" |
-| package.version | string | Must match tauri.conf.json |
-| lib.name | string | Library name: "tusk_lib" |
-| lib.crate-type | string[] | ["staticlib", "cdylib", "rlib"] |
-| dependencies | Dependency[] | All Rust dependencies |
-| profile.release | Profile | Release build optimizations |
+| Field           | Type         | Description                     |
+| --------------- | ------------ | ------------------------------- |
+| package.name    | string       | Crate name: "tusk"              |
+| package.version | string       | Must match tauri.conf.json      |
+| lib.name        | string       | Library name: "tusk_lib"        |
+| lib.crate-type  | string[]     | ["staticlib", "cdylib", "rlib"] |
+| dependencies    | Dependency[] | All Rust dependencies           |
+| profile.release | Profile      | Release build optimizations     |
 
 ### 4. PackageConfiguration
 
 **Location**: `package.json`
 **Purpose**: Node.js dependencies and scripts
 
-| Field | Type | Description |
-|-------|------|-------------|
-| name | string | Package name: "tusk" |
-| version | string | Must match tauri.conf.json |
-| type | string | "module" for ESM |
-| scripts | Scripts | NPM script commands |
-| dependencies | Dependencies | Runtime dependencies |
-| devDependencies | Dependencies | Build-time dependencies |
+| Field           | Type         | Description                |
+| --------------- | ------------ | -------------------------- |
+| name            | string       | Package name: "tusk"       |
+| version         | string       | Must match tauri.conf.json |
+| type            | string       | "module" for ESM           |
+| scripts         | Scripts      | NPM script commands        |
+| dependencies    | Dependencies | Runtime dependencies       |
+| devDependencies | Dependencies | Build-time dependencies    |
 
 ---
 
@@ -93,10 +93,10 @@ pub struct AppState {
 **Location**: `src/lib/stores/theme.ts` (Svelte store)
 **Purpose**: Dark/light mode toggle state
 
-| Field | Type | Description |
-|-------|------|-------------|
-| mode | "light" \| "dark" | Current theme mode |
-| preferSystem | boolean | Follow OS preference |
+| Field        | Type              | Description          |
+| ------------ | ----------------- | -------------------- |
+| mode         | "light" \| "dark" | Current theme mode   |
+| preferSystem | boolean           | Follow OS preference |
 
 ---
 
@@ -126,16 +126,19 @@ ThemeState
 ## Validation Rules
 
 ### Version Synchronization
+
 - `tauri.conf.json` version MUST equal `package.json` version
 - `Cargo.toml` version MUST equal `tauri.conf.json` version
 
 ### Window Constraints
+
 - width >= minWidth (enforced by Tauri runtime)
 - height >= minHeight (enforced by Tauri runtime)
 - minWidth >= 400 (usability minimum)
 - minHeight >= 300 (usability minimum)
 
 ### Build Targets
+
 - macOS: dmg, app
 - Windows: msi, exe
 - Linux: deb, rpm, appimage

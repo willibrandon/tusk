@@ -678,245 +678,249 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { writeFile } from '@tauri-apps/plugin-fs';
 import type { ColumnMeta, Value } from './query';
 
-export type ExportFormat = 'csv' | 'tsv' | 'json' | 'jsonLines' | 'sql' | 'sqlCopy' | 'markdown' | 'excel';
+export type ExportFormat =
+	| 'csv'
+	| 'tsv'
+	| 'json'
+	| 'jsonLines'
+	| 'sql'
+	| 'sqlCopy'
+	| 'markdown'
+	| 'excel';
 
 export interface ExportOptions {
-  format: ExportFormat;
-  include_headers: boolean;
-  null_string: string;
-  csv_options?: CsvOptions;
-  json_options?: JsonOptions;
-  sql_options?: SqlOptions;
+	format: ExportFormat;
+	include_headers: boolean;
+	null_string: string;
+	csv_options?: CsvOptions;
+	json_options?: JsonOptions;
+	sql_options?: SqlOptions;
 }
 
 export interface CsvOptions {
-  delimiter: string;
-  quote_char: string;
-  escape_char?: string;
-  line_terminator: string;
+	delimiter: string;
+	quote_char: string;
+	escape_char?: string;
+	line_terminator: string;
 }
 
 export interface JsonOptions {
-  array_format: boolean;
-  pretty_print: boolean;
+	array_format: boolean;
+	pretty_print: boolean;
 }
 
 export interface SqlOptions {
-  table_name: string;
-  schema_name?: string;
-  batch_size: number;
-  include_column_names: boolean;
-  on_conflict?: OnConflictOption;
+	table_name: string;
+	schema_name?: string;
+	batch_size: number;
+	include_column_names: boolean;
+	on_conflict?: OnConflictOption;
 }
 
-export type OnConflictOption =
-  | { type: 'do_nothing' }
-  | { type: 'do_update'; columns: string[] };
+export type OnConflictOption = { type: 'do_nothing' } | { type: 'do_update'; columns: string[] };
 
 const defaultOptions: Record<ExportFormat, Partial<ExportOptions>> = {
-  csv: {
-    include_headers: true,
-    csv_options: {
-      delimiter: ',',
-      quote_char: '"',
-      line_terminator: '\n',
-    },
-  },
-  tsv: {
-    include_headers: true,
-    csv_options: {
-      delimiter: '\t',
-      quote_char: '"',
-      line_terminator: '\n',
-    },
-  },
-  json: {
-    json_options: {
-      array_format: true,
-      pretty_print: true,
-    },
-  },
-  jsonLines: {
-    json_options: {
-      array_format: true,
-      pretty_print: false,
-    },
-  },
-  sql: {
-    sql_options: {
-      table_name: 'table_name',
-      batch_size: 1000,
-      include_column_names: true,
-    },
-  },
-  sqlCopy: {
-    null_string: '\\N',
-    sql_options: {
-      table_name: 'table_name',
-      batch_size: 1000,
-      include_column_names: true,
-    },
-  },
-  markdown: {
-    include_headers: true,
-  },
-  excel: {
-    include_headers: true,
-  },
+	csv: {
+		include_headers: true,
+		csv_options: {
+			delimiter: ',',
+			quote_char: '"',
+			line_terminator: '\n'
+		}
+	},
+	tsv: {
+		include_headers: true,
+		csv_options: {
+			delimiter: '\t',
+			quote_char: '"',
+			line_terminator: '\n'
+		}
+	},
+	json: {
+		json_options: {
+			array_format: true,
+			pretty_print: true
+		}
+	},
+	jsonLines: {
+		json_options: {
+			array_format: true,
+			pretty_print: false
+		}
+	},
+	sql: {
+		sql_options: {
+			table_name: 'table_name',
+			batch_size: 1000,
+			include_column_names: true
+		}
+	},
+	sqlCopy: {
+		null_string: '\\N',
+		sql_options: {
+			table_name: 'table_name',
+			batch_size: 1000,
+			include_column_names: true
+		}
+	},
+	markdown: {
+		include_headers: true
+	},
+	excel: {
+		include_headers: true
+	}
 };
 
 const formatExtensions: Record<ExportFormat, string> = {
-  csv: 'csv',
-  tsv: 'tsv',
-  json: 'json',
-  jsonLines: 'jsonl',
-  sql: 'sql',
-  sqlCopy: 'sql',
-  markdown: 'md',
-  excel: 'xlsx',
+	csv: 'csv',
+	tsv: 'tsv',
+	json: 'json',
+	jsonLines: 'jsonl',
+	sql: 'sql',
+	sqlCopy: 'sql',
+	markdown: 'md',
+	excel: 'xlsx'
 };
 
 const formatFilters: Record<ExportFormat, { name: string; extensions: string[] }> = {
-  csv: { name: 'CSV Files', extensions: ['csv'] },
-  tsv: { name: 'TSV Files', extensions: ['tsv', 'txt'] },
-  json: { name: 'JSON Files', extensions: ['json'] },
-  jsonLines: { name: 'JSON Lines Files', extensions: ['jsonl', 'json'] },
-  sql: { name: 'SQL Files', extensions: ['sql'] },
-  sqlCopy: { name: 'SQL Files', extensions: ['sql'] },
-  markdown: { name: 'Markdown Files', extensions: ['md', 'markdown'] },
-  excel: { name: 'Excel Files', extensions: ['xlsx'] },
+	csv: { name: 'CSV Files', extensions: ['csv'] },
+	tsv: { name: 'TSV Files', extensions: ['tsv', 'txt'] },
+	json: { name: 'JSON Files', extensions: ['json'] },
+	jsonLines: { name: 'JSON Lines Files', extensions: ['jsonl', 'json'] },
+	sql: { name: 'SQL Files', extensions: ['sql'] },
+	sqlCopy: { name: 'SQL Files', extensions: ['sql'] },
+	markdown: { name: 'Markdown Files', extensions: ['md', 'markdown'] },
+	excel: { name: 'Excel Files', extensions: ['xlsx'] }
 };
 
 class ExportService {
-  async exportToFile(
-    columns: ColumnMeta[],
-    rows: Value[][],
-    format: ExportFormat,
-    options?: Partial<ExportOptions>
-  ): Promise<boolean> {
-    const mergedOptions: ExportOptions = {
-      format,
-      include_headers: true,
-      null_string: '',
-      ...defaultOptions[format],
-      ...options,
-    };
+	async exportToFile(
+		columns: ColumnMeta[],
+		rows: Value[][],
+		format: ExportFormat,
+		options?: Partial<ExportOptions>
+	): Promise<boolean> {
+		const mergedOptions: ExportOptions = {
+			format,
+			include_headers: true,
+			null_string: '',
+			...defaultOptions[format],
+			...options
+		};
 
-    // Show save dialog
-    const defaultName = `export.${formatExtensions[format]}`;
-    const filter = formatFilters[format];
+		// Show save dialog
+		const defaultName = `export.${formatExtensions[format]}`;
+		const filter = formatFilters[format];
 
-    const path = await save({
-      defaultPath: defaultName,
-      filters: [filter],
-    });
+		const path = await save({
+			defaultPath: defaultName,
+			filters: [filter]
+		});
 
-    if (!path) return false;
+		if (!path) return false;
 
-    // Export to file
-    await invoke('export_to_file', {
-      columns,
-      rows,
-      path,
-      options: mergedOptions,
-    });
+		// Export to file
+		await invoke('export_to_file', {
+			columns,
+			rows,
+			path,
+			options: mergedOptions
+		});
 
-    return true;
-  }
+		return true;
+	}
 
-  async exportToClipboard(
-    columns: ColumnMeta[],
-    rows: Value[][],
-    format: ExportFormat,
-    options?: Partial<ExportOptions>
-  ): Promise<void> {
-    const mergedOptions: ExportOptions = {
-      format,
-      include_headers: true,
-      null_string: '',
-      ...defaultOptions[format],
-      ...options,
-    };
+	async exportToClipboard(
+		columns: ColumnMeta[],
+		rows: Value[][],
+		format: ExportFormat,
+		options?: Partial<ExportOptions>
+	): Promise<void> {
+		const mergedOptions: ExportOptions = {
+			format,
+			include_headers: true,
+			null_string: '',
+			...defaultOptions[format],
+			...options
+		};
 
-    const text = await invoke<string>('export_to_clipboard', {
-      columns,
-      rows,
-      options: mergedOptions,
-    });
+		const text = await invoke<string>('export_to_clipboard', {
+			columns,
+			rows,
+			options: mergedOptions
+		});
 
-    await navigator.clipboard.writeText(text);
-  }
+		await navigator.clipboard.writeText(text);
+	}
 
-  async copyAsTsv(columns: ColumnMeta[], rows: Value[][]): Promise<void> {
-    return this.exportToClipboard(columns, rows, 'tsv', {
-      include_headers: false,
-    });
-  }
+	async copyAsTsv(columns: ColumnMeta[], rows: Value[][]): Promise<void> {
+		return this.exportToClipboard(columns, rows, 'tsv', {
+			include_headers: false
+		});
+	}
 
-  async copyAsCsv(columns: ColumnMeta[], rows: Value[][]): Promise<void> {
-    return this.exportToClipboard(columns, rows, 'csv', {
-      include_headers: false,
-    });
-  }
+	async copyAsCsv(columns: ColumnMeta[], rows: Value[][]): Promise<void> {
+		return this.exportToClipboard(columns, rows, 'csv', {
+			include_headers: false
+		});
+	}
 
-  async copyAsJson(columns: ColumnMeta[], rows: Value[][]): Promise<void> {
-    return this.exportToClipboard(columns, rows, 'json');
-  }
+	async copyAsJson(columns: ColumnMeta[], rows: Value[][]): Promise<void> {
+		return this.exportToClipboard(columns, rows, 'json');
+	}
 
-  async copyAsInsert(
-    columns: ColumnMeta[],
-    rows: Value[][],
-    tableName: string,
-    schemaName?: string
-  ): Promise<void> {
-    return this.exportToClipboard(columns, rows, 'sql', {
-      sql_options: {
-        table_name: tableName,
-        schema_name: schemaName,
-        batch_size: 1000,
-        include_column_names: true,
-      },
-    });
-  }
+	async copyAsInsert(
+		columns: ColumnMeta[],
+		rows: Value[][],
+		tableName: string,
+		schemaName?: string
+	): Promise<void> {
+		return this.exportToClipboard(columns, rows, 'sql', {
+			sql_options: {
+				table_name: tableName,
+				schema_name: schemaName,
+				batch_size: 1000,
+				include_column_names: true
+			}
+		});
+	}
 
-  async copyAsUpdate(
-    columns: ColumnMeta[],
-    row: Value[],
-    tableName: string,
-    primaryKeyColumn: string,
-    schemaName?: string
-  ): Promise<void> {
-    // Generate UPDATE statement for single row
-    const pkIndex = columns.findIndex(c => c.name === primaryKeyColumn);
-    if (pkIndex === -1) throw new Error('Primary key column not found');
+	async copyAsUpdate(
+		columns: ColumnMeta[],
+		row: Value[],
+		tableName: string,
+		primaryKeyColumn: string,
+		schemaName?: string
+	): Promise<void> {
+		// Generate UPDATE statement for single row
+		const pkIndex = columns.findIndex((c) => c.name === primaryKeyColumn);
+		if (pkIndex === -1) throw new Error('Primary key column not found');
 
-    const pkValue = this.formatSqlValue(row[pkIndex], columns[pkIndex].type_name);
-    const setClause = columns
-      .filter((_, i) => i !== pkIndex)
-      .map((col, i) => {
-        const actualIndex = i < pkIndex ? i : i + 1;
-        return `"${col.name}" = ${this.formatSqlValue(row[actualIndex], col.type_name)}`;
-      })
-      .join(', ');
+		const pkValue = this.formatSqlValue(row[pkIndex], columns[pkIndex].type_name);
+		const setClause = columns
+			.filter((_, i) => i !== pkIndex)
+			.map((col, i) => {
+				const actualIndex = i < pkIndex ? i : i + 1;
+				return `"${col.name}" = ${this.formatSqlValue(row[actualIndex], col.type_name)}`;
+			})
+			.join(', ');
 
-    const tableRef = schemaName
-      ? `"${schemaName}"."${tableName}"`
-      : `"${tableName}"`;
+		const tableRef = schemaName ? `"${schemaName}"."${tableName}"` : `"${tableName}"`;
 
-    const sql = `UPDATE ${tableRef}\nSET ${setClause}\nWHERE "${primaryKeyColumn}" = ${pkValue};`;
+		const sql = `UPDATE ${tableRef}\nSET ${setClause}\nWHERE "${primaryKeyColumn}" = ${pkValue};`;
 
-    await navigator.clipboard.writeText(sql);
-  }
+		await navigator.clipboard.writeText(sql);
+	}
 
-  private formatSqlValue(value: Value, typeName: string): string {
-    if (value === null) return 'NULL';
-    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-    if (typeof value === 'number') return value.toString();
-    if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-    if (typeof value === 'object' && 'hex' in value) return `'\\x${value.hex}'`;
-    if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
-    return `'${String(value).replace(/'/g, "''")}'`;
-  }
+	private formatSqlValue(value: Value, typeName: string): string {
+		if (value === null) return 'NULL';
+		if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+		if (typeof value === 'number') return value.toString();
+		if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+		if (typeof value === 'object' && 'hex' in value) return `'\\x${value.hex}'`;
+		if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+		return `'${String(value).replace(/'/g, "''")}'`;
+	}
 }
 
 export const exportService = new ExportService();
@@ -927,428 +931,423 @@ export const exportService = new ExportService();
 ```svelte
 <!-- src/lib/components/dialogs/ExportDialog.svelte -->
 <script lang="ts">
-  import { X, Download } from 'lucide-svelte';
-  import { exportService, type ExportFormat, type ExportOptions } from '$lib/services/export';
-  import type { ColumnMeta, Value } from '$lib/services/query';
+	import { X, Download } from 'lucide-svelte';
+	import { exportService, type ExportFormat, type ExportOptions } from '$lib/services/export';
+	import type { ColumnMeta, Value } from '$lib/services/query';
 
-  interface Props {
-    columns: ColumnMeta[];
-    rows: Value[][];
-    tableName?: string;
-    schemaName?: string;
-    onClose: () => void;
-  }
+	interface Props {
+		columns: ColumnMeta[];
+		rows: Value[][];
+		tableName?: string;
+		schemaName?: string;
+		onClose: () => void;
+	}
 
-  let { columns, rows, tableName = 'data', schemaName, onClose }: Props = $props();
+	let { columns, rows, tableName = 'data', schemaName, onClose }: Props = $props();
 
-  let format = $state<ExportFormat>('csv');
-  let includeHeaders = $state(true);
-  let nullString = $state('');
+	let format = $state<ExportFormat>('csv');
+	let includeHeaders = $state(true);
+	let nullString = $state('');
 
-  // CSV options
-  let delimiter = $state(',');
-  let quoteChar = $state('"');
+	// CSV options
+	let delimiter = $state(',');
+	let quoteChar = $state('"');
 
-  // JSON options
-  let jsonArrayFormat = $state(true);
-  let jsonPrettyPrint = $state(true);
+	// JSON options
+	let jsonArrayFormat = $state(true);
+	let jsonPrettyPrint = $state(true);
 
-  // SQL options
-  let sqlTableName = $state(tableName);
-  let sqlSchemaName = $state(schemaName ?? '');
-  let sqlBatchSize = $state(1000);
-  let sqlOnConflict = $state<'none' | 'doNothing' | 'doUpdate'>('none');
+	// SQL options
+	let sqlTableName = $state(tableName);
+	let sqlSchemaName = $state(schemaName ?? '');
+	let sqlBatchSize = $state(1000);
+	let sqlOnConflict = $state<'none' | 'doNothing' | 'doUpdate'>('none');
 
-  let isExporting = $state(false);
+	let isExporting = $state(false);
 
-  const formatOptions: { value: ExportFormat; label: string; description: string }[] = [
-    { value: 'csv', label: 'CSV', description: 'Comma-separated values' },
-    { value: 'tsv', label: 'TSV', description: 'Tab-separated values' },
-    { value: 'json', label: 'JSON', description: 'JSON array' },
-    { value: 'jsonLines', label: 'JSON Lines', description: 'Newline-delimited JSON' },
-    { value: 'sql', label: 'SQL INSERT', description: 'INSERT statements' },
-    { value: 'sqlCopy', label: 'SQL COPY', description: 'PostgreSQL COPY format' },
-    { value: 'markdown', label: 'Markdown', description: 'Markdown table' },
-    { value: 'excel', label: 'Excel', description: 'XLSX spreadsheet' },
-  ];
+	const formatOptions: { value: ExportFormat; label: string; description: string }[] = [
+		{ value: 'csv', label: 'CSV', description: 'Comma-separated values' },
+		{ value: 'tsv', label: 'TSV', description: 'Tab-separated values' },
+		{ value: 'json', label: 'JSON', description: 'JSON array' },
+		{ value: 'jsonLines', label: 'JSON Lines', description: 'Newline-delimited JSON' },
+		{ value: 'sql', label: 'SQL INSERT', description: 'INSERT statements' },
+		{ value: 'sqlCopy', label: 'SQL COPY', description: 'PostgreSQL COPY format' },
+		{ value: 'markdown', label: 'Markdown', description: 'Markdown table' },
+		{ value: 'excel', label: 'Excel', description: 'XLSX spreadsheet' }
+	];
 
-  async function handleExport() {
-    isExporting = true;
+	async function handleExport() {
+		isExporting = true;
 
-    try {
-      const options: Partial<ExportOptions> = {
-        include_headers: includeHeaders,
-        null_string: nullString,
-      };
+		try {
+			const options: Partial<ExportOptions> = {
+				include_headers: includeHeaders,
+				null_string: nullString
+			};
 
-      if (format === 'csv' || format === 'tsv') {
-        options.csv_options = {
-          delimiter: format === 'tsv' ? '\t' : delimiter,
-          quote_char: quoteChar,
-          line_terminator: '\n',
-        };
-      }
+			if (format === 'csv' || format === 'tsv') {
+				options.csv_options = {
+					delimiter: format === 'tsv' ? '\t' : delimiter,
+					quote_char: quoteChar,
+					line_terminator: '\n'
+				};
+			}
 
-      if (format === 'json' || format === 'jsonLines') {
-        options.json_options = {
-          array_format: jsonArrayFormat,
-          pretty_print: jsonPrettyPrint,
-        };
-      }
+			if (format === 'json' || format === 'jsonLines') {
+				options.json_options = {
+					array_format: jsonArrayFormat,
+					pretty_print: jsonPrettyPrint
+				};
+			}
 
-      if (format === 'sql' || format === 'sqlCopy') {
-        options.sql_options = {
-          table_name: sqlTableName,
-          schema_name: sqlSchemaName || undefined,
-          batch_size: sqlBatchSize,
-          include_column_names: true,
-          on_conflict: sqlOnConflict === 'doNothing'
-            ? { type: 'do_nothing' }
-            : sqlOnConflict === 'doUpdate'
-            ? { type: 'do_update', columns: columns.map(c => c.name) }
-            : undefined,
-        };
-      }
+			if (format === 'sql' || format === 'sqlCopy') {
+				options.sql_options = {
+					table_name: sqlTableName,
+					schema_name: sqlSchemaName || undefined,
+					batch_size: sqlBatchSize,
+					include_column_names: true,
+					on_conflict:
+						sqlOnConflict === 'doNothing'
+							? { type: 'do_nothing' }
+							: sqlOnConflict === 'doUpdate'
+								? { type: 'do_update', columns: columns.map((c) => c.name) }
+								: undefined
+				};
+			}
 
-      const success = await exportService.exportToFile(columns, rows, format, options);
+			const success = await exportService.exportToFile(columns, rows, format, options);
 
-      if (success) {
-        onClose();
-      }
-    } finally {
-      isExporting = false;
-    }
-  }
+			if (success) {
+				onClose();
+			}
+		} finally {
+			isExporting = false;
+		}
+	}
 </script>
 
 <div class="dialog-overlay" onclick={onClose}>
-  <div class="dialog" onclick={(e) => e.stopPropagation()}>
-    <div class="dialog-header">
-      <h2>Export Results</h2>
-      <button class="close-btn" onclick={onClose}>
-        <X size={20} />
-      </button>
-    </div>
+	<div class="dialog" onclick={(e) => e.stopPropagation()}>
+		<div class="dialog-header">
+			<h2>Export Results</h2>
+			<button class="close-btn" onclick={onClose}>
+				<X size={20} />
+			</button>
+		</div>
 
-    <div class="dialog-body">
-      <div class="form-group">
-        <label>Format</label>
-        <div class="format-grid">
-          {#each formatOptions as opt}
-            <button
-              class="format-option"
-              class:selected={format === opt.value}
-              onclick={() => format = opt.value}
-            >
-              <span class="format-label">{opt.label}</span>
-              <span class="format-desc">{opt.description}</span>
-            </button>
-          {/each}
-        </div>
-      </div>
+		<div class="dialog-body">
+			<div class="form-group">
+				<label>Format</label>
+				<div class="format-grid">
+					{#each formatOptions as opt}
+						<button
+							class="format-option"
+							class:selected={format === opt.value}
+							onclick={() => (format = opt.value)}
+						>
+							<span class="format-label">{opt.label}</span>
+							<span class="format-desc">{opt.description}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
 
-      <div class="options-section">
-        <h3>Options</h3>
+			<div class="options-section">
+				<h3>Options</h3>
 
-        <label class="checkbox-label">
-          <input type="checkbox" bind:checked={includeHeaders} />
-          Include column headers
-        </label>
+				<label class="checkbox-label">
+					<input type="checkbox" bind:checked={includeHeaders} />
+					Include column headers
+				</label>
 
-        <div class="form-row">
-          <label>NULL string</label>
-          <input type="text" bind:value={nullString} placeholder="Empty string" />
-        </div>
+				<div class="form-row">
+					<label>NULL string</label>
+					<input type="text" bind:value={nullString} placeholder="Empty string" />
+				</div>
 
-        {#if format === 'csv'}
-          <div class="form-row">
-            <label>Delimiter</label>
-            <select bind:value={delimiter}>
-              <option value=",">Comma (,)</option>
-              <option value=";">Semicolon (;)</option>
-              <option value="|">Pipe (|)</option>
-            </select>
-          </div>
+				{#if format === 'csv'}
+					<div class="form-row">
+						<label>Delimiter</label>
+						<select bind:value={delimiter}>
+							<option value=",">Comma (,)</option>
+							<option value=";">Semicolon (;)</option>
+							<option value="|">Pipe (|)</option>
+						</select>
+					</div>
 
-          <div class="form-row">
-            <label>Quote character</label>
-            <select bind:value={quoteChar}>
-              <option value='"'>Double quote (")</option>
-              <option value="'">Single quote (')</option>
-            </select>
-          </div>
-        {/if}
+					<div class="form-row">
+						<label>Quote character</label>
+						<select bind:value={quoteChar}>
+							<option value=""">Double quote (")</option>
+							<option value="'">Single quote (')</option>
+						</select>
+					</div>
+				{/if}
 
-        {#if format === 'json' || format === 'jsonLines'}
-          <label class="checkbox-label">
-            <input type="checkbox" bind:checked={jsonArrayFormat} />
-            Array of objects (vs array of arrays)
-          </label>
+				{#if format === 'json' || format === 'jsonLines'}
+					<label class="checkbox-label">
+						<input type="checkbox" bind:checked={jsonArrayFormat} />
+						Array of objects (vs array of arrays)
+					</label>
 
-          {#if format === 'json'}
-            <label class="checkbox-label">
-              <input type="checkbox" bind:checked={jsonPrettyPrint} />
-              Pretty print
-            </label>
-          {/if}
-        {/if}
+					{#if format === 'json'}
+						<label class="checkbox-label">
+							<input type="checkbox" bind:checked={jsonPrettyPrint} />
+							Pretty print
+						</label>
+					{/if}
+				{/if}
 
-        {#if format === 'sql' || format === 'sqlCopy'}
-          <div class="form-row">
-            <label>Schema name</label>
-            <input type="text" bind:value={sqlSchemaName} placeholder="Optional" />
-          </div>
+				{#if format === 'sql' || format === 'sqlCopy'}
+					<div class="form-row">
+						<label>Schema name</label>
+						<input type="text" bind:value={sqlSchemaName} placeholder="Optional" />
+					</div>
 
-          <div class="form-row">
-            <label>Table name</label>
-            <input type="text" bind:value={sqlTableName} />
-          </div>
+					<div class="form-row">
+						<label>Table name</label>
+						<input type="text" bind:value={sqlTableName} />
+					</div>
 
-          {#if format === 'sql'}
-            <div class="form-row">
-              <label>Batch size</label>
-              <input type="number" bind:value={sqlBatchSize} min="1" max="10000" />
-            </div>
+					{#if format === 'sql'}
+						<div class="form-row">
+							<label>Batch size</label>
+							<input type="number" bind:value={sqlBatchSize} min="1" max="10000" />
+						</div>
 
-            <div class="form-row">
-              <label>ON CONFLICT</label>
-              <select bind:value={sqlOnConflict}>
-                <option value="none">None</option>
-                <option value="doNothing">DO NOTHING</option>
-                <option value="doUpdate">DO UPDATE</option>
-              </select>
-            </div>
-          {/if}
-        {/if}
-      </div>
+						<div class="form-row">
+							<label>ON CONFLICT</label>
+							<select bind:value={sqlOnConflict}>
+								<option value="none">None</option>
+								<option value="doNothing">DO NOTHING</option>
+								<option value="doUpdate">DO UPDATE</option>
+							</select>
+						</div>
+					{/if}
+				{/if}
+			</div>
 
-      <div class="export-summary">
-        <span>{rows.length.toLocaleString()} rows</span>
-        <span>•</span>
-        <span>{columns.length} columns</span>
-      </div>
-    </div>
+			<div class="export-summary">
+				<span>{rows.length.toLocaleString()} rows</span>
+				<span>•</span>
+				<span>{columns.length} columns</span>
+			</div>
+		</div>
 
-    <div class="dialog-footer">
-      <button class="btn btn-secondary" onclick={onClose}>
-        Cancel
-      </button>
-      <button
-        class="btn btn-primary"
-        onclick={handleExport}
-        disabled={isExporting}
-      >
-        <Download size={16} />
-        {isExporting ? 'Exporting...' : 'Export'}
-      </button>
-    </div>
-  </div>
+		<div class="dialog-footer">
+			<button class="btn btn-secondary" onclick={onClose}> Cancel </button>
+			<button class="btn btn-primary" onclick={handleExport} disabled={isExporting}>
+				<Download size={16} />
+				{isExporting ? 'Exporting...' : 'Export'}
+			</button>
+		</div>
+	</div>
 </div>
 
 <style>
-  .dialog-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-  }
+	.dialog-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 100;
+	}
 
-  .dialog {
-    background: var(--surface-color);
-    border-radius: 0.5rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    width: 500px;
-    max-height: 90vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
+	.dialog {
+		background: var(--surface-color);
+		border-radius: 0.5rem;
+		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+		width: 500px;
+		max-height: 90vh;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
 
-  .dialog-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-    border-bottom: 1px solid var(--border-color);
-  }
+	.dialog-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem;
+		border-bottom: 1px solid var(--border-color);
+	}
 
-  .dialog-header h2 {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-  }
+	.dialog-header h2 {
+		margin: 0;
+		font-size: 1.125rem;
+		font-weight: 600;
+	}
 
-  .close-btn {
-    display: flex;
-    padding: 0.25rem;
-    border: none;
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-radius: 0.25rem;
-  }
+	.close-btn {
+		display: flex;
+		padding: 0.25rem;
+		border: none;
+		background: none;
+		color: var(--text-muted);
+		cursor: pointer;
+		border-radius: 0.25rem;
+	}
 
-  .close-btn:hover {
-    background: var(--hover-color);
-  }
+	.close-btn:hover {
+		background: var(--hover-color);
+	}
 
-  .dialog-body {
-    padding: 1rem;
-    overflow-y: auto;
-  }
+	.dialog-body {
+		padding: 1rem;
+		overflow-y: auto;
+	}
 
-  .form-group {
-    margin-bottom: 1rem;
-  }
+	.form-group {
+		margin-bottom: 1rem;
+	}
 
-  .form-group > label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-  }
+	.form-group > label {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-weight: 500;
+		font-size: 0.875rem;
+	}
 
-  .format-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem;
-  }
+	.format-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.5rem;
+	}
 
-  .format-option {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.75rem 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.375rem;
-    background: none;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
+	.format-option {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		padding: 0.75rem 0.5rem;
+		border: 1px solid var(--border-color);
+		border-radius: 0.375rem;
+		background: none;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
 
-  .format-option:hover {
-    border-color: var(--primary-color);
-  }
+	.format-option:hover {
+		border-color: var(--primary-color);
+	}
 
-  .format-option.selected {
-    border-color: var(--primary-color);
-    background: var(--primary-color);
-    color: white;
-  }
+	.format-option.selected {
+		border-color: var(--primary-color);
+		background: var(--primary-color);
+		color: white;
+	}
 
-  .format-label {
-    font-weight: 500;
-    font-size: 0.875rem;
-  }
+	.format-label {
+		font-weight: 500;
+		font-size: 0.875rem;
+	}
 
-  .format-desc {
-    font-size: 0.625rem;
-    color: var(--text-muted);
-    margin-top: 0.125rem;
-  }
+	.format-desc {
+		font-size: 0.625rem;
+		color: var(--text-muted);
+		margin-top: 0.125rem;
+	}
 
-  .format-option.selected .format-desc {
-    color: rgba(255, 255, 255, 0.8);
-  }
+	.format-option.selected .format-desc {
+		color: rgba(255, 255, 255, 0.8);
+	}
 
-  .options-section {
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
-  }
+	.options-section {
+		padding-top: 1rem;
+		border-top: 1px solid var(--border-color);
+	}
 
-  .options-section h3 {
-    font-size: 0.875rem;
-    font-weight: 500;
-    margin: 0 0 0.75rem 0;
-  }
+	.options-section h3 {
+		font-size: 0.875rem;
+		font-weight: 500;
+		margin: 0 0 0.75rem 0;
+	}
 
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-  }
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
 
-  .form-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
+	.form-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
 
-  .form-row label {
-    font-size: 0.875rem;
-    min-width: 100px;
-  }
+	.form-row label {
+		font-size: 0.875rem;
+		min-width: 100px;
+	}
 
-  .form-row input,
-  .form-row select {
-    flex: 1;
-    padding: 0.375rem 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
-  }
+	.form-row input,
+	.form-row select {
+		flex: 1;
+		padding: 0.375rem 0.5rem;
+		border: 1px solid var(--border-color);
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+	}
 
-  .export-summary {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding: 0.75rem;
-    background: var(--surface-secondary);
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    color: var(--text-muted);
-  }
+	.export-summary {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 1rem;
+		padding: 0.75rem;
+		background: var(--surface-secondary);
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		color: var(--text-muted);
+	}
 
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 1rem;
-    border-top: 1px solid var(--border-color);
-  }
+	.dialog-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.5rem;
+		padding: 1rem;
+		border-top: 1px solid var(--border-color);
+	}
 
-  .btn {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
+	.btn {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		padding: 0.5rem 1rem;
+		border: none;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.15s;
+	}
 
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+	.btn:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
 
-  .btn-secondary {
-    background: var(--surface-secondary);
-    color: var(--text-color);
-  }
+	.btn-secondary {
+		background: var(--surface-secondary);
+		color: var(--text-color);
+	}
 
-  .btn-secondary:hover:not(:disabled) {
-    background: var(--hover-color);
-  }
+	.btn-secondary:hover:not(:disabled) {
+		background: var(--hover-color);
+	}
 
-  .btn-primary {
-    background: var(--primary-color);
-    color: white;
-  }
+	.btn-primary {
+		background: var(--primary-color);
+		color: white;
+	}
 
-  .btn-primary:hover:not(:disabled) {
-    background: var(--primary-hover);
-  }
+	.btn-primary:hover:not(:disabled) {
+		background: var(--primary-hover);
+	}
 </style>
 ```
 
@@ -1395,18 +1394,18 @@ export const exportService = new ExportService();
 ```typescript
 // Execute query
 await mcp.ipc_execute_command({
-  command: 'execute_query',
-  args: { connId: connectionId, sql: 'SELECT * FROM users LIMIT 100' }
+	command: 'execute_query',
+	args: { connId: connectionId, sql: 'SELECT * FROM users LIMIT 100' }
 });
 
 // Test export to clipboard
 const csvData = await mcp.ipc_execute_command({
-  command: 'export_to_clipboard',
-  args: {
-    columns,
-    rows,
-    options: { format: 'csv', include_headers: true, null_string: '' }
-  }
+	command: 'export_to_clipboard',
+	args: {
+		columns,
+		rows,
+		options: { format: 'csv', include_headers: true, null_string: '' }
+	}
 });
 
 // Verify CSV format
@@ -1415,15 +1414,15 @@ assert(csvData.split('\n').length === 101); // header + 100 rows
 
 // Test SQL INSERT export
 const sqlData = await mcp.ipc_execute_command({
-  command: 'export_to_clipboard',
-  args: {
-    columns,
-    rows,
-    options: {
-      format: 'sql',
-      sql_options: { table_name: 'users', batch_size: 10 }
-    }
-  }
+	command: 'export_to_clipboard',
+	args: {
+		columns,
+		rows,
+		options: {
+			format: 'sql',
+			sql_options: { table_name: 'users', batch_size: 10 }
+		}
+	}
 });
 
 // Verify INSERT statements
@@ -1432,15 +1431,15 @@ assert((sqlData.match(/INSERT INTO/g) || []).length === 10); // 10 batches
 
 // Test JSON export
 const jsonData = await mcp.ipc_execute_command({
-  command: 'export_to_clipboard',
-  args: {
-    columns,
-    rows,
-    options: {
-      format: 'json',
-      json_options: { array_format: true, pretty_print: true }
-    }
-  }
+	command: 'export_to_clipboard',
+	args: {
+		columns,
+		rows,
+		options: {
+			format: 'json',
+			json_options: { array_format: true, pretty_print: true }
+		}
+	}
 });
 
 const parsed = JSON.parse(jsonData);

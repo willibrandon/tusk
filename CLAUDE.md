@@ -47,6 +47,7 @@ Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a c
 ## Technology Stack
 
 ### Frontend
+
 - **Framework:** Svelte 5 (compiled reactivity, minimal runtime)
 - **Editor:** Monaco Editor (SQL editing with autocomplete)
 - **Data Grid:** TanStack Table + custom virtualization
@@ -55,6 +56,7 @@ Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a c
 - **State:** Svelte stores + context
 
 ### Backend (Rust)
+
 - **Framework:** Tauri v2
 - **Postgres Driver:** tokio-postgres (async, streaming, COPY protocol)
 - **Connection Pooling:** deadpool-postgres
@@ -66,7 +68,9 @@ Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a c
 ## MCP Servers Available
 
 ### Playwright MCP
+
 Browser automation for testing web interfaces. Available tools:
+
 - `mcp__playwright__browser_navigate` - Navigate to URLs
 - `mcp__playwright__browser_snapshot` - Capture accessibility snapshots
 - `mcp__playwright__browser_click` - Click elements
@@ -79,7 +83,9 @@ Browser automation for testing web interfaces. Available tools:
 **Use for:** Testing the Svelte frontend in isolation, verifying UI components, accessibility testing.
 
 ### Tauri MCP Server
+
 Native Tauri app automation and testing. Available tools:
+
 - `mcp___hypothesi_tauri-mcp-server__driver_session` - Start/stop connection to running Tauri app
 - `mcp___hypothesi_tauri-mcp-server__webview_screenshot` - Screenshot the webview
 - `mcp___hypothesi_tauri-mcp-server__webview_dom_snapshot` - Get DOM/accessibility snapshot
@@ -159,14 +165,14 @@ tusk/
 
 ## Performance Targets
 
-| Metric | Target |
-|--------|--------|
-| Cold start | < 1 second |
-| Memory (idle) | < 100 MB |
-| Memory (1M rows) | < 500 MB |
-| Render 1000 rows | < 100ms |
-| Schema load (1000 tables) | < 500ms |
-| Autocomplete response | < 50ms |
+| Metric                    | Target     |
+| ------------------------- | ---------- |
+| Cold start                | < 1 second |
+| Memory (idle)             | < 100 MB   |
+| Memory (1M rows)          | < 500 MB   |
+| Render 1000 rows          | < 100ms    |
+| Schema load (1000 tables) | < 500ms    |
+| Autocomplete response     | < 50ms     |
 
 ## Development Commands
 
@@ -217,6 +223,7 @@ app.emit("query:complete", QueryComplete { query_id, total_rows, elapsed_ms })?;
 ## Error Handling
 
 All errors should include:
+
 - User-friendly message
 - Technical detail (for debugging)
 - Hint (actionable suggestion)
@@ -232,8 +239,10 @@ All errors should include:
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
 ## Active Technologies
+
 - TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend) (001-project-init)
 - N/A (project scaffolding only; SQLite for metadata in future features) (001-project-init)
 
 ## Recent Changes
+
 - 001-project-init: Added TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend)

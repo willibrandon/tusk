@@ -619,98 +619,95 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { ConnectionConfig, ConnectionStatus } from '$types/connection';
 
 export interface ConnectionStatusEvent {
-  connection_id: string;
-  status: ConnectionStatus;
-  error?: string;
+	connection_id: string;
+	status: ConnectionStatus;
+	error?: string;
 }
 
 export interface ConnectionInfo {
-  id: string;
-  server_version: string;
-  current_database: string;
-  current_user: string;
-  backend_pid: number;
+	id: string;
+	server_version: string;
+	current_database: string;
+	current_user: string;
+	backend_pid: number;
 }
 
 export interface TestConnectionResult {
-  success: boolean;
-  version: string;
-  started_at: string;
-  latency_ms: number;
+	success: boolean;
+	version: string;
+	started_at: string;
+	latency_ms: number;
 }
 
 export class ConnectionService {
-  private statusListeners: Map<string, ((status: ConnectionStatusEvent) => void)[]> = new Map();
-  private globalUnlisten: UnlistenFn | null = null;
+	private statusListeners: Map<string, ((status: ConnectionStatusEvent) => void)[]> = new Map();
+	private globalUnlisten: UnlistenFn | null = null;
 
-  async initialize() {
-    this.globalUnlisten = await listen<ConnectionStatusEvent>(
-      'connection:status',
-      (event) => {
-        const listeners = this.statusListeners.get(event.payload.connection_id);
-        if (listeners) {
-          listeners.forEach(cb => cb(event.payload));
-        }
+	async initialize() {
+		this.globalUnlisten = await listen<ConnectionStatusEvent>('connection:status', (event) => {
+			const listeners = this.statusListeners.get(event.payload.connection_id);
+			if (listeners) {
+				listeners.forEach((cb) => cb(event.payload));
+			}
 
-        // Also notify global listeners
-        const globalListeners = this.statusListeners.get('*');
-        if (globalListeners) {
-          globalListeners.forEach(cb => cb(event.payload));
-        }
-      }
-    );
-  }
+			// Also notify global listeners
+			const globalListeners = this.statusListeners.get('*');
+			if (globalListeners) {
+				globalListeners.forEach((cb) => cb(event.payload));
+			}
+		});
+	}
 
-  destroy() {
-    if (this.globalUnlisten) {
-      this.globalUnlisten();
-    }
-  }
+	destroy() {
+		if (this.globalUnlisten) {
+			this.globalUnlisten();
+		}
+	}
 
-  onStatusChange(
-    connectionId: string | '*',
-    callback: (status: ConnectionStatusEvent) => void
-  ): () => void {
-    const listeners = this.statusListeners.get(connectionId) || [];
-    listeners.push(callback);
-    this.statusListeners.set(connectionId, listeners);
+	onStatusChange(
+		connectionId: string | '*',
+		callback: (status: ConnectionStatusEvent) => void
+	): () => void {
+		const listeners = this.statusListeners.get(connectionId) || [];
+		listeners.push(callback);
+		this.statusListeners.set(connectionId, listeners);
 
-    return () => {
-      const current = this.statusListeners.get(connectionId) || [];
-      this.statusListeners.set(
-        connectionId,
-        current.filter(cb => cb !== callback)
-      );
-    };
-  }
+		return () => {
+			const current = this.statusListeners.get(connectionId) || [];
+			this.statusListeners.set(
+				connectionId,
+				current.filter((cb) => cb !== callback)
+			);
+		};
+	}
 
-  async connect(config: ConnectionConfig): Promise<ConnectionInfo> {
-    return connectionCommands.connect(config);
-  }
+	async connect(config: ConnectionConfig): Promise<ConnectionInfo> {
+		return connectionCommands.connect(config);
+	}
 
-  async disconnect(connectionId: string): Promise<void> {
-    return connectionCommands.disconnect(connectionId);
-  }
+	async disconnect(connectionId: string): Promise<void> {
+		return connectionCommands.disconnect(connectionId);
+	}
 
-  async testConnection(config: ConnectionConfig): Promise<TestConnectionResult> {
-    return connectionCommands.testConnection(config);
-  }
+	async testConnection(config: ConnectionConfig): Promise<TestConnectionResult> {
+		return connectionCommands.testConnection(config);
+	}
 
-  async listConnections() {
-    return connectionCommands.listConnections();
-  }
+	async listConnections() {
+		return connectionCommands.listConnections();
+	}
 
-  async saveConnection(config: ConnectionConfig, password?: string): Promise<void> {
-    return connectionCommands.saveConnection(config, password);
-  }
+	async saveConnection(config: ConnectionConfig, password?: string): Promise<void> {
+		return connectionCommands.saveConnection(config, password);
+	}
 
-  async deleteConnection(connectionId: string): Promise<void> {
-    return connectionCommands.deleteConnection(connectionId);
-  }
+	async deleteConnection(connectionId: string): Promise<void> {
+		return connectionCommands.deleteConnection(connectionId);
+	}
 
-  async getStatus(connectionId: string): Promise<ConnectionStatus> {
-    return connectionCommands.getConnectionStatus(connectionId);
-  }
+	async getStatus(connectionId: string): Promise<ConnectionStatus> {
+		return connectionCommands.getConnectionStatus(connectionId);
+	}
 }
 
 export const connectionService = new ConnectionService();
@@ -725,144 +722,141 @@ import { connectionService, type ConnectionStatusEvent } from '$services/connect
 import type { ConnectionConfig, ConnectionStatus } from '$types/connection';
 
 export interface ConnectionState {
-  id: string;
-  config: ConnectionConfig;
-  status: ConnectionStatus;
-  serverVersion?: string;
-  currentDatabase?: string;
-  currentUser?: string;
+	id: string;
+	config: ConnectionConfig;
+	status: ConnectionStatus;
+	serverVersion?: string;
+	currentDatabase?: string;
+	currentUser?: string;
 }
 
 interface ConnectionsStoreState {
-  connections: ConnectionState[];
-  groups: ConnectionGroup[];
-  activeConnectionId: string | null;
-  loading: boolean;
-  error: string | null;
+	connections: ConnectionState[];
+	groups: ConnectionGroup[];
+	activeConnectionId: string | null;
+	loading: boolean;
+	error: string | null;
 }
 
 function createConnectionsStore() {
-  const { subscribe, update, set } = writable<ConnectionsStoreState>({
-    connections: [],
-    groups: [],
-    activeConnectionId: null,
-    loading: false,
-    error: null,
-  });
+	const { subscribe, update, set } = writable<ConnectionsStoreState>({
+		connections: [],
+		groups: [],
+		activeConnectionId: null,
+		loading: false,
+		error: null
+	});
 
-  // Subscribe to status events
-  connectionService.onStatusChange('*', (event: ConnectionStatusEvent) => {
-    update(s => ({
-      ...s,
-      connections: s.connections.map(c =>
-        c.id === event.connection_id
-          ? { ...c, status: event.status }
-          : c
-      ),
-    }));
-  });
+	// Subscribe to status events
+	connectionService.onStatusChange('*', (event: ConnectionStatusEvent) => {
+		update((s) => ({
+			...s,
+			connections: s.connections.map((c) =>
+				c.id === event.connection_id ? { ...c, status: event.status } : c
+			)
+		}));
+	});
 
-  return {
-    subscribe,
+	return {
+		subscribe,
 
-    async load() {
-      update(s => ({ ...s, loading: true, error: null }));
+		async load() {
+			update((s) => ({ ...s, loading: true, error: null }));
 
-      try {
-        const [connections, groups] = await Promise.all([
-          connectionService.listConnections(),
-          connectionCommands.listGroups(),
-        ]);
+			try {
+				const [connections, groups] = await Promise.all([
+					connectionService.listConnections(),
+					connectionCommands.listGroups()
+				]);
 
-        update(s => ({
-          ...s,
-          connections: connections.map(c => ({
-            id: c.config.id,
-            config: c.config,
-            status: c.status,
-          })),
-          groups,
-          loading: false,
-        }));
-      } catch (error) {
-        update(s => ({
-          ...s,
-          loading: false,
-          error: error instanceof Error ? error.message : 'Failed to load connections',
-        }));
-      }
-    },
+				update((s) => ({
+					...s,
+					connections: connections.map((c) => ({
+						id: c.config.id,
+						config: c.config,
+						status: c.status
+					})),
+					groups,
+					loading: false
+				}));
+			} catch (error) {
+				update((s) => ({
+					...s,
+					loading: false,
+					error: error instanceof Error ? error.message : 'Failed to load connections'
+				}));
+			}
+		},
 
-    async connect(id: string) {
-      const state = get({ subscribe });
-      const connection = state.connections.find(c => c.id === id);
-      if (!connection) return;
+		async connect(id: string) {
+			const state = get({ subscribe });
+			const connection = state.connections.find((c) => c.id === id);
+			if (!connection) return;
 
-      try {
-        const info = await connectionService.connect(connection.config);
+			try {
+				const info = await connectionService.connect(connection.config);
 
-        update(s => ({
-          ...s,
-          activeConnectionId: id,
-          connections: s.connections.map(c =>
-            c.id === id
-              ? {
-                  ...c,
-                  status: 'connected' as ConnectionStatus,
-                  serverVersion: info.server_version,
-                  currentDatabase: info.current_database,
-                  currentUser: info.current_user,
-                }
-              : c
-          ),
-        }));
-      } catch (error) {
-        console.error('Connect failed:', error);
-        throw error;
-      }
-    },
+				update((s) => ({
+					...s,
+					activeConnectionId: id,
+					connections: s.connections.map((c) =>
+						c.id === id
+							? {
+									...c,
+									status: 'connected' as ConnectionStatus,
+									serverVersion: info.server_version,
+									currentDatabase: info.current_database,
+									currentUser: info.current_user
+								}
+							: c
+					)
+				}));
+			} catch (error) {
+				console.error('Connect failed:', error);
+				throw error;
+			}
+		},
 
-    async disconnect(id: string) {
-      await connectionService.disconnect(id);
+		async disconnect(id: string) {
+			await connectionService.disconnect(id);
 
-      update(s => ({
-        ...s,
-        activeConnectionId: s.activeConnectionId === id ? null : s.activeConnectionId,
-      }));
-    },
+			update((s) => ({
+				...s,
+				activeConnectionId: s.activeConnectionId === id ? null : s.activeConnectionId
+			}));
+		},
 
-    async save(config: ConnectionConfig, password?: string) {
-      await connectionService.saveConnection(config, password);
-      await this.load();
-    },
+		async save(config: ConnectionConfig, password?: string) {
+			await connectionService.saveConnection(config, password);
+			await this.load();
+		},
 
-    async delete(id: string) {
-      await connectionService.deleteConnection(id);
+		async delete(id: string) {
+			await connectionService.deleteConnection(id);
 
-      update(s => ({
-        ...s,
-        connections: s.connections.filter(c => c.id !== id),
-        activeConnectionId: s.activeConnectionId === id ? null : s.activeConnectionId,
-      }));
-    },
+			update((s) => ({
+				...s,
+				connections: s.connections.filter((c) => c.id !== id),
+				activeConnectionId: s.activeConnectionId === id ? null : s.activeConnectionId
+			}));
+		},
 
-    setActive(id: string | null) {
-      update(s => ({ ...s, activeConnectionId: id }));
-    },
-  };
+		setActive(id: string | null) {
+			update((s) => ({ ...s, activeConnectionId: id }));
+		}
+	};
 }
 
 export const connectionsStore = createConnectionsStore();
 
 // Derived stores
 export const activeConnection = derived(
-  connectionsStore,
-  $store => $store.connections.find(c => c.id === $store.activeConnectionId) || null
+	connectionsStore,
+	($store) => $store.connections.find((c) => c.id === $store.activeConnectionId) || null
 );
 
-export const connectedConnections = derived(
-  connectionsStore,
-  $store => $store.connections.filter(c => c.status === 'connected')
+export const connectedConnections = derived(connectionsStore, ($store) =>
+	$store.connections.filter((c) => c.status === 'connected')
 );
 ```
 
