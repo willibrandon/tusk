@@ -239,6 +239,8 @@ All errors should include:
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
 ## Active Technologies
+- TypeScript 5.5+ (frontend) + Svelte 5.17+, SvelteKit 2.15+, Tailwind CSS 4.0+, @tauri-apps/api 2.2+ (003-frontend-architecture)
+- localStorage (UI state persistence), OS keychain via Tauri backend (credentials - future) (003-frontend-architecture)
 
 - Rust 1.75+ (backend), TypeScript 5.5+ (frontend) + Tauri v2, tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, thiserror, tracing, directories (002-backend-architecture)
 - SQLite (rusqlite) for local metadata; PostgreSQL for user databases (via tokio-postgres) (002-backend-architecture)
