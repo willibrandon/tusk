@@ -2,6 +2,7 @@ use serde::Serialize;
 
 /// Application error type for IPC commands.
 /// Serializes to JSON for frontend consumption.
+#[allow(dead_code)] // Scaffolding for future command implementations
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppError {
