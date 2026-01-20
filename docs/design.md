@@ -7,12 +7,14 @@ A fast, free, native Postgres client built with Tauri.
 ## 1. Goals
 
 **Primary Goals**
+
 - Complete replacement for pgAdmin and DBeaver for Postgres workflows
 - Sub-second startup, minimal memory footprint (<200MB typical)
 - Native performance for large result sets (1M+ rows)
 - Cross-platform: Linux, macOS, Windows
 
 **Non-Goals**
+
 - Multi-database support (MySQL, SQLite, etc.) — Postgres only
 - Cloud/sync features — fully local
 - Plugin/extension system (v1)
@@ -62,26 +64,26 @@ A fast, free, native Postgres client built with Tauri.
 
 ### 2.1 Frontend Stack
 
-| Component | Library | Rationale |
-|-----------|---------|-----------|
-| Framework | Svelte 5 | Compiled reactivity, minimal runtime, clean syntax |
-| Editor | Monaco | Industry standard, excellent SQL support, familiar to VS Code users |
-| Data Grid | TanStack Table + custom virtualization | MIT licensed, handles millions of rows |
-| Diagrams | @xyflow/svelte | Free, performant canvas rendering |
-| Styling | Tailwind CSS | Utility-first, easy theming |
-| State | Svelte stores + context | No additional library needed |
+| Component | Library                                | Rationale                                                           |
+| --------- | -------------------------------------- | ------------------------------------------------------------------- |
+| Framework | Svelte 5                               | Compiled reactivity, minimal runtime, clean syntax                  |
+| Editor    | Monaco                                 | Industry standard, excellent SQL support, familiar to VS Code users |
+| Data Grid | TanStack Table + custom virtualization | MIT licensed, handles millions of rows                              |
+| Diagrams  | @xyflow/svelte                         | Free, performant canvas rendering                                   |
+| Styling   | Tailwind CSS                           | Utility-first, easy theming                                         |
+| State     | Svelte stores + context                | No additional library needed                                        |
 
 ### 2.2 Backend Stack
 
-| Component | Library | Rationale |
-|-----------|---------|-----------|
-| Postgres driver | tokio-postgres | Full async, streaming support, COPY protocol |
-| Connection pooling | deadpool-postgres | Async-native pool management |
-| SSH tunnels | russh | Pure Rust SSH2 implementation |
-| Local storage | rusqlite | Embedded SQLite for metadata |
-| Credentials | keyring | OS keychain (macOS Keychain, Windows Credential Manager, Secret Service) |
-| Serialization | serde + serde_json | Standard Rust serialization |
-| CLI tools | std::process::Command | Wraps pg_dump, pg_restore, psql |
+| Component          | Library               | Rationale                                                                |
+| ------------------ | --------------------- | ------------------------------------------------------------------------ |
+| Postgres driver    | tokio-postgres        | Full async, streaming support, COPY protocol                             |
+| Connection pooling | deadpool-postgres     | Async-native pool management                                             |
+| SSH tunnels        | russh                 | Pure Rust SSH2 implementation                                            |
+| Local storage      | rusqlite              | Embedded SQLite for metadata                                             |
+| Credentials        | keyring               | OS keychain (macOS Keychain, Windows Credential Manager, Secret Service) |
+| Serialization      | serde + serde_json    | Standard Rust serialization                                              |
+| CLI tools          | std::process::Command | Wraps pg_dump, pg_restore, psql                                          |
 
 ### 2.3 IPC Design
 
@@ -115,38 +117,38 @@ app.emit("query:complete", QueryComplete { query_id, total_rows, elapsed_ms });
 
 ```typescript
 interface Connection {
-  id: string;                    // UUID
-  name: string;
-  color?: string;                // Hex color for visual identification
-  group_id?: string;             // Folder grouping
-  
-  host: string;
-  port: number;                  // Default 5432
-  database: string;
-  username: string;
-  password_in_keyring: boolean;  // If true, fetch from OS keyring
-  
-  ssl_mode: 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full';
-  ssl_ca_cert?: string;          // Path to CA certificate
-  ssl_client_cert?: string;      // Path to client certificate
-  ssl_client_key?: string;       // Path to client key
-  
-  ssh_tunnel?: {
-    enabled: boolean;
-    host: string;
-    port: number;                // Default 22
-    username: string;
-    auth: 'password' | 'key';
-    key_path?: string;
-    passphrase_in_keyring: boolean;
-  };
-  
-  options: {
-    connect_timeout_sec: number;       // Default 10
-    statement_timeout_ms?: number;     // Optional query timeout
-    application_name: string;          // Default "Tusk"
-    readonly: boolean;                 // Prevent writes
-  };
+	id: string; // UUID
+	name: string;
+	color?: string; // Hex color for visual identification
+	group_id?: string; // Folder grouping
+
+	host: string;
+	port: number; // Default 5432
+	database: string;
+	username: string;
+	password_in_keyring: boolean; // If true, fetch from OS keyring
+
+	ssl_mode: 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full';
+	ssl_ca_cert?: string; // Path to CA certificate
+	ssl_client_cert?: string; // Path to client certificate
+	ssl_client_key?: string; // Path to client key
+
+	ssh_tunnel?: {
+		enabled: boolean;
+		host: string;
+		port: number; // Default 22
+		username: string;
+		auth: 'password' | 'key';
+		key_path?: string;
+		passphrase_in_keyring: boolean;
+	};
+
+	options: {
+		connect_timeout_sec: number; // Default 10
+		statement_timeout_ms?: number; // Optional query timeout
+		application_name: string; // Default "Tusk"
+		readonly: boolean; // Prevent writes
+	};
 }
 ```
 
@@ -154,85 +156,85 @@ interface Connection {
 
 ```typescript
 interface Schema {
-  name: string;
-  tables: Table[];
-  views: View[];
-  materialized_views: MaterializedView[];
-  functions: Function[];
-  sequences: Sequence[];
-  types: Type[];
-  extensions: Extension[];
+	name: string;
+	tables: Table[];
+	views: View[];
+	materialized_views: MaterializedView[];
+	functions: Function[];
+	sequences: Sequence[];
+	types: Type[];
+	extensions: Extension[];
 }
 
 interface Table {
-  oid: number;
-  schema: string;
-  name: string;
-  columns: Column[];
-  primary_key?: Constraint;
-  foreign_keys: ForeignKey[];
-  unique_constraints: Constraint[];
-  check_constraints: CheckConstraint[];
-  indexes: Index[];
-  triggers: Trigger[];
-  policies: Policy[];              // RLS policies
-  row_count_estimate: number;      // From pg_class.reltuples
-  size_bytes: number;              // From pg_total_relation_size
-  comment?: string;
+	oid: number;
+	schema: string;
+	name: string;
+	columns: Column[];
+	primary_key?: Constraint;
+	foreign_keys: ForeignKey[];
+	unique_constraints: Constraint[];
+	check_constraints: CheckConstraint[];
+	indexes: Index[];
+	triggers: Trigger[];
+	policies: Policy[]; // RLS policies
+	row_count_estimate: number; // From pg_class.reltuples
+	size_bytes: number; // From pg_total_relation_size
+	comment?: string;
 }
 
 interface Column {
-  ordinal: number;
-  name: string;
-  type: string;                    // Full type with modifiers (varchar(255))
-  base_type: string;               // Base type (varchar)
-  nullable: boolean;
-  default?: string;
-  is_identity: boolean;
-  identity_generation?: 'ALWAYS' | 'BY DEFAULT';
-  is_generated: boolean;
-  generation_expression?: string;
-  comment?: string;
+	ordinal: number;
+	name: string;
+	type: string; // Full type with modifiers (varchar(255))
+	base_type: string; // Base type (varchar)
+	nullable: boolean;
+	default?: string;
+	is_identity: boolean;
+	identity_generation?: 'ALWAYS' | 'BY DEFAULT';
+	is_generated: boolean;
+	generation_expression?: string;
+	comment?: string;
 }
 
 interface Index {
-  oid: number;
-  name: string;
-  columns: string[];
-  include_columns: string[];       // INCLUDE clause
-  is_unique: boolean;
-  is_primary: boolean;
-  is_partial: boolean;
-  predicate?: string;              // WHERE clause for partial
-  method: 'btree' | 'hash' | 'gist' | 'gin' | 'brin';
-  size_bytes: number;
-  definition: string;              // Full CREATE INDEX statement
+	oid: number;
+	name: string;
+	columns: string[];
+	include_columns: string[]; // INCLUDE clause
+	is_unique: boolean;
+	is_primary: boolean;
+	is_partial: boolean;
+	predicate?: string; // WHERE clause for partial
+	method: 'btree' | 'hash' | 'gist' | 'gin' | 'brin';
+	size_bytes: number;
+	definition: string; // Full CREATE INDEX statement
 }
 
 interface ForeignKey {
-  name: string;
-  columns: string[];
-  referenced_schema: string;
-  referenced_table: string;
-  referenced_columns: string[];
-  on_delete: 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
-  on_update: 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
-  deferrable: boolean;
-  initially_deferred: boolean;
+	name: string;
+	columns: string[];
+	referenced_schema: string;
+	referenced_table: string;
+	referenced_columns: string[];
+	on_delete: 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
+	on_update: 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
+	deferrable: boolean;
+	initially_deferred: boolean;
 }
 
 interface Function {
-  oid: number;
-  schema: string;
-  name: string;
-  arguments: Argument[];
-  return_type: string;
-  language: string;                // plpgsql, sql, python, etc.
-  volatility: 'IMMUTABLE' | 'STABLE' | 'VOLATILE';
-  is_strict: boolean;
-  is_security_definer: boolean;
-  source: string;
-  comment?: string;
+	oid: number;
+	schema: string;
+	name: string;
+	arguments: Argument[];
+	return_type: string;
+	language: string; // plpgsql, sql, python, etc.
+	volatility: 'IMMUTABLE' | 'STABLE' | 'VOLATILE';
+	is_strict: boolean;
+	is_security_definer: boolean;
+	source: string;
+	comment?: string;
 }
 ```
 
@@ -240,112 +242,112 @@ interface Function {
 
 ```typescript
 interface QueryResult {
-  query_id: string;
-  status: 'success' | 'error';
-  command: string;                 // SELECT, INSERT, UPDATE, etc.
-  
-  // For SELECT queries
-  columns?: ColumnMeta[];
-  rows?: Row[];
-  total_rows?: number;
-  truncated?: boolean;             // True if row limit hit
-  
-  // For DML queries
-  rows_affected?: number;
-  
-  // For EXPLAIN
-  plan?: QueryPlan;
-  
-  // Timing
-  elapsed_ms: number;
-  
-  // Errors
-  error?: {
-    message: string;
-    detail?: string;
-    hint?: string;
-    position?: number;             // Character position in query
-    code: string;                  // Postgres error code (23505, etc.)
-  };
+	query_id: string;
+	status: 'success' | 'error';
+	command: string; // SELECT, INSERT, UPDATE, etc.
+
+	// For SELECT queries
+	columns?: ColumnMeta[];
+	rows?: Row[];
+	total_rows?: number;
+	truncated?: boolean; // True if row limit hit
+
+	// For DML queries
+	rows_affected?: number;
+
+	// For EXPLAIN
+	plan?: QueryPlan;
+
+	// Timing
+	elapsed_ms: number;
+
+	// Errors
+	error?: {
+		message: string;
+		detail?: string;
+		hint?: string;
+		position?: number; // Character position in query
+		code: string; // Postgres error code (23505, etc.)
+	};
 }
 
 interface ColumnMeta {
-  name: string;
-  type_oid: number;
-  type_name: string;
-  type_modifier: number;
-  table_oid?: number;              // Source table if applicable
-  column_ordinal?: number;
+	name: string;
+	type_oid: number;
+	type_name: string;
+	type_modifier: number;
+	table_oid?: number; // Source table if applicable
+	column_ordinal?: number;
 }
 
 type Row = Value[];
 
-type Value = 
-  | null
-  | boolean
-  | number
-  | string
-  | number[]                       // Arrays
-  | object                         // JSON/JSONB
-  | { type: 'bytea', hex: string }
-  | { type: 'interval', iso: string }
-  | { type: 'point', x: number, y: number }
-  | { type: 'unknown', text: string };
+type Value =
+	| null
+	| boolean
+	| number
+	| string
+	| number[] // Arrays
+	| object // JSON/JSONB
+	| { type: 'bytea'; hex: string }
+	| { type: 'interval'; iso: string }
+	| { type: 'point'; x: number; y: number }
+	| { type: 'unknown'; text: string };
 ```
 
 ### 3.4 Query Plan
 
 ```typescript
 interface QueryPlan {
-  raw: string;                     // Original EXPLAIN output
-  format: 'text' | 'json';
-  root: PlanNode;
-  planning_time_ms: number;
-  execution_time_ms?: number;      // Only with ANALYZE
-  triggers?: TriggerTiming[];
+	raw: string; // Original EXPLAIN output
+	format: 'text' | 'json';
+	root: PlanNode;
+	planning_time_ms: number;
+	execution_time_ms?: number; // Only with ANALYZE
+	triggers?: TriggerTiming[];
 }
 
 interface PlanNode {
-  node_type: string;               // Seq Scan, Index Scan, Nested Loop, etc.
-  relation_name?: string;
-  alias?: string;
-  index_name?: string;
-  join_type?: string;
-  
-  // Estimates
-  startup_cost: number;
-  total_cost: number;
-  plan_rows: number;
-  plan_width: number;
-  
-  // Actuals (ANALYZE only)
-  actual_startup_time?: number;
-  actual_total_time?: number;
-  actual_rows?: number;
-  actual_loops?: number;
-  
-  // Details
-  filter?: string;
-  index_cond?: string;
-  recheck_cond?: string;
-  sort_key?: string[];
-  hash_cond?: string;
-  
-  // Buffers (BUFFERS option)
-  shared_hit_blocks?: number;
-  shared_read_blocks?: number;
-  shared_written_blocks?: number;
-  
-  // I/O timing (timing option)
-  io_read_time_ms?: number;
-  io_write_time_ms?: number;
-  
-  // Children
-  children: PlanNode[];
-  
-  // Computed for visualization
-  percent_of_total: number;
-  is_slowest: boolean;
+	node_type: string; // Seq Scan, Index Scan, Nested Loop, etc.
+	relation_name?: string;
+	alias?: string;
+	index_name?: string;
+	join_type?: string;
+
+	// Estimates
+	startup_cost: number;
+	total_cost: number;
+	plan_rows: number;
+	plan_width: number;
+
+	// Actuals (ANALYZE only)
+	actual_startup_time?: number;
+	actual_total_time?: number;
+	actual_rows?: number;
+	actual_loops?: number;
+
+	// Details
+	filter?: string;
+	index_cond?: string;
+	recheck_cond?: string;
+	sort_key?: string[];
+	hash_cond?: string;
+
+	// Buffers (BUFFERS option)
+	shared_hit_blocks?: number;
+	shared_read_blocks?: number;
+	shared_written_blocks?: number;
+
+	// I/O timing (timing option)
+	io_read_time_ms?: number;
+	io_write_time_ms?: number;
+
+	// Children
+	children: PlanNode[];
+
+	// Computed for visualization
+	percent_of_total: number;
+	is_slowest: boolean;
 }
 ```
 
@@ -428,12 +430,14 @@ CREATE TABLE settings (
 ### 4.1 Connection Management
 
 **Connection Dialog Fields**
+
 - General: Name, Color, Host, Port, Database, Username, Password
 - SSL: Mode dropdown, CA cert path, Client cert path, Client key path
 - SSH Tunnel: Enable toggle, Host, Port, Username, Auth method, Key path
 - Options: Connect timeout, Statement timeout, Application name, Read-only mode
 
 **Connection Tree Behavior**
+
 - Groups are collapsible folders
 - Drag-drop to reorder connections and groups
 - Right-click context menu: Connect, Edit, Duplicate, Delete, New Query
@@ -441,6 +445,7 @@ CREATE TABLE settings (
 - Double-click opens new query tab connected to that database
 
 **Connection Lifecycle**
+
 1. On connect: establish pool with min=1, max=10 connections
 2. SSH tunnel established first if configured (local port forwarding)
 3. SSL negotiation per configured mode
@@ -451,6 +456,7 @@ CREATE TABLE settings (
 ### 4.2 Schema Browser
 
 **Tree Structure**
+
 ```
 ▼ my_connection (green dot)
   ▼ Schemas
@@ -482,18 +488,19 @@ CREATE TABLE settings (
 
 **Context Menu Actions by Object Type**
 
-| Object | Actions |
-|--------|---------|
-| Table | Open, View Data, New Query, Edit, Create Similar, Drop, Truncate, View DDL, Refresh |
-| View | Open, View Data, New Query, Edit, Drop, View DDL |
-| Materialized View | Open, View Data, Refresh View, New Query, Drop, View DDL |
-| Column | Add to Query, Filter by Value, Copy Name |
-| Index | View DDL, Reindex, Drop |
-| Function | Open, Execute, Edit, Drop, View DDL |
-| Schema | New Table, New View, New Function, Drop |
-| Role | Edit, Drop, View Grants |
+| Object            | Actions                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| Table             | Open, View Data, New Query, Edit, Create Similar, Drop, Truncate, View DDL, Refresh |
+| View              | Open, View Data, New Query, Edit, Drop, View DDL                                    |
+| Materialized View | Open, View Data, Refresh View, New Query, Drop, View DDL                            |
+| Column            | Add to Query, Filter by Value, Copy Name                                            |
+| Index             | View DDL, Reindex, Drop                                                             |
+| Function          | Open, Execute, Edit, Drop, View DDL                                                 |
+| Schema            | New Table, New View, New Function, Drop                                             |
+| Role              | Edit, Drop, View Grants                                                             |
 
 **Object Search**
+
 - Cmd/Ctrl+Shift+P opens command palette style search
 - Fuzzy matches across all schemas: tables, views, functions, columns
 - Results show object type icon, full path (schema.name), and object type
@@ -501,6 +508,7 @@ CREATE TABLE settings (
 
 **DDL Generation**
 For any object, generate:
+
 - CREATE statement (with all options, defaults, comments)
 - DROP statement (with CASCADE option)
 - ALTER templates for common modifications
@@ -509,6 +517,7 @@ For any object, generate:
 ### 4.3 Query Editor
 
 **Editor Features**
+
 - Monaco editor with SQL language mode
 - Schema-aware autocomplete:
   - Table names (schema.table or just table if in search_path)
@@ -522,12 +531,14 @@ For any object, generate:
 - Bracket matching and auto-close
 
 **Autocomplete Data Flow**
+
 1. On connection: fetch full schema metadata
 2. Cache in memory, refresh on schema change events (LISTEN/NOTIFY) or manual refresh
 3. Monaco completion provider queries cached schema
 4. Rank completions: columns from tables in query > other columns > tables > functions > keywords
 
 **Tab Management**
+
 - Tabs show: query name or "Query N", connection color dot, modified indicator (dot)
 - Middle-click closes tab
 - Drag to reorder
@@ -536,12 +547,14 @@ For any object, generate:
 - Unsaved tabs prompt on close
 
 **Execution**
+
 - Cmd/Ctrl+Enter: Execute current statement (at cursor or selected)
 - Cmd/Ctrl+Shift+Enter: Execute all statements
 - Cmd/Ctrl+.: Cancel running query
 - Statement detection: split on semicolons, respecting string literals and $$ blocks
 
 **Editor Toolbar**
+
 ```
 [▶ Run] [■ Stop] [📋 Format] [💾 Save] | [Connection: mydb ▼] | [Limit: 1000 ▼]
 ```
@@ -562,11 +575,13 @@ For any object, generate:
 ### 4.4 Results Grid
 
 **Display Modes**
+
 - Grid (default): spreadsheet-style cells
 - Transposed: single row as key-value pairs (useful for wide tables)
 - JSON: raw JSON output for JSONB columns
 
 **Grid Features**
+
 - Virtual scrolling: renders only visible rows, handles 10M+ rows
 - Column resizing by drag
 - Column reordering by drag
@@ -591,6 +606,7 @@ For any object, generate:
 | point, line, polygon | Coordinate preview |
 
 **Cell Selection**
+
 - Click selects cell
 - Shift+click selects range
 - Ctrl/Cmd+click adds to selection
@@ -599,6 +615,7 @@ For any object, generate:
 - Ctrl/Cmd+C copies selection (TSV format by default)
 
 **Context Menu**
+
 - Copy (Ctrl+C)
 - Copy as INSERT
 - Copy as UPDATE (for single row)
@@ -610,11 +627,13 @@ For any object, generate:
 - Open in viewer (JSON, text)
 
 **Pagination Controls**
+
 ```
 [|◀] [◀] Page 1 of 100 [▶] [▶|] | Showing 1-1000 of 100,000 rows | 42ms
 ```
 
 **Export Options** (from toolbar button)
+
 - CSV (with options: delimiter, quote char, header row)
 - JSON (array of objects or array of arrays)
 - SQL INSERT statements (with batch size option)
@@ -625,10 +644,12 @@ For any object, generate:
 ### 4.5 Inline Data Editing
 
 **Enabling Edit Mode**
+
 - Toggle "Edit Mode" in results toolbar
 - Only available for single-table SELECT queries with primary key
 
 **Edit Behavior**
+
 - Double-click cell to edit
 - Tab moves to next cell
 - Enter commits cell and moves down
@@ -638,23 +659,27 @@ For any object, generate:
 - Deleted rows highlighted in red (strikethrough)
 
 **Toolbar in Edit Mode**
+
 ```
 [✓ Save Changes (3)] [✗ Discard] [+ Add Row] [Edit Mode: ON]
 ```
 
 **Change Tracking**
+
 - Track original value and new value per cell
 - On save: generate minimal UPDATE/INSERT/DELETE statements
 - Show preview of SQL before executing
 - Execute in transaction, rollback on any error
 
 **NULL Handling**
+
 - Ctrl+0 or context menu "Set to NULL"
 - Clear distinction between empty string and NULL
 
 ### 4.6 Query Plan Visualization
 
 **EXPLAIN Options Dialog**
+
 ```
 ☑ ANALYZE (execute query)     ☑ BUFFERS
 ☑ VERBOSE                     ☑ TIMING
@@ -680,6 +705,7 @@ Format: [JSON ▼]
    - Clickable node references
 
 **Node Detail Panel**
+
 ```
 ┌─────────────────────────────────────────┐
 │ Index Scan using users_email_idx        │
@@ -700,6 +726,7 @@ Format: [JSON ▼]
 
 **Warnings and Suggestions**
 Automatically highlight:
+
 - Sequential scans on large tables (> 10k rows estimated)
 - Significant row estimate misses (actual > 10x estimated)
 - Nested loops with high loop counts
@@ -711,6 +738,7 @@ Automatically highlight:
 Opened by double-clicking table or "View Data" context menu.
 
 **Layout**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ public.users                                    [Edit Mode] │
@@ -729,6 +757,7 @@ Opened by double-clicking table or "View Data" context menu.
 ```
 
 **Filter Builder**
+
 - Click column header → filter options for that column
 - Visual filter builder: Column, Operator, Value
 - Operators vary by type:
@@ -740,6 +769,7 @@ Opened by double-clicking table or "View Data" context menu.
 - Raw SQL mode for complex filters
 
 **Sorting**
+
 - Click column header to sort
 - Shift+click to add secondary sort
 - Sort indicator in header (▲/▼)
@@ -748,6 +778,7 @@ Opened by double-clicking table or "View Data" context menu.
 ### 4.8 ER Diagram
 
 **Generation**
+
 - Select schemas/tables to include
 - Options:
   - Show columns: All, PK/FK only, None
@@ -757,6 +788,7 @@ Opened by double-clicking table or "View Data" context menu.
   - Show constraints
 
 **Rendering**
+
 - Tables as nodes with columns listed
 - Foreign keys as directed edges (arrows point to referenced table)
 - Color-code by schema
@@ -764,12 +796,14 @@ Opened by double-clicking table or "View Data" context menu.
 - Minimap for navigation
 
 **Layout Algorithms**
+
 - Auto-layout options: Hierarchical, Force-directed, Circular
 - Manual positioning (drag nodes)
 - Snap to grid option
 - Save layout per diagram
 
 **Export**
+
 - PNG (with configurable DPI)
 - SVG (vector)
 - Save diagram configuration for later
@@ -777,6 +811,7 @@ Opened by double-clicking table or "View Data" context menu.
 ### 4.9 Admin Dashboard
 
 **Activity Monitor (pg_stat_activity)**
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │ Active Queries                                           [Auto-refresh 5s]│
@@ -791,6 +826,7 @@ Context menu: View full query, Kill query, Kill connection
 ```
 
 **Server Stats**
+
 - Connection count (used/max)
 - Database sizes
 - Transaction rate (TPS)
@@ -798,6 +834,7 @@ Context menu: View full query, Kill query, Kill connection
 - Replication lag (if replica)
 
 **Table Stats (pg_stat_user_tables)**
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │ Table          │ Rows Est. │ Size    │ Seq Scans │ Idx Scans │ Dead Tuples │ Last Vacuum │
@@ -809,6 +846,7 @@ Context menu: VACUUM, VACUUM FULL, ANALYZE, REINDEX
 ```
 
 **Index Stats (pg_stat_user_indexes)**
+
 - Usage count
 - Size
 - Unused index detection (0 scans since stats reset)
@@ -816,6 +854,7 @@ Context menu: VACUUM, VACUUM FULL, ANALYZE, REINDEX
 - Suggestions for removal
 
 **Locks View (pg_locks + pg_stat_activity)**
+
 - Waiting queries
 - Blocking queries
 - Lock types and targets
@@ -824,6 +863,7 @@ Context menu: VACUUM, VACUUM FULL, ANALYZE, REINDEX
 ### 4.10 Maintenance Operations
 
 **Vacuum Dialog**
+
 ```
 Target: [public.orders ▼]
 
@@ -838,6 +878,7 @@ Parallel workers: [0 ▼] (auto)
 ```
 
 **Reindex Dialog**
+
 ```
 Target: [Table ▼] [public.orders ▼]
         ○ Table (all indexes)
@@ -854,6 +895,7 @@ Target: [Table ▼] [public.orders ▼]
 ### 4.11 Backup and Restore
 
 **Backup Dialog**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Backup Database                                             │
@@ -888,6 +930,7 @@ Target: [Table ▼] [public.orders ▼]
 ```
 
 **Restore Dialog**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Restore Database                                            │
@@ -915,6 +958,7 @@ Target: [Table ▼] [public.orders ▼]
 ```
 
 **Progress Display**
+
 - Real-time output from pg_dump/pg_restore
 - Progress bar where available (restore with custom format)
 - Cancel button (sends SIGTERM)
@@ -923,6 +967,7 @@ Target: [Table ▼] [public.orders ▼]
 ### 4.12 Import Wizard
 
 **Step 1: Source Selection**
+
 ```
 Source file: [/data/users.csv                     ] [Browse]
 
@@ -941,6 +986,7 @@ Preview (first 5 rows):
 ```
 
 **Step 2: CSV Options** (if CSV)
+
 ```
 Delimiter: [, ▼] (auto-detected)
 Quote char: [" ▼]
@@ -951,6 +997,7 @@ Null string: [\N ▼]
 ```
 
 **Step 3: Target Selection**
+
 ```
 Target table:
   ○ Existing: [public ▼].[users ▼]
@@ -963,6 +1010,7 @@ On conflict:
 ```
 
 **Step 4: Column Mapping**
+
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │ Source Column  │ Target Column      │ Type        │ Transform   │
@@ -978,6 +1026,7 @@ Transforms: None, Trim, Uppercase, Lowercase, Parse date, Boolean, Custom SQL
 ```
 
 **Step 5: Execute**
+
 ```
 Import method:
   ○ INSERT (slower, per-row errors)
@@ -992,6 +1041,7 @@ Batch size: [1000]
 ### 4.13 Role Management
 
 **Role List View**
+
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │ Role         │ Login │ Superuser │ Create DB │ Connections │ Valid │
@@ -1004,6 +1054,7 @@ Batch size: [1000]
 ```
 
 **Role Editor Dialog**
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Edit Role: app_user                                         │
@@ -1034,6 +1085,7 @@ Batch size: [1000]
 
 **Privileges Grid**
 Visual matrix: rows = roles, columns = objects, cells = permission indicators
+
 ```
                     │ SELECT │ INSERT │ UPDATE │ DELETE │ TRUNCATE │
 ────────────────────│────────│────────│────────│────────│──────────│
@@ -1047,6 +1099,7 @@ Click cell to toggle, batch operations via context menu.
 ### 4.14 Extension Manager
 
 **Extension List**
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ Extension      │ Version   │ Installed │ Schema   │ Description          │
@@ -1061,6 +1114,7 @@ Click cell to toggle, batch operations via context menu.
 ```
 
 **Extension Details**
+
 - Description
 - Required dependencies
 - Objects created (types, functions, operators)
@@ -1074,12 +1128,14 @@ Click cell to toggle, batch operations via context menu.
 ### 5.1 Settings Categories
 
 **General**
+
 - Theme: Light / Dark / System
 - Language: English (more later)
 - Startup: Restore previous session / Start fresh
 - Auto-save: query tabs every N seconds
 
 **Editor**
+
 - Font family, size
 - Tab size, spaces vs tabs
 - Line numbers
@@ -1089,6 +1145,7 @@ Click cell to toggle, batch operations via context menu.
 - Bracket matching
 
 **Results**
+
 - Default row limit
 - Date/time format
 - Number format (locale)
@@ -1097,18 +1154,21 @@ Click cell to toggle, batch operations via context menu.
 - Copy format (TSV / CSV / JSON)
 
 **Query Execution**
+
 - Default statement timeout
 - Confirm before executing DDL
 - Confirm before executing DELETE/UPDATE without WHERE
 - Auto-uppercase keywords
 
 **Connections**
+
 - Default SSL mode
 - Default connection timeout
 - Auto-reconnect attempts
 - Keepalive interval
 
 **Shortcuts**
+
 - Full list of actions with customizable keybindings
 - Search/filter
 - Reset to defaults
@@ -1180,13 +1240,13 @@ Click cell to toggle, batch operations via context menu.
 
 ### 8.1 Connection Errors
 
-| Error | User Message | Action |
-|-------|--------------|--------|
-| ECONNREFUSED | "Cannot connect to server" | Check host/port, firewall |
-| Auth failure | "Authentication failed" | Check username/password |
-| SSL required | "Server requires SSL" | Enable SSL in connection |
-| SSH tunnel failure | "SSH tunnel failed: reason" | Check SSH credentials |
-| Timeout | "Connection timed out" | Increase timeout, check network |
+| Error              | User Message                | Action                          |
+| ------------------ | --------------------------- | ------------------------------- |
+| ECONNREFUSED       | "Cannot connect to server"  | Check host/port, firewall       |
+| Auth failure       | "Authentication failed"     | Check username/password         |
+| SSL required       | "Server requires SSL"       | Enable SSL in connection        |
+| SSH tunnel failure | "SSH tunnel failed: reason" | Check SSH credentials           |
+| Timeout            | "Connection timed out"      | Increase timeout, check network |
 
 ### 8.2 Query Errors
 
@@ -1204,29 +1264,32 @@ Click cell to toggle, batch operations via context menu.
 
 ## 9. Performance Targets
 
-| Metric | Target |
-|--------|--------|
-| Cold start time | < 1 second |
-| Memory (idle) | < 100 MB |
-| Memory (1M rows loaded) | < 500 MB |
-| Query result render (1000 rows) | < 100ms |
-| Schema browser load (1000 tables) | < 500ms |
-| Autocomplete response | < 50ms |
+| Metric                            | Target     |
+| --------------------------------- | ---------- |
+| Cold start time                   | < 1 second |
+| Memory (idle)                     | < 100 MB   |
+| Memory (1M rows loaded)           | < 500 MB   |
+| Query result render (1000 rows)   | < 100ms    |
+| Schema browser load (1000 tables) | < 500ms    |
+| Autocomplete response             | < 50ms     |
 
 ### 9.1 Optimizations
 
 **Result Streaming**
+
 - Stream rows from Postgres in batches (default 1000)
 - Render first batch immediately
 - Continue streaming in background
 - Virtual scrolling only renders visible rows
 
 **Schema Caching**
+
 - Full schema fetch on connect
 - Incremental refresh on NOTIFY events
 - Index autocomplete data in memory (trie or similar)
 
 **UI Virtualization**
+
 - Schema tree: virtual list for 1000s of objects
 - Results grid: virtual rows and columns
 - Only render visible + small buffer
@@ -1252,7 +1315,7 @@ Click cell to toggle, batch operations via context menu.
 
 ```sql
 -- Tables with row count and size
-SELECT 
+SELECT
   n.nspname AS schema,
   c.relname AS name,
   c.oid,
@@ -1266,7 +1329,7 @@ WHERE c.relkind = 'r'
 ORDER BY n.nspname, c.relname;
 
 -- Columns for a table
-SELECT 
+SELECT
   a.attnum AS ordinal,
   a.attname AS name,
   pg_catalog.format_type(a.atttypid, a.atttypmod) AS type,
@@ -1286,7 +1349,7 @@ WHERE a.attrelid = $1::regclass
   AND NOT a.attisdropped
 ORDER BY a.attnum;
 
--- Indexes for a table  
+-- Indexes for a table
 SELECT
   i.indexrelid AS oid,
   c.relname AS name,
@@ -1350,32 +1413,32 @@ WHERE n.nspname = $1
 
 ## Appendix B: Keyboard Shortcuts Reference
 
-| Category | Action | Windows/Linux | macOS |
-|----------|--------|---------------|-------|
-| **General** | Settings | Ctrl+, | Cmd+, |
-| | Command palette | Ctrl+Shift+P | Cmd+Shift+P |
-| | New query tab | Ctrl+N | Cmd+N |
-| | Close tab | Ctrl+W | Cmd+W |
-| | Next tab | Ctrl+Tab | Cmd+Shift+] |
-| | Previous tab | Ctrl+Shift+Tab | Cmd+Shift+[ |
-| | Toggle sidebar | Ctrl+B | Cmd+B |
-| **Editor** | Execute | Ctrl+Enter | Cmd+Enter |
-| | Execute all | Ctrl+Shift+Enter | Cmd+Shift+Enter |
-| | Cancel query | Ctrl+. | Cmd+. |
-| | Format | Ctrl+Shift+F | Cmd+Shift+F |
-| | Save | Ctrl+S | Cmd+S |
-| | Comment | Ctrl+/ | Cmd+/ |
-| | Find | Ctrl+F | Cmd+F |
-| | Replace | Ctrl+H | Cmd+Option+F |
-| | Go to line | Ctrl+G | Cmd+G |
-| | Duplicate line | Ctrl+Shift+D | Cmd+Shift+D |
-| | Move line up | Alt+Up | Option+Up |
-| | Move line down | Alt+Down | Option+Down |
-| **Results** | Copy | Ctrl+C | Cmd+C |
-| | Select all | Ctrl+A | Cmd+A |
-| | Export | Ctrl+E | Cmd+E |
-| | Toggle edit mode | Ctrl+Shift+E | Cmd+Shift+E |
-| **Navigation** | Focus editor | Ctrl+1 | Cmd+1 |
-| | Focus results | Ctrl+2 | Cmd+2 |
-| | Focus sidebar | Ctrl+0 | Cmd+0 |
-| | Search objects | Ctrl+P | Cmd+P |
+| Category       | Action           | Windows/Linux    | macOS           |
+| -------------- | ---------------- | ---------------- | --------------- |
+| **General**    | Settings         | Ctrl+,           | Cmd+,           |
+|                | Command palette  | Ctrl+Shift+P     | Cmd+Shift+P     |
+|                | New query tab    | Ctrl+N           | Cmd+N           |
+|                | Close tab        | Ctrl+W           | Cmd+W           |
+|                | Next tab         | Ctrl+Tab         | Cmd+Shift+]     |
+|                | Previous tab     | Ctrl+Shift+Tab   | Cmd+Shift+[     |
+|                | Toggle sidebar   | Ctrl+B           | Cmd+B           |
+| **Editor**     | Execute          | Ctrl+Enter       | Cmd+Enter       |
+|                | Execute all      | Ctrl+Shift+Enter | Cmd+Shift+Enter |
+|                | Cancel query     | Ctrl+.           | Cmd+.           |
+|                | Format           | Ctrl+Shift+F     | Cmd+Shift+F     |
+|                | Save             | Ctrl+S           | Cmd+S           |
+|                | Comment          | Ctrl+/           | Cmd+/           |
+|                | Find             | Ctrl+F           | Cmd+F           |
+|                | Replace          | Ctrl+H           | Cmd+Option+F    |
+|                | Go to line       | Ctrl+G           | Cmd+G           |
+|                | Duplicate line   | Ctrl+Shift+D     | Cmd+Shift+D     |
+|                | Move line up     | Alt+Up           | Option+Up       |
+|                | Move line down   | Alt+Down         | Option+Down     |
+| **Results**    | Copy             | Ctrl+C           | Cmd+C           |
+|                | Select all       | Ctrl+A           | Cmd+A           |
+|                | Export           | Ctrl+E           | Cmd+E           |
+|                | Toggle edit mode | Ctrl+Shift+E     | Cmd+Shift+E     |
+| **Navigation** | Focus editor     | Ctrl+1           | Cmd+1           |
+|                | Focus results    | Ctrl+2           | Cmd+2           |
+|                | Focus sidebar    | Ctrl+0           | Cmd+0           |
+|                | Search objects   | Ctrl+P           | Cmd+P           |

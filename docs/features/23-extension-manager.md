@@ -26,55 +26,55 @@ The Extension Manager provides a GUI for managing PostgreSQL extensions, includi
 // src/lib/types/extensions.ts
 
 export interface Extension {
-  name: string;
-  installedVersion: string | null;
-  defaultVersion: string;
-  availableVersions: string[];
-  schema: string | null;
-  relocatable: boolean;
-  comment: string | null;
-  requires: string[];
-  isInstalled: boolean;
+	name: string;
+	installedVersion: string | null;
+	defaultVersion: string;
+	availableVersions: string[];
+	schema: string | null;
+	relocatable: boolean;
+	comment: string | null;
+	requires: string[];
+	isInstalled: boolean;
 }
 
 export interface ExtensionDetail {
-  name: string;
-  version: string;
-  schema: string;
-  description: string;
-  requires: string[];
-  objects: ExtensionObject[];
-  config: ExtensionConfig[];
+	name: string;
+	version: string;
+	schema: string;
+	description: string;
+	requires: string[];
+	objects: ExtensionObject[];
+	config: ExtensionConfig[];
 }
 
 export interface ExtensionObject {
-  type: string; // 'function', 'type', 'operator', 'table', etc.
-  schema: string;
-  name: string;
-  identity: string; // Full qualified name with signature
+	type: string; // 'function', 'type', 'operator', 'table', etc.
+	schema: string;
+	name: string;
+	identity: string; // Full qualified name with signature
 }
 
 export interface ExtensionConfig {
-  name: string;
-  value: string;
-  description: string;
-  unit: string | null;
-  vartype: string;
-  enumVals: string[] | null;
-  minVal: string | null;
-  maxVal: string | null;
+	name: string;
+	value: string;
+	description: string;
+	unit: string | null;
+	vartype: string;
+	enumVals: string[] | null;
+	minVal: string | null;
+	maxVal: string | null;
 }
 
 export interface InstallExtensionOptions {
-  name: string;
-  version?: string;
-  schema?: string;
-  cascade: boolean;
+	name: string;
+	version?: string;
+	schema?: string;
+	cascade: boolean;
 }
 
 export interface UpgradeExtensionOptions {
-  name: string;
-  targetVersion?: string;
+	name: string;
+	targetVersion?: string;
 }
 ```
 
@@ -565,136 +565,152 @@ pub fn generate_uninstall_extension_sql(extension_name: String, cascade: bool) -
 
 import { invoke } from '@tauri-apps/api/core';
 import type {
-  Extension,
-  ExtensionDetail,
-  InstallExtensionOptions,
-  UpgradeExtensionOptions,
+	Extension,
+	ExtensionDetail,
+	InstallExtensionOptions,
+	UpgradeExtensionOptions
 } from '$lib/types/extensions';
 
 interface ExtensionState {
-  extensions: Extension[];
-  selectedExtension: ExtensionDetail | null;
-  loading: boolean;
-  error: string | null;
-  filter: string;
-  showInstalledOnly: boolean;
+	extensions: Extension[];
+	selectedExtension: ExtensionDetail | null;
+	loading: boolean;
+	error: string | null;
+	filter: string;
+	showInstalledOnly: boolean;
 }
 
 export function createExtensionStore() {
-  let state = $state<ExtensionState>({
-    extensions: [],
-    selectedExtension: null,
-    loading: false,
-    error: null,
-    filter: '',
-    showInstalledOnly: false,
-  });
+	let state = $state<ExtensionState>({
+		extensions: [],
+		selectedExtension: null,
+		loading: false,
+		error: null,
+		filter: '',
+		showInstalledOnly: false
+	});
 
-  async function loadExtensions(connId: string) {
-    state.loading = true;
-    state.error = null;
+	async function loadExtensions(connId: string) {
+		state.loading = true;
+		state.error = null;
 
-    try {
-      state.extensions = await invoke<Extension[]>('get_extensions', { connId });
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-    } finally {
-      state.loading = false;
-    }
-  }
+		try {
+			state.extensions = await invoke<Extension[]>('get_extensions', { connId });
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+		} finally {
+			state.loading = false;
+		}
+	}
 
-  async function loadExtensionDetail(connId: string, extensionName: string) {
-    if (!state.extensions.find(e => e.name === extensionName)?.isInstalled) {
-      state.selectedExtension = null;
-      return;
-    }
+	async function loadExtensionDetail(connId: string, extensionName: string) {
+		if (!state.extensions.find((e) => e.name === extensionName)?.isInstalled) {
+			state.selectedExtension = null;
+			return;
+		}
 
-    try {
-      state.selectedExtension = await invoke<ExtensionDetail>('get_extension_detail', {
-        connId,
-        extensionName,
-      });
-    } catch (err) {
-      state.error = err instanceof Error ? err.message : String(err);
-    }
-  }
+		try {
+			state.selectedExtension = await invoke<ExtensionDetail>('get_extension_detail', {
+				connId,
+				extensionName
+			});
+		} catch (err) {
+			state.error = err instanceof Error ? err.message : String(err);
+		}
+	}
 
-  async function installExtension(connId: string, options: InstallExtensionOptions) {
-    try {
-      await invoke('install_extension', { connId, options });
-      await loadExtensions(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function installExtension(connId: string, options: InstallExtensionOptions) {
+		try {
+			await invoke('install_extension', { connId, options });
+			await loadExtensions(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function upgradeExtension(connId: string, options: UpgradeExtensionOptions) {
-    try {
-      await invoke('upgrade_extension', { connId, options });
-      await loadExtensions(connId);
-      if (state.selectedExtension?.name === options.name) {
-        await loadExtensionDetail(connId, options.name);
-      }
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function upgradeExtension(connId: string, options: UpgradeExtensionOptions) {
+		try {
+			await invoke('upgrade_extension', { connId, options });
+			await loadExtensions(connId);
+			if (state.selectedExtension?.name === options.name) {
+				await loadExtensionDetail(connId, options.name);
+			}
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  async function uninstallExtension(connId: string, extensionName: string, cascade: boolean) {
-    try {
-      await invoke('uninstall_extension', { connId, extensionName, cascade });
-      if (state.selectedExtension?.name === extensionName) {
-        state.selectedExtension = null;
-      }
-      await loadExtensions(connId);
-    } catch (err) {
-      throw err;
-    }
-  }
+	async function uninstallExtension(connId: string, extensionName: string, cascade: boolean) {
+		try {
+			await invoke('uninstall_extension', { connId, extensionName, cascade });
+			if (state.selectedExtension?.name === extensionName) {
+				state.selectedExtension = null;
+			}
+			await loadExtensions(connId);
+		} catch (err) {
+			throw err;
+		}
+	}
 
-  function setFilter(filter: string) {
-    state.filter = filter;
-  }
+	function setFilter(filter: string) {
+		state.filter = filter;
+	}
 
-  function setShowInstalledOnly(value: boolean) {
-    state.showInstalledOnly = value;
-  }
+	function setShowInstalledOnly(value: boolean) {
+		state.showInstalledOnly = value;
+	}
 
-  function clearSelection() {
-    state.selectedExtension = null;
-  }
+	function clearSelection() {
+		state.selectedExtension = null;
+	}
 
-  // Derived: filtered extensions
-  const filteredExtensions = $derived(
-    state.extensions.filter(ext => {
-      if (state.showInstalledOnly && !ext.isInstalled) return false;
-      if (state.filter) {
-        const search = state.filter.toLowerCase();
-        return ext.name.toLowerCase().includes(search) ||
-               (ext.comment?.toLowerCase().includes(search) ?? false);
-      }
-      return true;
-    })
-  );
+	// Derived: filtered extensions
+	const filteredExtensions = $derived(
+		state.extensions.filter((ext) => {
+			if (state.showInstalledOnly && !ext.isInstalled) return false;
+			if (state.filter) {
+				const search = state.filter.toLowerCase();
+				return (
+					ext.name.toLowerCase().includes(search) ||
+					(ext.comment?.toLowerCase().includes(search) ?? false)
+				);
+			}
+			return true;
+		})
+	);
 
-  return {
-    get extensions() { return state.extensions; },
-    get filteredExtensions() { return filteredExtensions; },
-    get selectedExtension() { return state.selectedExtension; },
-    get loading() { return state.loading; },
-    get error() { return state.error; },
-    get filter() { return state.filter; },
-    get showInstalledOnly() { return state.showInstalledOnly; },
+	return {
+		get extensions() {
+			return state.extensions;
+		},
+		get filteredExtensions() {
+			return filteredExtensions;
+		},
+		get selectedExtension() {
+			return state.selectedExtension;
+		},
+		get loading() {
+			return state.loading;
+		},
+		get error() {
+			return state.error;
+		},
+		get filter() {
+			return state.filter;
+		},
+		get showInstalledOnly() {
+			return state.showInstalledOnly;
+		},
 
-    loadExtensions,
-    loadExtensionDetail,
-    installExtension,
-    upgradeExtension,
-    uninstallExtension,
-    setFilter,
-    setShowInstalledOnly,
-    clearSelection,
-  };
+		loadExtensions,
+		loadExtensionDetail,
+		installExtension,
+		upgradeExtension,
+		uninstallExtension,
+		setFilter,
+		setShowInstalledOnly,
+		clearSelection
+	};
 }
 
 export const extensionStore = createExtensionStore();
@@ -705,149 +721,172 @@ export const extensionStore = createExtensionStore();
 ```svelte
 <!-- src/lib/components/extensions/ExtensionList.svelte -->
 <script lang="ts">
-  import type { Extension } from '$lib/types/extensions';
-  import { extensionStore } from '$lib/stores/extensionStore.svelte';
+	import type { Extension } from '$lib/types/extensions';
+	import { extensionStore } from '$lib/stores/extensionStore.svelte';
 
-  interface Props {
-    connId: string;
-    onSelect: (ext: Extension) => void;
-    onInstall: (ext: Extension) => void;
-  }
+	interface Props {
+		connId: string;
+		onSelect: (ext: Extension) => void;
+		onInstall: (ext: Extension) => void;
+	}
 
-  let { connId, onSelect, onInstall }: Props = $props();
+	let { connId, onSelect, onInstall }: Props = $props();
 </script>
 
 <div class="flex flex-col h-full">
-  <!-- Toolbar -->
-  <div class="flex items-center gap-2 p-4 border-b border-gray-200 dark:border-gray-700">
-    <input
-      type="text"
-      value={extensionStore.filter}
-      oninput={(e) => extensionStore.setFilter(e.currentTarget.value)}
-      placeholder="Search extensions..."
-      class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+	<!-- Toolbar -->
+	<div class="flex items-center gap-2 p-4 border-b border-gray-200 dark:border-gray-700">
+		<input
+			type="text"
+			value={extensionStore.filter}
+			oninput={(e) => extensionStore.setFilter(e.currentTarget.value)}
+			placeholder="Search extensions..."
+			class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
              bg-white dark:bg-gray-700 text-sm"
-    />
-    <label class="flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={extensionStore.showInstalledOnly}
-        onchange={(e) => extensionStore.setShowInstalledOnly(e.currentTarget.checked)}
-        class="rounded border-gray-300"
-      />
-      Installed only
-    </label>
-    <button
-      onclick={() => extensionStore.loadExtensions(connId)}
-      class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400
+		/>
+		<label class="flex items-center gap-2 text-sm">
+			<input
+				type="checkbox"
+				checked={extensionStore.showInstalledOnly}
+				onchange={(e) => extensionStore.setShowInstalledOnly(e.currentTarget.checked)}
+				class="rounded border-gray-300"
+			/>
+			Installed only
+		</label>
+		<button
+			onclick={() => extensionStore.loadExtensions(connId)}
+			class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400
              hover:text-gray-900 dark:hover:text-gray-100"
-    >
-      Refresh
-    </button>
-  </div>
+		>
+			Refresh
+		</button>
+	</div>
 
-  <!-- Extension List -->
-  <div class="flex-1 overflow-auto">
-    {#if extensionStore.loading}
-      <div class="flex items-center justify-center h-full">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    {:else if extensionStore.error}
-      <div class="p-4 text-center text-red-500">{extensionStore.error}</div>
-    {:else}
-      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead class="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
-          <tr>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Extension
-            </th>
-            <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Version
-            </th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Schema
-            </th>
-            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-          {#each extensionStore.filteredExtensions as ext (ext.name)}
-            <tr
-              class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer
-                     {extensionStore.selectedExtension?.name === ext.name ? 'bg-blue-50 dark:bg-blue-900/20' : ''}"
-              onclick={() => onSelect(ext)}
-            >
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  {#if ext.isInstalled}
-                    <span class="w-2 h-2 rounded-full bg-green-500" title="Installed"></span>
-                  {:else}
-                    <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" title="Not installed"></span>
-                  {/if}
-                  <div>
-                    <div class="font-medium">{ext.name}</div>
-                    {#if ext.comment}
-                      <div class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-md">
-                        {ext.comment}
-                      </div>
-                    {/if}
-                  </div>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-center text-sm">
-                {#if ext.isInstalled}
-                  <span class="font-mono">{ext.installedVersion}</span>
-                  {#if ext.installedVersion !== ext.defaultVersion}
-                    <span class="ml-1 text-xs text-amber-600 dark:text-amber-400" title="Upgrade available">
-                      → {ext.defaultVersion}
-                    </span>
-                  {/if}
-                {:else}
-                  <span class="text-gray-400">{ext.defaultVersion}</span>
-                {/if}
-              </td>
-              <td class="px-4 py-3 text-sm">
-                {#if ext.schema}
-                  <span class="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                    {ext.schema}
-                  </span>
-                {:else}
-                  <span class="text-gray-400">-</span>
-                {/if}
-              </td>
-              <td class="px-4 py-3 text-right">
-                {#if ext.isInstalled}
-                  <button
-                    onclick={(e) => { e.stopPropagation(); /* uninstall */ }}
-                    class="text-red-600 hover:text-red-700 dark:text-red-400
+	<!-- Extension List -->
+	<div class="flex-1 overflow-auto">
+		{#if extensionStore.loading}
+			<div class="flex items-center justify-center h-full">
+				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+			</div>
+		{:else if extensionStore.error}
+			<div class="p-4 text-center text-red-500">{extensionStore.error}</div>
+		{:else}
+			<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+				<thead class="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
+					<tr>
+						<th
+							class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+						>
+							Extension
+						</th>
+						<th
+							class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+						>
+							Version
+						</th>
+						<th
+							class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+						>
+							Schema
+						</th>
+						<th
+							class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+						>
+							Actions
+						</th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+					{#each extensionStore.filteredExtensions as ext (ext.name)}
+						<tr
+							class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer
+                     {extensionStore.selectedExtension?.name === ext.name
+								? 'bg-blue-50 dark:bg-blue-900/20'
+								: ''}"
+							onclick={() => onSelect(ext)}
+						>
+							<td class="px-4 py-3">
+								<div class="flex items-center gap-2">
+									{#if ext.isInstalled}
+										<span class="w-2 h-2 rounded-full bg-green-500" title="Installed"></span>
+									{:else}
+										<span
+											class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"
+											title="Not installed"
+										></span>
+									{/if}
+									<div>
+										<div class="font-medium">{ext.name}</div>
+										{#if ext.comment}
+											<div class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-md">
+												{ext.comment}
+											</div>
+										{/if}
+									</div>
+								</div>
+							</td>
+							<td class="px-4 py-3 text-center text-sm">
+								{#if ext.isInstalled}
+									<span class="font-mono">{ext.installedVersion}</span>
+									{#if ext.installedVersion !== ext.defaultVersion}
+										<span
+											class="ml-1 text-xs text-amber-600 dark:text-amber-400"
+											title="Upgrade available"
+										>
+											→ {ext.defaultVersion}
+										</span>
+									{/if}
+								{:else}
+									<span class="text-gray-400">{ext.defaultVersion}</span>
+								{/if}
+							</td>
+							<td class="px-4 py-3 text-sm">
+								{#if ext.schema}
+									<span
+										class="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded"
+									>
+										{ext.schema}
+									</span>
+								{:else}
+									<span class="text-gray-400">-</span>
+								{/if}
+							</td>
+							<td class="px-4 py-3 text-right">
+								{#if ext.isInstalled}
+									<button
+										onclick={(e) => {
+											e.stopPropagation(); /* uninstall */
+										}}
+										class="text-red-600 hover:text-red-700 dark:text-red-400
                            dark:hover:text-red-300 text-sm"
-                  >
-                    Uninstall
-                  </button>
-                {:else}
-                  <button
-                    onclick={(e) => { e.stopPropagation(); onInstall(ext); }}
-                    class="text-blue-600 hover:text-blue-700 dark:text-blue-400
+									>
+										Uninstall
+									</button>
+								{:else}
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											onInstall(ext);
+										}}
+										class="text-blue-600 hover:text-blue-700 dark:text-blue-400
                            dark:hover:text-blue-300 text-sm"
-                  >
-                    Install
-                  </button>
-                {/if}
-              </td>
-            </tr>
-          {:else}
-            <tr>
-              <td colspan="4" class="px-4 py-8 text-center text-gray-500">
-                {extensionStore.filter ? 'No extensions match the filter' : 'No extensions found'}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
-  </div>
+									>
+										Install
+									</button>
+								{/if}
+							</td>
+						</tr>
+					{:else}
+						<tr>
+							<td colspan="4" class="px-4 py-8 text-center text-gray-500">
+								{extensionStore.filter ? 'No extensions match the filter' : 'No extensions found'}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</div>
 </div>
 ```
 
@@ -856,148 +895,150 @@ export const extensionStore = createExtensionStore();
 ```svelte
 <!-- src/lib/components/extensions/ExtensionDetail.svelte -->
 <script lang="ts">
-  import type { ExtensionDetail } from '$lib/types/extensions';
+	import type { ExtensionDetail } from '$lib/types/extensions';
 
-  interface Props {
-    detail: ExtensionDetail;
-    onUpgrade: () => void;
-    onUninstall: () => void;
-  }
+	interface Props {
+		detail: ExtensionDetail;
+		onUpgrade: () => void;
+		onUninstall: () => void;
+	}
 
-  let { detail, onUpgrade, onUninstall }: Props = $props();
+	let { detail, onUpgrade, onUninstall }: Props = $props();
 
-  let activeTab = $state<'objects' | 'config'>('objects');
+	let activeTab = $state<'objects' | 'config'>('objects');
 
-  // Group objects by type
-  const objectsByType = $derived(() => {
-    const groups: Record<string, typeof detail.objects> = {};
-    for (const obj of detail.objects) {
-      if (!groups[obj.objectType]) {
-        groups[obj.objectType] = [];
-      }
-      groups[obj.objectType].push(obj);
-    }
-    return groups;
-  });
+	// Group objects by type
+	const objectsByType = $derived(() => {
+		const groups: Record<string, typeof detail.objects> = {};
+		for (const obj of detail.objects) {
+			if (!groups[obj.objectType]) {
+				groups[obj.objectType] = [];
+			}
+			groups[obj.objectType].push(obj);
+		}
+		return groups;
+	});
 
-  const objectTypes = $derived(Object.keys(objectsByType()).sort());
+	const objectTypes = $derived(Object.keys(objectsByType()).sort());
 </script>
 
 <div class="flex flex-col h-full">
-  <!-- Header -->
-  <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-    <div class="flex items-center justify-between">
-      <div>
-        <h2 class="text-lg font-semibold">{detail.name}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400">{detail.description}</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          onclick={onUpgrade}
-          class="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30
+	<!-- Header -->
+	<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+		<div class="flex items-center justify-between">
+			<div>
+				<h2 class="text-lg font-semibold">{detail.name}</h2>
+				<p class="text-sm text-gray-500 dark:text-gray-400">{detail.description}</p>
+			</div>
+			<div class="flex items-center gap-2">
+				<button
+					onclick={onUpgrade}
+					class="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30
                  dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
-        >
-          Upgrade
-        </button>
-        <button
-          onclick={onUninstall}
-          class="px-3 py-1.5 text-sm bg-red-100 text-red-700 dark:bg-red-900/30
+				>
+					Upgrade
+				</button>
+				<button
+					onclick={onUninstall}
+					class="px-3 py-1.5 text-sm bg-red-100 text-red-700 dark:bg-red-900/30
                  dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
-        >
-          Uninstall
-        </button>
-      </div>
-    </div>
+				>
+					Uninstall
+				</button>
+			</div>
+		</div>
 
-    <!-- Info Row -->
-    <div class="flex items-center gap-6 mt-3 text-sm">
-      <div>
-        <span class="text-gray-500">Version:</span>
-        <span class="ml-1 font-mono">{detail.version}</span>
-      </div>
-      <div>
-        <span class="text-gray-500">Schema:</span>
-        <span class="ml-1 font-mono">{detail.schema}</span>
-      </div>
-      {#if detail.requires.length > 0}
-        <div>
-          <span class="text-gray-500">Requires:</span>
-          <span class="ml-1">{detail.requires.join(', ')}</span>
-        </div>
-      {/if}
-    </div>
-  </div>
+		<!-- Info Row -->
+		<div class="flex items-center gap-6 mt-3 text-sm">
+			<div>
+				<span class="text-gray-500">Version:</span>
+				<span class="ml-1 font-mono">{detail.version}</span>
+			</div>
+			<div>
+				<span class="text-gray-500">Schema:</span>
+				<span class="ml-1 font-mono">{detail.schema}</span>
+			</div>
+			{#if detail.requires.length > 0}
+				<div>
+					<span class="text-gray-500">Requires:</span>
+					<span class="ml-1">{detail.requires.join(', ')}</span>
+				</div>
+			{/if}
+		</div>
+	</div>
 
-  <!-- Tabs -->
-  <div class="flex border-b border-gray-200 dark:border-gray-700">
-    <button
-      onclick={() => activeTab = 'objects'}
-      class="px-4 py-2 text-sm font-medium transition-colors
+	<!-- Tabs -->
+	<div class="flex border-b border-gray-200 dark:border-gray-700">
+		<button
+			onclick={() => (activeTab = 'objects')}
+			class="px-4 py-2 text-sm font-medium transition-colors
              {activeTab === 'objects'
-               ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-    >
-      Objects ({detail.objects.length})
-    </button>
-    <button
-      onclick={() => activeTab = 'config'}
-      class="px-4 py-2 text-sm font-medium transition-colors
+				? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+				: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+		>
+			Objects ({detail.objects.length})
+		</button>
+		<button
+			onclick={() => (activeTab = 'config')}
+			class="px-4 py-2 text-sm font-medium transition-colors
              {activeTab === 'config'
-               ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-    >
-      Configuration ({detail.config.length})
-    </button>
-  </div>
+				? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+				: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+		>
+			Configuration ({detail.config.length})
+		</button>
+	</div>
 
-  <!-- Content -->
-  <div class="flex-1 overflow-auto p-4">
-    {#if activeTab === 'objects'}
-      {#if detail.objects.length === 0}
-        <p class="text-gray-500 text-center py-8">No objects found</p>
-      {:else}
-        <div class="space-y-4">
-          {#each objectTypes as objType}
-            <div>
-              <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
-                {objType}s ({objectsByType()[objType].length})
-              </h3>
-              <div class="bg-gray-50 dark:bg-gray-900/50 rounded p-2 space-y-1">
-                {#each objectsByType()[objType] as obj}
-                  <div class="text-sm font-mono py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
-                    {obj.identity}
-                  </div>
-                {/each}
-              </div>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    {:else if activeTab === 'config'}
-      {#if detail.config.length === 0}
-        <p class="text-gray-500 text-center py-8">No configuration parameters</p>
-      {:else}
-        <div class="space-y-3">
-          {#each detail.config as param}
-            <div class="bg-gray-50 dark:bg-gray-900/50 rounded p-3">
-              <div class="flex items-center justify-between">
-                <span class="font-mono text-sm">{param.name}</span>
-                <span class="font-mono text-sm text-blue-600 dark:text-blue-400">
-                  {param.value}
-                  {#if param.unit}
-                    <span class="text-gray-500">{param.unit}</span>
-                  {/if}
-                </span>
-              </div>
-              {#if param.description}
-                <p class="text-xs text-gray-500 mt-1">{param.description}</p>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/if}
-    {/if}
-  </div>
+	<!-- Content -->
+	<div class="flex-1 overflow-auto p-4">
+		{#if activeTab === 'objects'}
+			{#if detail.objects.length === 0}
+				<p class="text-gray-500 text-center py-8">No objects found</p>
+			{:else}
+				<div class="space-y-4">
+					{#each objectTypes as objType}
+						<div>
+							<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
+								{objType}s ({objectsByType()[objType].length})
+							</h3>
+							<div class="bg-gray-50 dark:bg-gray-900/50 rounded p-2 space-y-1">
+								{#each objectsByType()[objType] as obj}
+									<div
+										class="text-sm font-mono py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+									>
+										{obj.identity}
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{:else if activeTab === 'config'}
+			{#if detail.config.length === 0}
+				<p class="text-gray-500 text-center py-8">No configuration parameters</p>
+			{:else}
+				<div class="space-y-3">
+					{#each detail.config as param}
+						<div class="bg-gray-50 dark:bg-gray-900/50 rounded p-3">
+							<div class="flex items-center justify-between">
+								<span class="font-mono text-sm">{param.name}</span>
+								<span class="font-mono text-sm text-blue-600 dark:text-blue-400">
+									{param.value}
+									{#if param.unit}
+										<span class="text-gray-500">{param.unit}</span>
+									{/if}
+								</span>
+							</div>
+							{#if param.description}
+								<p class="text-xs text-gray-500 mt-1">{param.description}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{/if}
+	</div>
 </div>
 ```
 
@@ -1006,201 +1047,205 @@ export const extensionStore = createExtensionStore();
 ```svelte
 <!-- src/lib/components/extensions/InstallExtensionDialog.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { Extension, InstallExtensionOptions } from '$lib/types/extensions';
-  import { invoke } from '@tauri-apps/api/core';
+	import { createEventDispatcher } from 'svelte';
+	import type { Extension, InstallExtensionOptions } from '$lib/types/extensions';
+	import { invoke } from '@tauri-apps/api/core';
 
-  interface Props {
-    open: boolean;
-    connId: string;
-    extension: Extension;
-    schemas: string[];
-  }
+	interface Props {
+		open: boolean;
+		connId: string;
+		extension: Extension;
+		schemas: string[];
+	}
 
-  let { open = $bindable(), connId, extension, schemas }: Props = $props();
+	let { open = $bindable(), connId, extension, schemas }: Props = $props();
 
-  const dispatch = createEventDispatcher<{
-    install: InstallExtensionOptions;
-    cancel: void;
-  }>();
+	const dispatch = createEventDispatcher<{
+		install: InstallExtensionOptions;
+		cancel: void;
+	}>();
 
-  let selectedVersion = $state(extension.defaultVersion);
-  let selectedSchema = $state('public');
-  let cascade = $state(true);
-  let availableVersions = $state<string[]>([]);
-  let loading = $state(false);
-  let generatedSql = $state('');
+	let selectedVersion = $state(extension.defaultVersion);
+	let selectedSchema = $state('public');
+	let cascade = $state(true);
+	let availableVersions = $state<string[]>([]);
+	let loading = $state(false);
+	let generatedSql = $state('');
 
-  // Load available versions
-  $effect(() => {
-    if (open) {
-      loadVersions();
-      updateSql();
-    }
-  });
+	// Load available versions
+	$effect(() => {
+		if (open) {
+			loadVersions();
+			updateSql();
+		}
+	});
 
-  async function loadVersions() {
-    try {
-      availableVersions = await invoke<string[]>('get_extension_versions', {
-        connId,
-        extensionName: extension.name,
-      });
-    } catch {
-      availableVersions = [extension.defaultVersion];
-    }
-  }
+	async function loadVersions() {
+		try {
+			availableVersions = await invoke<string[]>('get_extension_versions', {
+				connId,
+				extensionName: extension.name
+			});
+		} catch {
+			availableVersions = [extension.defaultVersion];
+		}
+	}
 
-  function updateSql() {
-    const options: InstallExtensionOptions = {
-      name: extension.name,
-      version: selectedVersion !== extension.defaultVersion ? selectedVersion : undefined,
-      schema: selectedSchema !== 'public' ? selectedSchema : undefined,
-      cascade,
-    };
+	function updateSql() {
+		const options: InstallExtensionOptions = {
+			name: extension.name,
+			version: selectedVersion !== extension.defaultVersion ? selectedVersion : undefined,
+			schema: selectedSchema !== 'public' ? selectedSchema : undefined,
+			cascade
+		};
 
-    generatedSql = `CREATE EXTENSION IF NOT EXISTS ${extension.name}`;
-    if (options.schema) {
-      generatedSql += ` SCHEMA ${options.schema}`;
-    }
-    if (options.version) {
-      generatedSql += ` VERSION '${options.version}'`;
-    }
-    if (options.cascade) {
-      generatedSql += ` CASCADE`;
-    }
-    generatedSql += ';';
-  }
+		generatedSql = `CREATE EXTENSION IF NOT EXISTS ${extension.name}`;
+		if (options.schema) {
+			generatedSql += ` SCHEMA ${options.schema}`;
+		}
+		if (options.version) {
+			generatedSql += ` VERSION '${options.version}'`;
+		}
+		if (options.cascade) {
+			generatedSql += ` CASCADE`;
+		}
+		generatedSql += ';';
+	}
 
-  // Update SQL when options change
-  $effect(() => {
-    selectedVersion;
-    selectedSchema;
-    cascade;
-    updateSql();
-  });
+	// Update SQL when options change
+	$effect(() => {
+		selectedVersion;
+		selectedSchema;
+		cascade;
+		updateSql();
+	});
 
-  function handleInstall() {
-    dispatch('install', {
-      name: extension.name,
-      version: selectedVersion !== extension.defaultVersion ? selectedVersion : undefined,
-      schema: selectedSchema !== 'public' ? selectedSchema : undefined,
-      cascade,
-    });
-    open = false;
-  }
+	function handleInstall() {
+		dispatch('install', {
+			name: extension.name,
+			version: selectedVersion !== extension.defaultVersion ? selectedVersion : undefined,
+			schema: selectedSchema !== 'public' ? selectedSchema : undefined,
+			cascade
+		});
+		open = false;
+	}
 
-  function handleCancel() {
-    dispatch('cancel');
-    open = false;
-  }
+	function handleCancel() {
+		dispatch('cancel');
+		open = false;
+	}
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold">Install Extension: {extension.name}</h2>
-      </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden"
+		>
+			<!-- Header -->
+			<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+				<h2 class="text-lg font-semibold">Install Extension: {extension.name}</h2>
+			</div>
 
-      <!-- Body -->
-      <div class="p-4 space-y-4">
-        {#if extension.comment}
-          <p class="text-sm text-gray-600 dark:text-gray-400">{extension.comment}</p>
-        {/if}
+			<!-- Body -->
+			<div class="p-4 space-y-4">
+				{#if extension.comment}
+					<p class="text-sm text-gray-600 dark:text-gray-400">{extension.comment}</p>
+				{/if}
 
-        <!-- Dependencies -->
-        {#if extension.requires.length > 0}
-          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
-                      dark:border-blue-800 rounded text-sm">
-            <strong>Requires:</strong>
-            <span class="ml-1">{extension.requires.join(', ')}</span>
-          </div>
-        {/if}
+				<!-- Dependencies -->
+				{#if extension.requires.length > 0}
+					<div
+						class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
+                      dark:border-blue-800 rounded text-sm"
+					>
+						<strong>Requires:</strong>
+						<span class="ml-1">{extension.requires.join(', ')}</span>
+					</div>
+				{/if}
 
-        <!-- Version -->
-        <div>
-          <label class="block text-sm font-medium mb-1">Version</label>
-          <select
-            bind:value={selectedVersion}
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+				<!-- Version -->
+				<div>
+					<label class="block text-sm font-medium mb-1">Version</label>
+					<select
+						bind:value={selectedVersion}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                    bg-white dark:bg-gray-700 text-sm"
-          >
-            {#each availableVersions as version}
-              <option value={version}>
-                {version}
-                {version === extension.defaultVersion ? '(default)' : ''}
-              </option>
-            {/each}
-          </select>
-        </div>
+					>
+						{#each availableVersions as version}
+							<option value={version}>
+								{version}
+								{version === extension.defaultVersion ? '(default)' : ''}
+							</option>
+						{/each}
+					</select>
+				</div>
 
-        <!-- Schema -->
-        <div>
-          <label class="block text-sm font-medium mb-1">Schema</label>
-          <select
-            bind:value={selectedSchema}
-            disabled={!extension.relocatable}
-            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+				<!-- Schema -->
+				<div>
+					<label class="block text-sm font-medium mb-1">Schema</label>
+					<select
+						bind:value={selectedSchema}
+						disabled={!extension.relocatable}
+						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                    bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-          >
-            {#each schemas as schema}
-              <option value={schema}>{schema}</option>
-            {/each}
-          </select>
-          {#if !extension.relocatable}
-            <p class="text-xs text-gray-500 mt-1">
-              This extension is not relocatable and will be installed in its default schema.
-            </p>
-          {/if}
-        </div>
+					>
+						{#each schemas as schema}
+							<option value={schema}>{schema}</option>
+						{/each}
+					</select>
+					{#if !extension.relocatable}
+						<p class="text-xs text-gray-500 mt-1">
+							This extension is not relocatable and will be installed in its default schema.
+						</p>
+					{/if}
+				</div>
 
-        <!-- Cascade -->
-        <label class="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            bind:checked={cascade}
-            class="mt-1 rounded border-gray-300 dark:border-gray-600"
-          />
-          <div>
-            <span class="font-medium text-sm">CASCADE</span>
-            <p class="text-xs text-gray-500 dark:text-gray-400">
-              Automatically install required dependencies
-            </p>
-          </div>
-        </label>
+				<!-- Cascade -->
+				<label class="flex items-start gap-3 cursor-pointer">
+					<input
+						type="checkbox"
+						bind:checked={cascade}
+						class="mt-1 rounded border-gray-300 dark:border-gray-600"
+					/>
+					<div>
+						<span class="font-medium text-sm">CASCADE</span>
+						<p class="text-xs text-gray-500 dark:text-gray-400">
+							Automatically install required dependencies
+						</p>
+					</div>
+				</label>
 
-        <!-- SQL Preview -->
-        <div>
-          <label class="block text-sm font-medium mb-1">Generated SQL</label>
-          <pre class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs overflow-auto">
+				<!-- SQL Preview -->
+				<div>
+					<label class="block text-sm font-medium mb-1">Generated SQL</label>
+					<pre class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs overflow-auto">
 {generatedSql}
           </pre>
-        </div>
-      </div>
+				</div>
+			</div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-        <button
-          onclick={handleCancel}
-          class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+			<!-- Footer -->
+			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+				<button
+					onclick={handleCancel}
+					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={handleInstall}
-          class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Install
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleInstall}
+					class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+				>
+					Install
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1243,30 +1288,30 @@ export const extensionStore = createExtensionStore();
 ```typescript
 // List extensions
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'get_extensions',
-  args: { connId: 'test-conn' }
+	command: 'get_extensions',
+	args: { connId: 'test-conn' }
 });
 
 // Install extension
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'install_extension',
-  args: {
-    connId: 'test-conn',
-    options: {
-      name: 'uuid-ossp',
-      schema: 'public',
-      cascade: true
-    }
-  }
+	command: 'install_extension',
+	args: {
+		connId: 'test-conn',
+		options: {
+			name: 'uuid-ossp',
+			schema: 'public',
+			cascade: true
+		}
+	}
 });
 
 // Get extension detail
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'get_extension_detail',
-  args: {
-    connId: 'test-conn',
-    extensionName: 'uuid-ossp'
-  }
+	command: 'get_extension_detail',
+	args: {
+		connId: 'test-conn',
+		extensionName: 'uuid-ossp'
+	}
 });
 ```
 
@@ -1275,24 +1320,24 @@ await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
 ```typescript
 // Navigate to extensions
 await mcp__playwright__browser_navigate({
-  url: 'http://localhost:1420/extensions'
+	url: 'http://localhost:1420/extensions'
 });
 
 // Search for extension
 await mcp__playwright__browser_type({
-  element: 'Search input',
-  ref: 'input[placeholder*="Search"]',
-  text: 'uuid'
+	element: 'Search input',
+	ref: 'input[placeholder*="Search"]',
+	text: 'uuid'
 });
 
 // Click install button
 await mcp__playwright__browser_click({
-  element: 'Install button',
-  ref: 'button:has-text("Install"):first'
+	element: 'Install button',
+	ref: 'button:has-text("Install"):first'
 });
 
 // Take screenshot of install dialog
 await mcp__playwright__browser_take_screenshot({
-  filename: 'extension-install-dialog.png'
+	filename: 'extension-install-dialog.png'
 });
 ```

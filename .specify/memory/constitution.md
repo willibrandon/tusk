@@ -4,7 +4,7 @@
 
 ### I. Postgres Exclusivity
 
-Tusk MUST support only PostgreSQL. No multi-database abstractions, connection adapters for other databases, or "generic SQL" layers. Every feature MUST leverage Postgres-specific capabilities (pg_stat_*, COPY protocol, LISTEN/NOTIFY, RLS, etc.) rather than lowest-common-denominator SQL.
+Tusk MUST support only PostgreSQL. No multi-database abstractions, connection adapters for other databases, or "generic SQL" layers. Every feature MUST leverage Postgres-specific capabilities (pg*stat*\*, COPY protocol, LISTEN/NOTIFY, RLS, etc.) rather than lowest-common-denominator SQL.
 
 **Rationale**: Deep Postgres integration delivers better performance, richer features, and simpler code than generic database support. This is a Postgres client, not a universal database tool.
 
@@ -23,6 +23,7 @@ Passwords and sensitive credentials MUST be stored exclusively in the operating 
 ### IV. Complete Implementation (NON-NEGOTIABLE)
 
 Every feature MUST be implemented completely before moving to the next. This means:
+
 - No placeholder implementations or stub functions
 - No "TODO" comments deferring work
 - No "future work" or "later iterations" references
@@ -34,6 +35,7 @@ Every feature MUST be implemented completely before moving to the next. This mea
 ### V. Task Immutability (NON-NEGOTIABLE)
 
 Once tasks are created in a tasks.md file, they are IMMUTABLE. This means:
+
 - Tasks MUST NEVER be removed, deleted, or merged
 - Tasks MUST NEVER be renumbered (task IDs are permanent)
 - Tasks MUST NEVER have their scope reduced or simplified
@@ -48,14 +50,14 @@ Once tasks are created in a tasks.md file, they are IMMUTABLE. This means:
 
 All features MUST meet these performance targets:
 
-| Metric | Target |
-|--------|--------|
-| Cold start | < 1 second |
-| Memory (idle) | < 100 MB |
-| Memory (1M rows loaded) | < 500 MB |
-| Query result render (1000 rows) | < 100ms |
-| Schema browser load (1000 tables) | < 500ms |
-| Autocomplete response | < 50ms |
+| Metric                            | Target     |
+| --------------------------------- | ---------- |
+| Cold start                        | < 1 second |
+| Memory (idle)                     | < 100 MB   |
+| Memory (1M rows loaded)           | < 500 MB   |
+| Query result render (1000 rows)   | < 100ms    |
+| Schema browser load (1000 tables) | < 500ms    |
+| Autocomplete response             | < 50ms     |
 
 Performance MUST be achieved through streaming (batch row emission via Tauri events) and virtual scrolling (render only visible content). Lazy loading and pagination are acceptable; blocking the UI thread is not.
 
@@ -64,6 +66,7 @@ Performance MUST be achieved through streaming (batch row emission via Tauri eve
 ## Security Requirements
 
 **Credential Handling**:
+
 - MUST never log passwords, connection strings with passwords, or authentication tokens
 - MUST use parameterized queries for all database operations (never string interpolation)
 - MUST validate all user input before processing
@@ -71,6 +74,7 @@ Performance MUST be achieved through streaming (batch row emission via Tauri eve
 - MUST confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
 **Connection Security**:
+
 - SSL/TLS MUST be preferred by default (ssl_mode: prefer)
 - SSH tunnels MUST be supported for secure remote access
 - Certificate validation MUST be enforced when ssl_mode requires it
@@ -78,6 +82,7 @@ Performance MUST be achieved through streaming (batch row emission via Tauri eve
 ## Technology Stack
 
 **Frontend** (WebView):
+
 - Svelte 5 for compiled reactivity
 - Monaco Editor for SQL editing
 - TanStack Table + custom virtualization for data grids
@@ -85,6 +90,7 @@ Performance MUST be achieved through streaming (batch row emission via Tauri eve
 - Tailwind CSS for styling
 
 **Backend** (Rust):
+
 - Tauri v2 for native shell
 - tokio-postgres for async Postgres operations
 - deadpool-postgres for connection pooling
@@ -99,6 +105,7 @@ Deviations from this stack require explicit justification and constitution amend
 This constitution supersedes all other practices. Violations discovered during development MUST be fixed before proceeding.
 
 **Amendment Process**:
+
 1. Document the proposed change with rationale
 2. Assess impact on existing features
 3. Update constitution version according to semantic versioning:
@@ -108,6 +115,7 @@ This constitution supersedes all other practices. Violations discovered during d
 4. Propagate changes to dependent templates
 
 **Compliance**:
+
 - All code reviews MUST verify constitution compliance
 - Complexity MUST be justified against Principle IV (Complete Implementation)
 - Task modifications MUST be rejected per Principle V (Task Immutability)

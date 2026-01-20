@@ -26,57 +26,57 @@ Maintenance operations provide GUI interfaces for PostgreSQL maintenance command
 // src/lib/types/maintenance.ts
 
 export interface VacuumOptions {
-  full: boolean;
-  freeze: boolean;
-  analyze: boolean;
-  verbose: boolean;
-  skipLocked: boolean;
-  indexCleanup: 'auto' | 'on' | 'off';
-  parallel: number; // 0 = auto
-  truncate: boolean;
-  processToast: boolean;
+	full: boolean;
+	freeze: boolean;
+	analyze: boolean;
+	verbose: boolean;
+	skipLocked: boolean;
+	indexCleanup: 'auto' | 'on' | 'off';
+	parallel: number; // 0 = auto
+	truncate: boolean;
+	processToast: boolean;
 }
 
 export interface ReindexOptions {
-  concurrently: boolean;
-  verbose: boolean;
-  tablespace?: string;
+	concurrently: boolean;
+	verbose: boolean;
+	tablespace?: string;
 }
 
 export interface ReindexTarget {
-  type: 'index' | 'table' | 'schema' | 'database';
-  schema?: string;
-  name?: string;
+	type: 'index' | 'table' | 'schema' | 'database';
+	schema?: string;
+	name?: string;
 }
 
 export interface AnalyzeOptions {
-  verbose: boolean;
-  skipLocked: boolean;
-  columns?: string[];
+	verbose: boolean;
+	skipLocked: boolean;
+	columns?: string[];
 }
 
 export interface ClusterOptions {
-  verbose: boolean;
-  indexName?: string;
+	verbose: boolean;
+	indexName?: string;
 }
 
 export interface MaintenanceJob {
-  id: string;
-  type: 'vacuum' | 'analyze' | 'reindex' | 'cluster';
-  target: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  startTime: Date | null;
-  endTime: Date | null;
-  output: string[];
-  error: string | null;
-  progress?: number; // 0-100 if available
+	id: string;
+	type: 'vacuum' | 'analyze' | 'reindex' | 'cluster';
+	target: string;
+	status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+	startTime: Date | null;
+	endTime: Date | null;
+	output: string[];
+	error: string | null;
+	progress?: number; // 0-100 if available
 }
 
 export interface MaintenanceResult {
-  success: boolean;
-  output: string[];
-  duration: number;
-  error?: string;
+	success: boolean;
+	output: string[];
+	duration: number;
+	error?: string;
 }
 ```
 
@@ -584,206 +584,207 @@ pub async fn cluster(
 
 import { invoke } from '@tauri-apps/api/core';
 import type {
-  VacuumOptions,
-  AnalyzeOptions,
-  ReindexOptions,
-  ReindexTarget,
-  ClusterOptions,
-  MaintenanceJob,
-  MaintenanceResult,
+	VacuumOptions,
+	AnalyzeOptions,
+	ReindexOptions,
+	ReindexTarget,
+	ClusterOptions,
+	MaintenanceJob,
+	MaintenanceResult
 } from '$lib/types/maintenance';
 
 interface MaintenanceState {
-  activeJobs: MaintenanceJob[];
-  completedJobs: MaintenanceJob[];
-  maxCompletedJobs: number;
+	activeJobs: MaintenanceJob[];
+	completedJobs: MaintenanceJob[];
+	maxCompletedJobs: number;
 }
 
 export function createMaintenanceStore() {
-  let state = $state<MaintenanceState>({
-    activeJobs: [],
-    completedJobs: [],
-    maxCompletedJobs: 50,
-  });
+	let state = $state<MaintenanceState>({
+		activeJobs: [],
+		completedJobs: [],
+		maxCompletedJobs: 50
+	});
 
-  function createJob(
-    type: MaintenanceJob['type'],
-    target: string
-  ): MaintenanceJob {
-    return {
-      id: crypto.randomUUID(),
-      type,
-      target,
-      status: 'pending',
-      startTime: null,
-      endTime: null,
-      output: [],
-      error: null,
-    };
-  }
+	function createJob(type: MaintenanceJob['type'], target: string): MaintenanceJob {
+		return {
+			id: crypto.randomUUID(),
+			type,
+			target,
+			status: 'pending',
+			startTime: null,
+			endTime: null,
+			output: [],
+			error: null
+		};
+	}
 
-  function updateJob(jobId: string, updates: Partial<MaintenanceJob>) {
-    state.activeJobs = state.activeJobs.map(job =>
-      job.id === jobId ? { ...job, ...updates } : job
-    );
-  }
+	function updateJob(jobId: string, updates: Partial<MaintenanceJob>) {
+		state.activeJobs = state.activeJobs.map((job) =>
+			job.id === jobId ? { ...job, ...updates } : job
+		);
+	}
 
-  function completeJob(jobId: string, result: MaintenanceResult) {
-    const job = state.activeJobs.find(j => j.id === jobId);
-    if (!job) return;
+	function completeJob(jobId: string, result: MaintenanceResult) {
+		const job = state.activeJobs.find((j) => j.id === jobId);
+		if (!job) return;
 
-    const completedJob: MaintenanceJob = {
-      ...job,
-      status: result.success ? 'completed' : 'failed',
-      endTime: new Date(),
-      output: result.output,
-      error: result.error ?? null,
-    };
+		const completedJob: MaintenanceJob = {
+			...job,
+			status: result.success ? 'completed' : 'failed',
+			endTime: new Date(),
+			output: result.output,
+			error: result.error ?? null
+		};
 
-    state.activeJobs = state.activeJobs.filter(j => j.id !== jobId);
-    state.completedJobs = [completedJob, ...state.completedJobs]
-      .slice(0, state.maxCompletedJobs);
-  }
+		state.activeJobs = state.activeJobs.filter((j) => j.id !== jobId);
+		state.completedJobs = [completedJob, ...state.completedJobs].slice(0, state.maxCompletedJobs);
+	}
 
-  async function vacuum(
-    connId: string,
-    schema: string | null,
-    table: string | null,
-    options: VacuumOptions
-  ): Promise<MaintenanceResult> {
-    const target = schema && table ? `${schema}.${table}` : 'database';
-    const job = createJob('vacuum', target);
+	async function vacuum(
+		connId: string,
+		schema: string | null,
+		table: string | null,
+		options: VacuumOptions
+	): Promise<MaintenanceResult> {
+		const target = schema && table ? `${schema}.${table}` : 'database';
+		const job = createJob('vacuum', target);
 
-    state.activeJobs = [...state.activeJobs, job];
-    updateJob(job.id, { status: 'running', startTime: new Date() });
+		state.activeJobs = [...state.activeJobs, job];
+		updateJob(job.id, { status: 'running', startTime: new Date() });
 
-    try {
-      const result = await invoke<MaintenanceResult>('vacuum', {
-        request: { connId, schema, table, options },
-      });
+		try {
+			const result = await invoke<MaintenanceResult>('vacuum', {
+				request: { connId, schema, table, options }
+			});
 
-      completeJob(job.id, result);
-      return result;
-    } catch (err) {
-      const errorResult: MaintenanceResult = {
-        success: false,
-        output: [],
-        duration: 0,
-        error: err instanceof Error ? err.message : String(err),
-      };
-      completeJob(job.id, errorResult);
-      return errorResult;
-    }
-  }
+			completeJob(job.id, result);
+			return result;
+		} catch (err) {
+			const errorResult: MaintenanceResult = {
+				success: false,
+				output: [],
+				duration: 0,
+				error: err instanceof Error ? err.message : String(err)
+			};
+			completeJob(job.id, errorResult);
+			return errorResult;
+		}
+	}
 
-  async function analyze(
-    connId: string,
-    schema: string | null,
-    table: string | null,
-    options: AnalyzeOptions
-  ): Promise<MaintenanceResult> {
-    const target = schema && table ? `${schema}.${table}` : 'database';
-    const job = createJob('analyze', target);
+	async function analyze(
+		connId: string,
+		schema: string | null,
+		table: string | null,
+		options: AnalyzeOptions
+	): Promise<MaintenanceResult> {
+		const target = schema && table ? `${schema}.${table}` : 'database';
+		const job = createJob('analyze', target);
 
-    state.activeJobs = [...state.activeJobs, job];
-    updateJob(job.id, { status: 'running', startTime: new Date() });
+		state.activeJobs = [...state.activeJobs, job];
+		updateJob(job.id, { status: 'running', startTime: new Date() });
 
-    try {
-      const result = await invoke<MaintenanceResult>('analyze', {
-        request: { connId, schema, table, options },
-      });
+		try {
+			const result = await invoke<MaintenanceResult>('analyze', {
+				request: { connId, schema, table, options }
+			});
 
-      completeJob(job.id, result);
-      return result;
-    } catch (err) {
-      const errorResult: MaintenanceResult = {
-        success: false,
-        output: [],
-        duration: 0,
-        error: err instanceof Error ? err.message : String(err),
-      };
-      completeJob(job.id, errorResult);
-      return errorResult;
-    }
-  }
+			completeJob(job.id, result);
+			return result;
+		} catch (err) {
+			const errorResult: MaintenanceResult = {
+				success: false,
+				output: [],
+				duration: 0,
+				error: err instanceof Error ? err.message : String(err)
+			};
+			completeJob(job.id, errorResult);
+			return errorResult;
+		}
+	}
 
-  async function reindex(
-    connId: string,
-    target: ReindexTarget,
-    options: ReindexOptions
-  ): Promise<MaintenanceResult> {
-    const targetStr = target.schema && target.name
-      ? `${target.schema}.${target.name}`
-      : target.name ?? target.targetType;
-    const job = createJob('reindex', targetStr);
+	async function reindex(
+		connId: string,
+		target: ReindexTarget,
+		options: ReindexOptions
+	): Promise<MaintenanceResult> {
+		const targetStr =
+			target.schema && target.name
+				? `${target.schema}.${target.name}`
+				: (target.name ?? target.targetType);
+		const job = createJob('reindex', targetStr);
 
-    state.activeJobs = [...state.activeJobs, job];
-    updateJob(job.id, { status: 'running', startTime: new Date() });
+		state.activeJobs = [...state.activeJobs, job];
+		updateJob(job.id, { status: 'running', startTime: new Date() });
 
-    try {
-      const result = await invoke<MaintenanceResult>('reindex', {
-        request: { connId, target, options },
-      });
+		try {
+			const result = await invoke<MaintenanceResult>('reindex', {
+				request: { connId, target, options }
+			});
 
-      completeJob(job.id, result);
-      return result;
-    } catch (err) {
-      const errorResult: MaintenanceResult = {
-        success: false,
-        output: [],
-        duration: 0,
-        error: err instanceof Error ? err.message : String(err),
-      };
-      completeJob(job.id, errorResult);
-      return errorResult;
-    }
-  }
+			completeJob(job.id, result);
+			return result;
+		} catch (err) {
+			const errorResult: MaintenanceResult = {
+				success: false,
+				output: [],
+				duration: 0,
+				error: err instanceof Error ? err.message : String(err)
+			};
+			completeJob(job.id, errorResult);
+			return errorResult;
+		}
+	}
 
-  async function cluster(
-    connId: string,
-    schema: string | null,
-    table: string | null,
-    options: ClusterOptions
-  ): Promise<MaintenanceResult> {
-    const target = schema && table ? `${schema}.${table}` : 'all tables';
-    const job = createJob('cluster', target);
+	async function cluster(
+		connId: string,
+		schema: string | null,
+		table: string | null,
+		options: ClusterOptions
+	): Promise<MaintenanceResult> {
+		const target = schema && table ? `${schema}.${table}` : 'all tables';
+		const job = createJob('cluster', target);
 
-    state.activeJobs = [...state.activeJobs, job];
-    updateJob(job.id, { status: 'running', startTime: new Date() });
+		state.activeJobs = [...state.activeJobs, job];
+		updateJob(job.id, { status: 'running', startTime: new Date() });
 
-    try {
-      const result = await invoke<MaintenanceResult>('cluster', {
-        request: { connId, schema, table, options },
-      });
+		try {
+			const result = await invoke<MaintenanceResult>('cluster', {
+				request: { connId, schema, table, options }
+			});
 
-      completeJob(job.id, result);
-      return result;
-    } catch (err) {
-      const errorResult: MaintenanceResult = {
-        success: false,
-        output: [],
-        duration: 0,
-        error: err instanceof Error ? err.message : String(err),
-      };
-      completeJob(job.id, errorResult);
-      return errorResult;
-    }
-  }
+			completeJob(job.id, result);
+			return result;
+		} catch (err) {
+			const errorResult: MaintenanceResult = {
+				success: false,
+				output: [],
+				duration: 0,
+				error: err instanceof Error ? err.message : String(err)
+			};
+			completeJob(job.id, errorResult);
+			return errorResult;
+		}
+	}
 
-  function clearCompletedJobs() {
-    state.completedJobs = [];
-  }
+	function clearCompletedJobs() {
+		state.completedJobs = [];
+	}
 
-  return {
-    get activeJobs() { return state.activeJobs; },
-    get completedJobs() { return state.completedJobs; },
+	return {
+		get activeJobs() {
+			return state.activeJobs;
+		},
+		get completedJobs() {
+			return state.completedJobs;
+		},
 
-    vacuum,
-    analyze,
-    reindex,
-    cluster,
-    clearCompletedJobs,
-  };
+		vacuum,
+		analyze,
+		reindex,
+		cluster,
+		clearCompletedJobs
+	};
 }
 
 export const maintenanceStore = createMaintenanceStore();
@@ -794,247 +795,254 @@ export const maintenanceStore = createMaintenanceStore();
 ```svelte
 <!-- src/lib/components/maintenance/VacuumDialog.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { VacuumOptions } from '$lib/types/maintenance';
-  import type { Table } from '$lib/types/schema';
+	import { createEventDispatcher } from 'svelte';
+	import type { VacuumOptions } from '$lib/types/maintenance';
+	import type { Table } from '$lib/types/schema';
 
-  interface Props {
-    open: boolean;
-    connId: string;
-    tables: Table[];
-    initialTable?: { schema: string; name: string };
-  }
+	interface Props {
+		open: boolean;
+		connId: string;
+		tables: Table[];
+		initialTable?: { schema: string; name: string };
+	}
 
-  let { open = $bindable(), connId, tables, initialTable }: Props = $props();
+	let { open = $bindable(), connId, tables, initialTable }: Props = $props();
 
-  const dispatch = createEventDispatcher<{
-    run: { schema: string | null; table: string | null; options: VacuumOptions };
-    cancel: void;
-  }>();
+	const dispatch = createEventDispatcher<{
+		run: { schema: string | null; table: string | null; options: VacuumOptions };
+		cancel: void;
+	}>();
 
-  let selectedSchema = $state(initialTable?.schema ?? '');
-  let selectedTable = $state(initialTable?.name ?? '');
+	let selectedSchema = $state(initialTable?.schema ?? '');
+	let selectedTable = $state(initialTable?.name ?? '');
 
-  let options = $state<VacuumOptions>({
-    full: false,
-    freeze: false,
-    analyze: false,
-    verbose: true,
-    skipLocked: false,
-    indexCleanup: 'auto',
-    parallel: 0,
-    truncate: true,
-    processToast: true,
-  });
+	let options = $state<VacuumOptions>({
+		full: false,
+		freeze: false,
+		analyze: false,
+		verbose: true,
+		skipLocked: false,
+		indexCleanup: 'auto',
+		parallel: 0,
+		truncate: true,
+		processToast: true
+	});
 
-  // Get unique schemas
-  const schemas = $derived([...new Set(tables.map(t => t.schema))].sort());
+	// Get unique schemas
+	const schemas = $derived([...new Set(tables.map((t) => t.schema))].sort());
 
-  // Get tables for selected schema
-  const schemaTables = $derived(
-    selectedSchema
-      ? tables.filter(t => t.schema === selectedSchema).map(t => t.name).sort()
-      : []
-  );
+	// Get tables for selected schema
+	const schemaTables = $derived(
+		selectedSchema
+			? tables
+					.filter((t) => t.schema === selectedSchema)
+					.map((t) => t.name)
+					.sort()
+			: []
+	);
 
-  function handleRun() {
-    dispatch('run', {
-      schema: selectedSchema || null,
-      table: selectedTable || null,
-      options,
-    });
-    open = false;
-  }
+	function handleRun() {
+		dispatch('run', {
+			schema: selectedSchema || null,
+			table: selectedTable || null,
+			options
+		});
+		open = false;
+	}
 
-  function handleCancel() {
-    dispatch('cancel');
-    open = false;
-  }
+	function handleCancel() {
+		dispatch('cancel');
+		open = false;
+	}
 
-  // Reset table when schema changes
-  $effect(() => {
-    if (selectedSchema && !schemaTables.includes(selectedTable)) {
-      selectedTable = '';
-    }
-  });
+	// Reset table when schema changes
+	$effect(() => {
+		if (selectedSchema && !schemaTables.includes(selectedTable)) {
+			selectedTable = '';
+		}
+	});
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="vacuum-dialog-title"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 id="vacuum-dialog-title" class="text-lg font-semibold">VACUUM</h2>
-      </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="vacuum-dialog-title"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden"
+		>
+			<!-- Header -->
+			<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+				<h2 id="vacuum-dialog-title" class="text-lg font-semibold">VACUUM</h2>
+			</div>
 
-      <!-- Body -->
-      <div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
-        <!-- Target Selection -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Target</label>
-          <div class="grid grid-cols-2 gap-2">
-            <select
-              bind:value={selectedSchema}
-              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+			<!-- Body -->
+			<div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+				<!-- Target Selection -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Target</label>
+					<div class="grid grid-cols-2 gap-2">
+						<select
+							bind:value={selectedSchema}
+							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            >
-              <option value="">All schemas</option>
-              {#each schemas as schema}
-                <option value={schema}>{schema}</option>
-              {/each}
-            </select>
-            <select
-              bind:value={selectedTable}
-              disabled={!selectedSchema}
-              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+						>
+							<option value="">All schemas</option>
+							{#each schemas as schema}
+								<option value={schema}>{schema}</option>
+							{/each}
+						</select>
+						<select
+							bind:value={selectedTable}
+							disabled={!selectedSchema}
+							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-            >
-              <option value="">All tables</option>
-              {#each schemaTables as table}
-                <option value={table}>{table}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
+						>
+							<option value="">All tables</option>
+							{#each schemaTables as table}
+								<option value={table}>{table}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
 
-        <!-- Options -->
-        <div class="space-y-3">
-          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Options</h3>
+				<!-- Options -->
+				<div class="space-y-3">
+					<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Options</h3>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.full}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">FULL</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Reclaims more space but takes longer and requires exclusive lock.
-                Rewrites the entire table.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.full}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">FULL</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Reclaims more space but takes longer and requires exclusive lock. Rewrites the
+								entire table.
+							</p>
+						</div>
+					</label>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.freeze}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">FREEZE</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Aggressively freeze tuples. Useful before taking a pg_dump for archival.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.freeze}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">FREEZE</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Aggressively freeze tuples. Useful before taking a pg_dump for archival.
+							</p>
+						</div>
+					</label>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.analyze}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">ANALYZE</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Update statistics used by the query planner.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.analyze}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">ANALYZE</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Update statistics used by the query planner.
+							</p>
+						</div>
+					</label>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.verbose}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">VERBOSE</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Print detailed progress report for each table.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.verbose}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">VERBOSE</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Print detailed progress report for each table.
+							</p>
+						</div>
+					</label>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.skipLocked}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">SKIP_LOCKED</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Skip tables that cannot be locked immediately.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.skipLocked}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">SKIP_LOCKED</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Skip tables that cannot be locked immediately.
+							</p>
+						</div>
+					</label>
 
-          <div class="flex items-center gap-4">
-            <label class="flex items-center gap-2">
-              <span class="text-sm">Index Cleanup:</span>
-              <select
-                bind:value={options.indexCleanup}
-                class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600
+					<div class="flex items-center gap-4">
+						<label class="flex items-center gap-2">
+							<span class="text-sm">Index Cleanup:</span>
+							<select
+								bind:value={options.indexCleanup}
+								class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600
                        rounded bg-white dark:bg-gray-700"
-              >
-                <option value="auto">Auto</option>
-                <option value="on">On</option>
-                <option value="off">Off</option>
-              </select>
-            </label>
+							>
+								<option value="auto">Auto</option>
+								<option value="on">On</option>
+								<option value="off">Off</option>
+							</select>
+						</label>
 
-            <label class="flex items-center gap-2">
-              <span class="text-sm">Parallel Workers:</span>
-              <input
-                type="number"
-                bind:value={options.parallel}
-                min="0"
-                max="32"
-                class="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600
+						<label class="flex items-center gap-2">
+							<span class="text-sm">Parallel Workers:</span>
+							<input
+								type="number"
+								bind:value={options.parallel}
+								min="0"
+								max="32"
+								class="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600
                        rounded bg-white dark:bg-gray-700"
-              />
-              <span class="text-xs text-gray-500">(0 = auto)</span>
-            </label>
-          </div>
-        </div>
+							/>
+							<span class="text-xs text-gray-500">(0 = auto)</span>
+						</label>
+					</div>
+				</div>
 
-        <!-- Warning for FULL -->
-        {#if options.full}
-          <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200
-                      dark:border-amber-800 rounded text-sm text-amber-800 dark:text-amber-200">
-            <strong>Warning:</strong> VACUUM FULL requires an exclusive lock on the table
-            and rewrites the entire table. This can take a significant amount of time
-            for large tables and will block all queries.
-          </div>
-        {/if}
-      </div>
+				<!-- Warning for FULL -->
+				{#if options.full}
+					<div
+						class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200
+                      dark:border-amber-800 rounded text-sm text-amber-800 dark:text-amber-200"
+					>
+						<strong>Warning:</strong> VACUUM FULL requires an exclusive lock on the table and rewrites
+						the entire table. This can take a significant amount of time for large tables and will block
+						all queries.
+					</div>
+				{/if}
+			</div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-        <button
-          onclick={handleCancel}
-          class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+			<!-- Footer -->
+			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+				<button
+					onclick={handleCancel}
+					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={handleRun}
-          class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Run VACUUM
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleRun}
+					class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+				>
+					Run VACUUM
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1043,259 +1051,260 @@ export const maintenanceStore = createMaintenanceStore();
 ```svelte
 <!-- src/lib/components/maintenance/ReindexDialog.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { ReindexOptions, ReindexTarget } from '$lib/types/maintenance';
-  import type { Table, Index } from '$lib/types/schema';
+	import { createEventDispatcher } from 'svelte';
+	import type { ReindexOptions, ReindexTarget } from '$lib/types/maintenance';
+	import type { Table, Index } from '$lib/types/schema';
 
-  interface Props {
-    open: boolean;
-    connId: string;
-    tables: Table[];
-    indexes: Array<{ schema: string; table: string; name: string }>;
-    initialTarget?: ReindexTarget;
-  }
+	interface Props {
+		open: boolean;
+		connId: string;
+		tables: Table[];
+		indexes: Array<{ schema: string; table: string; name: string }>;
+		initialTarget?: ReindexTarget;
+	}
 
-  let { open = $bindable(), connId, tables, indexes, initialTarget }: Props = $props();
+	let { open = $bindable(), connId, tables, indexes, initialTarget }: Props = $props();
 
-  const dispatch = createEventDispatcher<{
-    run: { target: ReindexTarget; options: ReindexOptions };
-    cancel: void;
-  }>();
+	const dispatch = createEventDispatcher<{
+		run: { target: ReindexTarget; options: ReindexOptions };
+		cancel: void;
+	}>();
 
-  let targetType = $state<'index' | 'table' | 'schema' | 'database'>(
-    initialTarget?.type ?? 'table'
-  );
-  let selectedSchema = $state(initialTarget?.schema ?? '');
-  let selectedTable = $state('');
-  let selectedIndex = $state(initialTarget?.name ?? '');
+	let targetType = $state<'index' | 'table' | 'schema' | 'database'>(
+		initialTarget?.type ?? 'table'
+	);
+	let selectedSchema = $state(initialTarget?.schema ?? '');
+	let selectedTable = $state('');
+	let selectedIndex = $state(initialTarget?.name ?? '');
 
-  let options = $state<ReindexOptions>({
-    concurrently: true,
-    verbose: true,
-    tablespace: undefined,
-  });
+	let options = $state<ReindexOptions>({
+		concurrently: true,
+		verbose: true,
+		tablespace: undefined
+	});
 
-  // Get unique schemas
-  const schemas = $derived([...new Set(tables.map(t => t.schema))].sort());
+	// Get unique schemas
+	const schemas = $derived([...new Set(tables.map((t) => t.schema))].sort());
 
-  // Get tables for selected schema
-  const schemaTables = $derived(
-    selectedSchema
-      ? tables.filter(t => t.schema === selectedSchema).map(t => t.name).sort()
-      : []
-  );
+	// Get tables for selected schema
+	const schemaTables = $derived(
+		selectedSchema
+			? tables
+					.filter((t) => t.schema === selectedSchema)
+					.map((t) => t.name)
+					.sort()
+			: []
+	);
 
-  // Get indexes for selected table
-  const tableIndexes = $derived(
-    selectedSchema && selectedTable
-      ? indexes
-          .filter(i => i.schema === selectedSchema && i.table === selectedTable)
-          .map(i => i.name)
-          .sort()
-      : []
-  );
+	// Get indexes for selected table
+	const tableIndexes = $derived(
+		selectedSchema && selectedTable
+			? indexes
+					.filter((i) => i.schema === selectedSchema && i.table === selectedTable)
+					.map((i) => i.name)
+					.sort()
+			: []
+	);
 
-  function handleRun() {
-    const target: ReindexTarget = {
-      type: targetType,
-      schema: ['index', 'table'].includes(targetType) ? selectedSchema : undefined,
-      name: targetType === 'index'
-        ? selectedIndex
-        : targetType === 'table'
-          ? selectedTable
-          : targetType === 'schema'
-            ? selectedSchema
-            : undefined,
-    };
+	function handleRun() {
+		const target: ReindexTarget = {
+			type: targetType,
+			schema: ['index', 'table'].includes(targetType) ? selectedSchema : undefined,
+			name:
+				targetType === 'index'
+					? selectedIndex
+					: targetType === 'table'
+						? selectedTable
+						: targetType === 'schema'
+							? selectedSchema
+							: undefined
+		};
 
-    dispatch('run', { target, options });
-    open = false;
-  }
+		dispatch('run', { target, options });
+		open = false;
+	}
 
-  function handleCancel() {
-    dispatch('cancel');
-    open = false;
-  }
+	function handleCancel() {
+		dispatch('cancel');
+		open = false;
+	}
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold">REINDEX</h2>
-      </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden"
+		>
+			<!-- Header -->
+			<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+				<h2 class="text-lg font-semibold">REINDEX</h2>
+			</div>
 
-      <!-- Body -->
-      <div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
-        <!-- Target Type -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Target Type</label>
-          <div class="flex gap-4">
-            {#each ['table', 'index', 'schema', 'database'] as type}
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  bind:group={targetType}
-                  value={type}
-                  class="text-blue-600"
-                />
-                <span class="text-sm capitalize">{type}</span>
-              </label>
-            {/each}
-          </div>
-        </div>
+			<!-- Body -->
+			<div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+				<!-- Target Type -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Target Type</label>
+					<div class="flex gap-4">
+						{#each ['table', 'index', 'schema', 'database'] as type}
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="radio" bind:group={targetType} value={type} class="text-blue-600" />
+								<span class="text-sm capitalize">{type}</span>
+							</label>
+						{/each}
+					</div>
+				</div>
 
-        <!-- Target Selection -->
-        {#if targetType !== 'database'}
-          <div class="space-y-2">
-            <label class="block text-sm font-medium mb-2">Target</label>
+				<!-- Target Selection -->
+				{#if targetType !== 'database'}
+					<div class="space-y-2">
+						<label class="block text-sm font-medium mb-2">Target</label>
 
-            {#if targetType === 'schema'}
-              <select
-                bind:value={selectedSchema}
-                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+						{#if targetType === 'schema'}
+							<select
+								bind:value={selectedSchema}
+								class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                        bg-white dark:bg-gray-700 text-sm"
-              >
-                <option value="">Select schema...</option>
-                {#each schemas as schema}
-                  <option value={schema}>{schema}</option>
-                {/each}
-              </select>
-            {:else}
-              <div class="grid grid-cols-2 gap-2">
-                <select
-                  bind:value={selectedSchema}
-                  class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+							>
+								<option value="">Select schema...</option>
+								{#each schemas as schema}
+									<option value={schema}>{schema}</option>
+								{/each}
+							</select>
+						{:else}
+							<div class="grid grid-cols-2 gap-2">
+								<select
+									bind:value={selectedSchema}
+									class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                          bg-white dark:bg-gray-700 text-sm"
-                >
-                  <option value="">Select schema...</option>
-                  {#each schemas as schema}
-                    <option value={schema}>{schema}</option>
-                  {/each}
-                </select>
+								>
+									<option value="">Select schema...</option>
+									{#each schemas as schema}
+										<option value={schema}>{schema}</option>
+									{/each}
+								</select>
 
-                {#if targetType === 'table'}
-                  <select
-                    bind:value={selectedTable}
-                    disabled={!selectedSchema}
-                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+								{#if targetType === 'table'}
+									<select
+										bind:value={selectedTable}
+										disabled={!selectedSchema}
+										class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                            bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-                  >
-                    <option value="">Select table...</option>
-                    {#each schemaTables as table}
-                      <option value={table}>{table}</option>
-                    {/each}
-                  </select>
-                {:else if targetType === 'index'}
-                  <select
-                    bind:value={selectedTable}
-                    disabled={!selectedSchema}
-                    class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+									>
+										<option value="">Select table...</option>
+										{#each schemaTables as table}
+											<option value={table}>{table}</option>
+										{/each}
+									</select>
+								{:else if targetType === 'index'}
+									<select
+										bind:value={selectedTable}
+										disabled={!selectedSchema}
+										class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                            bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-                  >
-                    <option value="">Select table...</option>
-                    {#each schemaTables as table}
-                      <option value={table}>{table}</option>
-                    {/each}
-                  </select>
-                {/if}
-              </div>
+									>
+										<option value="">Select table...</option>
+										{#each schemaTables as table}
+											<option value={table}>{table}</option>
+										{/each}
+									</select>
+								{/if}
+							</div>
 
-              {#if targetType === 'index' && selectedTable}
-                <select
-                  bind:value={selectedIndex}
-                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+							{#if targetType === 'index' && selectedTable}
+								<select
+									bind:value={selectedIndex}
+									class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                          bg-white dark:bg-gray-700 text-sm"
-                >
-                  <option value="">Select index...</option>
-                  {#each tableIndexes as idx}
-                    <option value={idx}>{idx}</option>
-                  {/each}
-                </select>
-              {/if}
-            {/if}
-          </div>
-        {/if}
+								>
+									<option value="">Select index...</option>
+									{#each tableIndexes as idx}
+										<option value={idx}>{idx}</option>
+									{/each}
+								</select>
+							{/if}
+						{/if}
+					</div>
+				{/if}
 
-        <!-- Options -->
-        <div class="space-y-3">
-          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Options</h3>
+				<!-- Options -->
+				<div class="space-y-3">
+					<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Options</h3>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.concurrently}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">CONCURRENTLY</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Rebuild the index without locking writes. Takes longer but doesn't block
-                normal database operations.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.concurrently}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">CONCURRENTLY</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Rebuild the index without locking writes. Takes longer but doesn't block normal
+								database operations.
+							</p>
+						</div>
+					</label>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.verbose}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">VERBOSE</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Print progress report.
-              </p>
-            </div>
-          </label>
-        </div>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.verbose}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">VERBOSE</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">Print progress report.</p>
+						</div>
+					</label>
+				</div>
 
-        <!-- Info for CONCURRENTLY -->
-        {#if options.concurrently}
-          <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
-                      dark:border-blue-800 rounded text-sm text-blue-800 dark:text-blue-200">
-            <strong>Note:</strong> CONCURRENTLY requires more time and resources but
-            allows normal database operations to continue during the reindex.
-          </div>
-        {:else}
-          <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200
-                      dark:border-amber-800 rounded text-sm text-amber-800 dark:text-amber-200">
-            <strong>Warning:</strong> Without CONCURRENTLY, the table will be locked
-            for writes during the entire reindex operation.
-          </div>
-        {/if}
-      </div>
+				<!-- Info for CONCURRENTLY -->
+				{#if options.concurrently}
+					<div
+						class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
+                      dark:border-blue-800 rounded text-sm text-blue-800 dark:text-blue-200"
+					>
+						<strong>Note:</strong> CONCURRENTLY requires more time and resources but allows normal database
+						operations to continue during the reindex.
+					</div>
+				{:else}
+					<div
+						class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200
+                      dark:border-amber-800 rounded text-sm text-amber-800 dark:text-amber-200"
+					>
+						<strong>Warning:</strong> Without CONCURRENTLY, the table will be locked for writes during
+						the entire reindex operation.
+					</div>
+				{/if}
+			</div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-        <button
-          onclick={handleCancel}
-          class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+			<!-- Footer -->
+			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+				<button
+					onclick={handleCancel}
+					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={handleRun}
-          disabled={
-            (targetType === 'schema' && !selectedSchema) ||
-            (targetType === 'table' && !selectedTable) ||
-            (targetType === 'index' && !selectedIndex)
-          }
-          class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleRun}
+					disabled={(targetType === 'schema' && !selectedSchema) ||
+						(targetType === 'table' && !selectedTable) ||
+						(targetType === 'index' && !selectedIndex)}
+					class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700
                  disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Run REINDEX
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Run REINDEX
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1304,168 +1313,191 @@ export const maintenanceStore = createMaintenanceStore();
 ```svelte
 <!-- src/lib/components/maintenance/MaintenanceProgress.svelte -->
 <script lang="ts">
-  import type { MaintenanceJob } from '$lib/types/maintenance';
-  import { maintenanceStore } from '$lib/stores/maintenanceStore.svelte';
+	import type { MaintenanceJob } from '$lib/types/maintenance';
+	import { maintenanceStore } from '$lib/stores/maintenanceStore.svelte';
 
-  interface Props {
-    open: boolean;
-  }
+	interface Props {
+		open: boolean;
+	}
 
-  let { open = $bindable() }: Props = $props();
+	let { open = $bindable() }: Props = $props();
 
-  function formatDuration(start: Date | null, end: Date | null): string {
-    if (!start) return '-';
-    const endTime = end ? new Date(end).getTime() : Date.now();
-    const duration = endTime - new Date(start).getTime();
+	function formatDuration(start: Date | null, end: Date | null): string {
+		if (!start) return '-';
+		const endTime = end ? new Date(end).getTime() : Date.now();
+		const duration = endTime - new Date(start).getTime();
 
-    if (duration < 1000) return `${duration}ms`;
-    if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`;
-    return `${Math.floor(duration / 60000)}m ${Math.floor((duration % 60000) / 1000)}s`;
-  }
+		if (duration < 1000) return `${duration}ms`;
+		if (duration < 60000) return `${(duration / 1000).toFixed(1)}s`;
+		return `${Math.floor(duration / 60000)}m ${Math.floor((duration % 60000) / 1000)}s`;
+	}
 
-  function getStatusColor(status: string): string {
-    switch (status) {
-      case 'running': return 'text-blue-600 dark:text-blue-400';
-      case 'completed': return 'text-green-600 dark:text-green-400';
-      case 'failed': return 'text-red-600 dark:text-red-400';
-      case 'cancelled': return 'text-gray-500 dark:text-gray-400';
-      default: return 'text-gray-600 dark:text-gray-400';
-    }
-  }
+	function getStatusColor(status: string): string {
+		switch (status) {
+			case 'running':
+				return 'text-blue-600 dark:text-blue-400';
+			case 'completed':
+				return 'text-green-600 dark:text-green-400';
+			case 'failed':
+				return 'text-red-600 dark:text-red-400';
+			case 'cancelled':
+				return 'text-gray-500 dark:text-gray-400';
+			default:
+				return 'text-gray-600 dark:text-gray-400';
+		}
+	}
 
-  function getStatusIcon(status: string): string {
-    switch (status) {
-      case 'running': return '⏳';
-      case 'completed': return '✅';
-      case 'failed': return '❌';
-      case 'cancelled': return '⚪';
-      default: return '⏸️';
-    }
-  }
+	function getStatusIcon(status: string): string {
+		switch (status) {
+			case 'running':
+				return '⏳';
+			case 'completed':
+				return '✅';
+			case 'failed':
+				return '❌';
+			case 'cancelled':
+				return '⚪';
+			default:
+				return '⏸️';
+		}
+	}
 
-  const allJobs = $derived([
-    ...maintenanceStore.activeJobs,
-    ...maintenanceStore.completedJobs,
-  ]);
+	const allJobs = $derived([...maintenanceStore.activeJobs, ...maintenanceStore.completedJobs]);
 
-  let expandedJobId = $state<string | null>(null);
+	let expandedJobId = $state<string | null>(null);
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[600px] max-h-[80vh] overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Maintenance Jobs</h2>
-        <button
-          onclick={() => open = false}
-          class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[600px] max-h-[80vh] overflow-hidden"
+		>
+			<!-- Header -->
+			<div
+				class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"
+			>
+				<h2 class="text-lg font-semibold">Maintenance Jobs</h2>
+				<button
+					onclick={() => (open = false)}
+					class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+				>
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
+			</div>
 
-      <!-- Body -->
-      <div class="overflow-y-auto max-h-[60vh]">
-        {#if allJobs.length === 0}
-          <div class="p-8 text-center text-gray-500 dark:text-gray-400">
-            No maintenance jobs
-          </div>
-        {:else}
-          <div class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#each allJobs as job (job.id)}
-              <div class="p-4">
-                <!-- Job Header -->
-                <button
-                  class="w-full flex items-center justify-between text-left"
-                  onclick={() => expandedJobId = expandedJobId === job.id ? null : job.id}
-                >
-                  <div class="flex items-center gap-3">
-                    <span class="text-lg">{getStatusIcon(job.status)}</span>
-                    <div>
-                      <span class="font-medium uppercase text-sm">{job.type}</span>
-                      <span class="text-gray-500 dark:text-gray-400 ml-2">{job.target}</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-4">
-                    <span class="text-sm {getStatusColor(job.status)}">
-                      {job.status}
-                    </span>
-                    <span class="text-sm text-gray-500">
-                      {formatDuration(job.startTime, job.endTime)}
-                    </span>
-                    <svg
-                      class="w-4 h-4 text-gray-400 transform transition-transform
+			<!-- Body -->
+			<div class="overflow-y-auto max-h-[60vh]">
+				{#if allJobs.length === 0}
+					<div class="p-8 text-center text-gray-500 dark:text-gray-400">No maintenance jobs</div>
+				{:else}
+					<div class="divide-y divide-gray-200 dark:divide-gray-700">
+						{#each allJobs as job (job.id)}
+							<div class="p-4">
+								<!-- Job Header -->
+								<button
+									class="w-full flex items-center justify-between text-left"
+									onclick={() => (expandedJobId = expandedJobId === job.id ? null : job.id)}
+								>
+									<div class="flex items-center gap-3">
+										<span class="text-lg">{getStatusIcon(job.status)}</span>
+										<div>
+											<span class="font-medium uppercase text-sm">{job.type}</span>
+											<span class="text-gray-500 dark:text-gray-400 ml-2">{job.target}</span>
+										</div>
+									</div>
+									<div class="flex items-center gap-4">
+										<span class="text-sm {getStatusColor(job.status)}">
+											{job.status}
+										</span>
+										<span class="text-sm text-gray-500">
+											{formatDuration(job.startTime, job.endTime)}
+										</span>
+										<svg
+											class="w-4 h-4 text-gray-400 transform transition-transform
                              {expandedJobId === job.id ? 'rotate-180' : ''}"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </button>
+											fill="none"
+											stroke="currentColor"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M19 9l-7 7-7-7"
+											/>
+										</svg>
+									</div>
+								</button>
 
-                <!-- Job Details (Expanded) -->
-                {#if expandedJobId === job.id}
-                  <div class="mt-3 pl-9 space-y-2">
-                    {#if job.output.length > 0}
-                      <div class="bg-gray-100 dark:bg-gray-900 rounded p-3 font-mono text-xs
-                                  max-h-40 overflow-auto whitespace-pre-wrap">
-                        {job.output.join('\n')}
-                      </div>
-                    {/if}
+								<!-- Job Details (Expanded) -->
+								{#if expandedJobId === job.id}
+									<div class="mt-3 pl-9 space-y-2">
+										{#if job.output.length > 0}
+											<div
+												class="bg-gray-100 dark:bg-gray-900 rounded p-3 font-mono text-xs
+                                  max-h-40 overflow-auto whitespace-pre-wrap"
+											>
+												{job.output.join('\n')}
+											</div>
+										{/if}
 
-                    {#if job.error}
-                      <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200
-                                  dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400">
-                        {job.error}
-                      </div>
-                    {/if}
+										{#if job.error}
+											<div
+												class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200
+                                  dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400"
+											>
+												{job.error}
+											</div>
+										{/if}
 
-                    {#if job.startTime}
-                      <div class="text-xs text-gray-500 dark:text-gray-400">
-                        Started: {new Date(job.startTime).toLocaleString()}
-                        {#if job.endTime}
-                          <span class="mx-2">|</span>
-                          Ended: {new Date(job.endTime).toLocaleString()}
-                        {/if}
-                      </div>
-                    {/if}
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+										{#if job.startTime}
+											<div class="text-xs text-gray-500 dark:text-gray-400">
+												Started: {new Date(job.startTime).toLocaleString()}
+												{#if job.endTime}
+													<span class="mx-2">|</span>
+													Ended: {new Date(job.endTime).toLocaleString()}
+												{/if}
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
-        <button
-          onclick={() => maintenanceStore.clearCompletedJobs()}
-          disabled={maintenanceStore.completedJobs.length === 0}
-          class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400
+			<!-- Footer -->
+			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-between">
+				<button
+					onclick={() => maintenanceStore.clearCompletedJobs()}
+					disabled={maintenanceStore.completedJobs.length === 0}
+					class="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400
                  hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-50"
-        >
-          Clear Completed
-        </button>
-        <button
-          onclick={() => open = false}
-          class="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded
+				>
+					Clear Completed
+				</button>
+				<button
+					onclick={() => (open = false)}
+					class="px-4 py-2 text-sm bg-gray-200 dark:bg-gray-700 rounded
                  hover:bg-gray-300 dark:hover:bg-gray-600"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Close
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1474,211 +1506,214 @@ export const maintenanceStore = createMaintenanceStore();
 ```svelte
 <!-- src/lib/components/maintenance/AnalyzeDialog.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { AnalyzeOptions } from '$lib/types/maintenance';
-  import type { Table, Column } from '$lib/types/schema';
+	import { createEventDispatcher } from 'svelte';
+	import type { AnalyzeOptions } from '$lib/types/maintenance';
+	import type { Table, Column } from '$lib/types/schema';
 
-  interface Props {
-    open: boolean;
-    connId: string;
-    tables: Table[];
-    initialTable?: { schema: string; name: string };
-  }
+	interface Props {
+		open: boolean;
+		connId: string;
+		tables: Table[];
+		initialTable?: { schema: string; name: string };
+	}
 
-  let { open = $bindable(), connId, tables, initialTable }: Props = $props();
+	let { open = $bindable(), connId, tables, initialTable }: Props = $props();
 
-  const dispatch = createEventDispatcher<{
-    run: { schema: string | null; table: string | null; options: AnalyzeOptions };
-    cancel: void;
-  }>();
+	const dispatch = createEventDispatcher<{
+		run: { schema: string | null; table: string | null; options: AnalyzeOptions };
+		cancel: void;
+	}>();
 
-  let selectedSchema = $state(initialTable?.schema ?? '');
-  let selectedTable = $state(initialTable?.name ?? '');
-  let selectedColumns = $state<string[]>([]);
+	let selectedSchema = $state(initialTable?.schema ?? '');
+	let selectedTable = $state(initialTable?.name ?? '');
+	let selectedColumns = $state<string[]>([]);
 
-  let options = $state<AnalyzeOptions>({
-    verbose: true,
-    skipLocked: false,
-    columns: undefined,
-  });
+	let options = $state<AnalyzeOptions>({
+		verbose: true,
+		skipLocked: false,
+		columns: undefined
+	});
 
-  // Get unique schemas
-  const schemas = $derived([...new Set(tables.map(t => t.schema))].sort());
+	// Get unique schemas
+	const schemas = $derived([...new Set(tables.map((t) => t.schema))].sort());
 
-  // Get tables for selected schema
-  const schemaTables = $derived(
-    selectedSchema
-      ? tables.filter(t => t.schema === selectedSchema).map(t => t.name).sort()
-      : []
-  );
+	// Get tables for selected schema
+	const schemaTables = $derived(
+		selectedSchema
+			? tables
+					.filter((t) => t.schema === selectedSchema)
+					.map((t) => t.name)
+					.sort()
+			: []
+	);
 
-  // Get columns for selected table
-  const selectedTableObj = $derived(
-    tables.find(t => t.schema === selectedSchema && t.name === selectedTable)
-  );
+	// Get columns for selected table
+	const selectedTableObj = $derived(
+		tables.find((t) => t.schema === selectedSchema && t.name === selectedTable)
+	);
 
-  const tableColumns = $derived(
-    selectedTableObj?.columns.map(c => c.name).sort() ?? []
-  );
+	const tableColumns = $derived(selectedTableObj?.columns.map((c) => c.name).sort() ?? []);
 
-  function toggleColumn(col: string) {
-    if (selectedColumns.includes(col)) {
-      selectedColumns = selectedColumns.filter(c => c !== col);
-    } else {
-      selectedColumns = [...selectedColumns, col];
-    }
-  }
+	function toggleColumn(col: string) {
+		if (selectedColumns.includes(col)) {
+			selectedColumns = selectedColumns.filter((c) => c !== col);
+		} else {
+			selectedColumns = [...selectedColumns, col];
+		}
+	}
 
-  function handleRun() {
-    dispatch('run', {
-      schema: selectedSchema || null,
-      table: selectedTable || null,
-      options: {
-        ...options,
-        columns: selectedColumns.length > 0 ? selectedColumns : undefined,
-      },
-    });
-    open = false;
-  }
+	function handleRun() {
+		dispatch('run', {
+			schema: selectedSchema || null,
+			table: selectedTable || null,
+			options: {
+				...options,
+				columns: selectedColumns.length > 0 ? selectedColumns : undefined
+			}
+		});
+		open = false;
+	}
 
-  function handleCancel() {
-    dispatch('cancel');
-    open = false;
-  }
+	function handleCancel() {
+		dispatch('cancel');
+		open = false;
+	}
 
-  // Reset columns when table changes
-  $effect(() => {
-    selectedColumns = [];
-  });
+	// Reset columns when table changes
+	$effect(() => {
+		selectedColumns = [];
+	});
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden">
-      <!-- Header -->
-      <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-lg font-semibold">ANALYZE</h2>
-      </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden"
+		>
+			<!-- Header -->
+			<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+				<h2 class="text-lg font-semibold">ANALYZE</h2>
+			</div>
 
-      <!-- Body -->
-      <div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
-        <!-- Target Selection -->
-        <div>
-          <label class="block text-sm font-medium mb-2">Target</label>
-          <div class="grid grid-cols-2 gap-2">
-            <select
-              bind:value={selectedSchema}
-              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+			<!-- Body -->
+			<div class="p-4 space-y-4 overflow-y-auto max-h-[60vh]">
+				<!-- Target Selection -->
+				<div>
+					<label class="block text-sm font-medium mb-2">Target</label>
+					<div class="grid grid-cols-2 gap-2">
+						<select
+							bind:value={selectedSchema}
+							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            >
-              <option value="">All schemas</option>
-              {#each schemas as schema}
-                <option value={schema}>{schema}</option>
-              {/each}
-            </select>
-            <select
-              bind:value={selectedTable}
-              disabled={!selectedSchema}
-              class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+						>
+							<option value="">All schemas</option>
+							{#each schemas as schema}
+								<option value={schema}>{schema}</option>
+							{/each}
+						</select>
+						<select
+							bind:value={selectedTable}
+							disabled={!selectedSchema}
+							class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-            >
-              <option value="">All tables</option>
-              {#each schemaTables as table}
-                <option value={table}>{table}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
+						>
+							<option value="">All tables</option>
+							{#each schemaTables as table}
+								<option value={table}>{table}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
 
-        <!-- Specific Columns (only when table selected) -->
-        {#if selectedTable && tableColumns.length > 0}
-          <div>
-            <label class="block text-sm font-medium mb-2">
-              Specific Columns (optional)
-            </label>
-            <div class="max-h-32 overflow-y-auto border border-gray-200 dark:border-gray-700
-                        rounded p-2 space-y-1">
-              {#each tableColumns as col}
-                <label class="flex items-center gap-2 cursor-pointer text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedColumns.includes(col)}
-                    onchange={() => toggleColumn(col)}
-                    class="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <span class="font-mono">{col}</span>
-                </label>
-              {/each}
-            </div>
-            <p class="text-xs text-gray-500 mt-1">
-              Leave empty to analyze all columns
-            </p>
-          </div>
-        {/if}
+				<!-- Specific Columns (only when table selected) -->
+				{#if selectedTable && tableColumns.length > 0}
+					<div>
+						<label class="block text-sm font-medium mb-2"> Specific Columns (optional) </label>
+						<div
+							class="max-h-32 overflow-y-auto border border-gray-200 dark:border-gray-700
+                        rounded p-2 space-y-1"
+						>
+							{#each tableColumns as col}
+								<label class="flex items-center gap-2 cursor-pointer text-sm">
+									<input
+										type="checkbox"
+										checked={selectedColumns.includes(col)}
+										onchange={() => toggleColumn(col)}
+										class="rounded border-gray-300 dark:border-gray-600"
+									/>
+									<span class="font-mono">{col}</span>
+								</label>
+							{/each}
+						</div>
+						<p class="text-xs text-gray-500 mt-1">Leave empty to analyze all columns</p>
+					</div>
+				{/if}
 
-        <!-- Options -->
-        <div class="space-y-3">
-          <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Options</h3>
+				<!-- Options -->
+				<div class="space-y-3">
+					<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Options</h3>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.verbose}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">VERBOSE</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Print progress messages for each table.
-              </p>
-            </div>
-          </label>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.verbose}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">VERBOSE</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Print progress messages for each table.
+							</p>
+						</div>
+					</label>
 
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              bind:checked={options.skipLocked}
-              class="mt-1 rounded border-gray-300 dark:border-gray-600"
-            />
-            <div>
-              <span class="font-medium text-sm">SKIP_LOCKED</span>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                Skip tables that cannot be locked immediately.
-              </p>
-            </div>
-          </label>
-        </div>
+					<label class="flex items-start gap-3 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={options.skipLocked}
+							class="mt-1 rounded border-gray-300 dark:border-gray-600"
+						/>
+						<div>
+							<span class="font-medium text-sm">SKIP_LOCKED</span>
+							<p class="text-xs text-gray-500 dark:text-gray-400">
+								Skip tables that cannot be locked immediately.
+							</p>
+						</div>
+					</label>
+				</div>
 
-        <!-- Info -->
-        <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
-                    dark:border-blue-800 rounded text-sm text-blue-800 dark:text-blue-200">
-          <strong>Note:</strong> ANALYZE collects statistics about the contents of tables
-          in the database, which the query planner uses to generate better execution plans.
-        </div>
-      </div>
+				<!-- Info -->
+				<div
+					class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
+                    dark:border-blue-800 rounded text-sm text-blue-800 dark:text-blue-200"
+				>
+					<strong>Note:</strong> ANALYZE collects statistics about the contents of tables in the database,
+					which the query planner uses to generate better execution plans.
+				</div>
+			</div>
 
-      <!-- Footer -->
-      <div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-        <button
-          onclick={handleCancel}
-          class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
+			<!-- Footer -->
+			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+				<button
+					onclick={handleCancel}
+					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={handleRun}
-          class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Run ANALYZE
-        </button>
-      </div>
-    </div>
-  </div>
+				>
+					Cancel
+				</button>
+				<button
+					onclick={handleRun}
+					class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+				>
+					Run ANALYZE
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1722,44 +1757,44 @@ export const maintenanceStore = createMaintenanceStore();
 ```typescript
 // Test VACUUM execution
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'vacuum',
-  args: {
-    request: {
-      connId: 'test-conn',
-      schema: 'public',
-      table: 'users',
-      options: {
-        full: false,
-        freeze: false,
-        analyze: true,
-        verbose: true,
-        skipLocked: false,
-        indexCleanup: 'auto',
-        parallel: 0,
-        truncate: true,
-        processToast: true
-      }
-    }
-  }
+	command: 'vacuum',
+	args: {
+		request: {
+			connId: 'test-conn',
+			schema: 'public',
+			table: 'users',
+			options: {
+				full: false,
+				freeze: false,
+				analyze: true,
+				verbose: true,
+				skipLocked: false,
+				indexCleanup: 'auto',
+				parallel: 0,
+				truncate: true,
+				processToast: true
+			}
+		}
+	}
 });
 
 // Test REINDEX execution
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'reindex',
-  args: {
-    request: {
-      connId: 'test-conn',
-      target: {
-        targetType: 'table',
-        schema: 'public',
-        name: 'users'
-      },
-      options: {
-        concurrently: true,
-        verbose: true
-      }
-    }
-  }
+	command: 'reindex',
+	args: {
+		request: {
+			connId: 'test-conn',
+			target: {
+				targetType: 'table',
+				schema: 'public',
+				name: 'users'
+			},
+			options: {
+				concurrently: true,
+				verbose: true
+			}
+		}
+	}
 });
 ```
 
@@ -1768,34 +1803,34 @@ await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
 ```typescript
 // Open VACUUM dialog from admin dashboard
 await mcp__playwright__browser_click({
-  element: 'Vacuum button',
-  ref: 'button:has-text("Vacuum"):first'
+	element: 'Vacuum button',
+	ref: 'button:has-text("Vacuum"):first'
 });
 
 // Verify dialog opens
 await mcp__playwright__browser_wait_for({
-  text: 'VACUUM'
+	text: 'VACUUM'
 });
 
 // Configure options
 await mcp__playwright__browser_click({
-  element: 'ANALYZE checkbox',
-  ref: 'input[type="checkbox"]:near(:text("ANALYZE"))'
+	element: 'ANALYZE checkbox',
+	ref: 'input[type="checkbox"]:near(:text("ANALYZE"))'
 });
 
 // Take screenshot
 await mcp__playwright__browser_take_screenshot({
-  filename: 'vacuum-dialog.png'
+	filename: 'vacuum-dialog.png'
 });
 
 // Run vacuum
 await mcp__playwright__browser_click({
-  element: 'Run VACUUM button',
-  ref: 'button:has-text("Run VACUUM")'
+	element: 'Run VACUUM button',
+	ref: 'button:has-text("Run VACUUM")'
 });
 
 // Verify progress dialog
 await mcp__playwright__browser_wait_for({
-  text: 'Maintenance Jobs'
+	text: 'Maintenance Jobs'
 });
 ```

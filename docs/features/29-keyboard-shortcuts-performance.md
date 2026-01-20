@@ -629,116 +629,116 @@ impl Default for SchemaCache {
 
 ```svelte
 <script lang="ts">
-  import { settingsStore, type AppSettings } from '$lib/stores/settings';
-  import GeneralSettings from './GeneralSettings.svelte';
-  import EditorSettings from './EditorSettings.svelte';
-  import ResultsSettings from './ResultsSettings.svelte';
-  import QuerySettings from './QuerySettings.svelte';
-  import ConnectionSettings from './ConnectionSettings.svelte';
-  import ShortcutsSettings from './ShortcutsSettings.svelte';
-  import { Settings, Code, Table, Play, Link, Keyboard } from 'lucide-svelte';
+	import { settingsStore, type AppSettings } from '$lib/stores/settings';
+	import GeneralSettings from './GeneralSettings.svelte';
+	import EditorSettings from './EditorSettings.svelte';
+	import ResultsSettings from './ResultsSettings.svelte';
+	import QuerySettings from './QuerySettings.svelte';
+	import ConnectionSettings from './ConnectionSettings.svelte';
+	import ShortcutsSettings from './ShortcutsSettings.svelte';
+	import { Settings, Code, Table, Play, Link, Keyboard } from 'lucide-svelte';
 
-  let activeTab = 'general';
+	let activeTab = 'general';
 
-  const tabs = [
-    { id: 'general', label: 'General', icon: Settings },
-    { id: 'editor', label: 'Editor', icon: Code },
-    { id: 'results', label: 'Results', icon: Table },
-    { id: 'query', label: 'Query Execution', icon: Play },
-    { id: 'connections', label: 'Connections', icon: Link },
-    { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
-  ];
+	const tabs = [
+		{ id: 'general', label: 'General', icon: Settings },
+		{ id: 'editor', label: 'Editor', icon: Code },
+		{ id: 'results', label: 'Results', icon: Table },
+		{ id: 'query', label: 'Query Execution', icon: Play },
+		{ id: 'connections', label: 'Connections', icon: Link },
+		{ id: 'shortcuts', label: 'Shortcuts', icon: Keyboard }
+	];
 </script>
 
 <div class="settings-page">
-  <div class="settings-sidebar">
-    <h2>Settings</h2>
-    <nav>
-      {#each tabs as tab}
-        <button
-          class="tab-button"
-          class:active={activeTab === tab.id}
-          on:click={() => (activeTab = tab.id)}
-        >
-          <svelte:component this={tab.icon} size={18} />
-          {tab.label}
-        </button>
-      {/each}
-    </nav>
-  </div>
+	<div class="settings-sidebar">
+		<h2>Settings</h2>
+		<nav>
+			{#each tabs as tab}
+				<button
+					class="tab-button"
+					class:active={activeTab === tab.id}
+					on:click={() => (activeTab = tab.id)}
+				>
+					<svelte:component this={tab.icon} size={18} />
+					{tab.label}
+				</button>
+			{/each}
+		</nav>
+	</div>
 
-  <div class="settings-content">
-    {#if activeTab === 'general'}
-      <GeneralSettings />
-    {:else if activeTab === 'editor'}
-      <EditorSettings />
-    {:else if activeTab === 'results'}
-      <ResultsSettings />
-    {:else if activeTab === 'query'}
-      <QuerySettings />
-    {:else if activeTab === 'connections'}
-      <ConnectionSettings />
-    {:else if activeTab === 'shortcuts'}
-      <ShortcutsSettings />
-    {/if}
-  </div>
+	<div class="settings-content">
+		{#if activeTab === 'general'}
+			<GeneralSettings />
+		{:else if activeTab === 'editor'}
+			<EditorSettings />
+		{:else if activeTab === 'results'}
+			<ResultsSettings />
+		{:else if activeTab === 'query'}
+			<QuerySettings />
+		{:else if activeTab === 'connections'}
+			<ConnectionSettings />
+		{:else if activeTab === 'shortcuts'}
+			<ShortcutsSettings />
+		{/if}
+	</div>
 </div>
 
 <style>
-  .settings-page {
-    display: flex;
-    height: 100%;
-    background: var(--bg-primary);
-  }
+	.settings-page {
+		display: flex;
+		height: 100%;
+		background: var(--bg-primary);
+	}
 
-  .settings-sidebar {
-    width: 240px;
-    border-right: 1px solid var(--border-color);
-    padding: 24px;
-  }
+	.settings-sidebar {
+		width: 240px;
+		border-right: 1px solid var(--border-color);
+		padding: 24px;
+	}
 
-  .settings-sidebar h2 {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 24px;
-  }
+	.settings-sidebar h2 {
+		font-size: 18px;
+		font-weight: 600;
+		margin-bottom: 24px;
+	}
 
-  nav {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
+	nav {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
 
-  .tab-button {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--text-secondary);
-    text-align: left;
-    transition: all 0.15s ease;
-  }
+	.tab-button {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 12px;
+		background: none;
+		border: none;
+		border-radius: 6px;
+		cursor: pointer;
+		font-size: 14px;
+		color: var(--text-secondary);
+		text-align: left;
+		transition: all 0.15s ease;
+	}
 
-  .tab-button:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
+	.tab-button:hover {
+		background: var(--bg-hover);
+		color: var(--text-primary);
+	}
 
-  .tab-button.active {
-    background: var(--primary-color);
-    color: white;
-  }
+	.tab-button.active {
+		background: var(--primary-color);
+		color: white;
+	}
 
-  .settings-content {
-    flex: 1;
-    padding: 24px 32px;
-    overflow-y: auto;
-  }
+	.settings-content {
+		flex: 1;
+		padding: 24px 32px;
+		overflow-y: auto;
+	}
 </style>
 ```
 
@@ -748,356 +748,348 @@ impl Default for SchemaCache {
 
 ```svelte
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { invoke } from '@tauri-apps/api/core';
-  import { platformStore, formatShortcut } from '$lib/stores/platform';
-  import Button from '$lib/components/common/Button.svelte';
-  import Input from '$lib/components/common/Input.svelte';
-  import { Search, RotateCcw, Download, Upload } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { invoke } from '@tauri-apps/api/core';
+	import { platformStore, formatShortcut } from '$lib/stores/platform';
+	import Button from '$lib/components/common/Button.svelte';
+	import Input from '$lib/components/common/Input.svelte';
+	import { Search, RotateCcw, Download, Upload } from 'lucide-svelte';
 
-  interface Shortcut {
-    category: string;
-    label: string;
-    binding: string;
-    custom_binding: string | null;
-    enabled: boolean;
-  }
+	interface Shortcut {
+		category: string;
+		label: string;
+		binding: string;
+		custom_binding: string | null;
+		enabled: boolean;
+	}
 
-  interface ShortcutConfig {
-    version: number;
-    shortcuts: Record<string, Shortcut>;
-  }
+	interface ShortcutConfig {
+		version: number;
+		shortcuts: Record<string, Shortcut>;
+	}
 
-  let config: ShortcutConfig | null = null;
-  let searchQuery = '';
-  let editingAction: string | null = null;
-  let newBinding = '';
+	let config: ShortcutConfig | null = null;
+	let searchQuery = '';
+	let editingAction: string | null = null;
+	let newBinding = '';
 
-  onMount(async () => {
-    config = await invoke<ShortcutConfig>('load_shortcuts');
-  });
+	onMount(async () => {
+		config = await invoke<ShortcutConfig>('load_shortcuts');
+	});
 
-  $: groupedShortcuts = config ? groupByCategory(Object.entries(config.shortcuts)) : {};
-  $: filteredGroups = filterShortcuts(groupedShortcuts, searchQuery);
+	$: groupedShortcuts = config ? groupByCategory(Object.entries(config.shortcuts)) : {};
+	$: filteredGroups = filterShortcuts(groupedShortcuts, searchQuery);
 
-  function groupByCategory(entries: [string, Shortcut][]) {
-    const groups: Record<string, [string, Shortcut][]> = {};
-    for (const [action, shortcut] of entries) {
-      if (!groups[shortcut.category]) {
-        groups[shortcut.category] = [];
-      }
-      groups[shortcut.category].push([action, shortcut]);
-    }
-    return groups;
-  }
+	function groupByCategory(entries: [string, Shortcut][]) {
+		const groups: Record<string, [string, Shortcut][]> = {};
+		for (const [action, shortcut] of entries) {
+			if (!groups[shortcut.category]) {
+				groups[shortcut.category] = [];
+			}
+			groups[shortcut.category].push([action, shortcut]);
+		}
+		return groups;
+	}
 
-  function filterShortcuts(
-    groups: Record<string, [string, Shortcut][]>,
-    query: string
-  ) {
-    if (!query) return groups;
-    const q = query.toLowerCase();
+	function filterShortcuts(groups: Record<string, [string, Shortcut][]>, query: string) {
+		if (!query) return groups;
+		const q = query.toLowerCase();
 
-    const filtered: Record<string, [string, Shortcut][]> = {};
-    for (const [category, shortcuts] of Object.entries(groups)) {
-      const matches = shortcuts.filter(
-        ([action, s]) =>
-          s.label.toLowerCase().includes(q) ||
-          action.toLowerCase().includes(q) ||
-          s.binding.toLowerCase().includes(q)
-      );
-      if (matches.length > 0) {
-        filtered[category] = matches;
-      }
-    }
-    return filtered;
-  }
+		const filtered: Record<string, [string, Shortcut][]> = {};
+		for (const [category, shortcuts] of Object.entries(groups)) {
+			const matches = shortcuts.filter(
+				([action, s]) =>
+					s.label.toLowerCase().includes(q) ||
+					action.toLowerCase().includes(q) ||
+					s.binding.toLowerCase().includes(q)
+			);
+			if (matches.length > 0) {
+				filtered[category] = matches;
+			}
+		}
+		return filtered;
+	}
 
-  function startEditing(action: string, currentBinding: string) {
-    editingAction = action;
-    newBinding = '';
-  }
+	function startEditing(action: string, currentBinding: string) {
+		editingAction = action;
+		newBinding = '';
+	}
 
-  function handleKeyDown(event: KeyboardEvent) {
-    if (!editingAction) return;
+	function handleKeyDown(event: KeyboardEvent) {
+		if (!editingAction) return;
 
-    event.preventDefault();
+		event.preventDefault();
 
-    const parts: string[] = [];
-    if (event.metaKey || event.ctrlKey) parts.push('Mod');
-    if (event.altKey) parts.push('Alt');
-    if (event.shiftKey) parts.push('Shift');
+		const parts: string[] = [];
+		if (event.metaKey || event.ctrlKey) parts.push('Mod');
+		if (event.altKey) parts.push('Alt');
+		if (event.shiftKey) parts.push('Shift');
 
-    const key = event.key;
-    if (!['Meta', 'Control', 'Alt', 'Shift'].includes(key)) {
-      parts.push(key.length === 1 ? key.toUpperCase() : key);
-    }
+		const key = event.key;
+		if (!['Meta', 'Control', 'Alt', 'Shift'].includes(key)) {
+			parts.push(key.length === 1 ? key.toUpperCase() : key);
+		}
 
-    newBinding = parts.join('+');
-  }
+		newBinding = parts.join('+');
+	}
 
-  async function saveBinding() {
-    if (!editingAction || !newBinding) return;
+	async function saveBinding() {
+		if (!editingAction || !newBinding) return;
 
-    await invoke('update_shortcut', { action: editingAction, binding: newBinding });
-    config = await invoke<ShortcutConfig>('load_shortcuts');
-    editingAction = null;
-    newBinding = '';
-  }
+		await invoke('update_shortcut', { action: editingAction, binding: newBinding });
+		config = await invoke<ShortcutConfig>('load_shortcuts');
+		editingAction = null;
+		newBinding = '';
+	}
 
-  async function resetBinding(action: string) {
-    await invoke('reset_shortcut', { action });
-    config = await invoke<ShortcutConfig>('load_shortcuts');
-  }
+	async function resetBinding(action: string) {
+		await invoke('reset_shortcut', { action });
+		config = await invoke<ShortcutConfig>('load_shortcuts');
+	}
 
-  async function resetAll() {
-    await invoke('reset_all_shortcuts');
-    config = await invoke<ShortcutConfig>('load_shortcuts');
-  }
+	async function resetAll() {
+		await invoke('reset_all_shortcuts');
+		config = await invoke<ShortcutConfig>('load_shortcuts');
+	}
 
-  async function exportConfig() {
-    const json = await invoke<string>('export_shortcuts');
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tusk-shortcuts.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+	async function exportConfig() {
+		const json = await invoke<string>('export_shortcuts');
+		const blob = new Blob([json], { type: 'application/json' });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = 'tusk-shortcuts.json';
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 
-  async function importConfig() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
+	async function importConfig() {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.json';
+		input.onchange = async () => {
+			const file = input.files?.[0];
+			if (!file) return;
 
-      const json = await file.text();
-      await invoke('import_shortcuts', { json });
-      config = await invoke<ShortcutConfig>('load_shortcuts');
-    };
-    input.click();
-  }
+			const json = await file.text();
+			await invoke('import_shortcuts', { json });
+			config = await invoke<ShortcutConfig>('load_shortcuts');
+		};
+		input.click();
+	}
 
-  function cancelEditing() {
-    editingAction = null;
-    newBinding = '';
-  }
+	function cancelEditing() {
+		editingAction = null;
+		newBinding = '';
+	}
 </script>
 
 <svelte:window on:keydown={handleKeyDown} />
 
 <div class="shortcuts-settings">
-  <div class="header">
-    <h3>Keyboard Shortcuts</h3>
-    <div class="actions">
-      <Button variant="ghost" size="sm" on:click={exportConfig}>
-        <Download size={14} />
-        Export
-      </Button>
-      <Button variant="ghost" size="sm" on:click={importConfig}>
-        <Upload size={14} />
-        Import
-      </Button>
-      <Button variant="ghost" size="sm" on:click={resetAll}>
-        <RotateCcw size={14} />
-        Reset All
-      </Button>
-    </div>
-  </div>
+	<div class="header">
+		<h3>Keyboard Shortcuts</h3>
+		<div class="actions">
+			<Button variant="ghost" size="sm" on:click={exportConfig}>
+				<Download size={14} />
+				Export
+			</Button>
+			<Button variant="ghost" size="sm" on:click={importConfig}>
+				<Upload size={14} />
+				Import
+			</Button>
+			<Button variant="ghost" size="sm" on:click={resetAll}>
+				<RotateCcw size={14} />
+				Reset All
+			</Button>
+		</div>
+	</div>
 
-  <div class="search">
-    <Search size={16} />
-    <Input bind:value={searchQuery} placeholder="Search shortcuts..." />
-  </div>
+	<div class="search">
+		<Search size={16} />
+		<Input bind:value={searchQuery} placeholder="Search shortcuts..." />
+	</div>
 
-  <div class="shortcuts-list">
-    {#each Object.entries(filteredGroups) as [category, shortcuts]}
-      <div class="category">
-        <h4>{category}</h4>
-        <div class="shortcuts">
-          {#each shortcuts as [action, shortcut]}
-            <div class="shortcut-row">
-              <span class="label">{shortcut.label}</span>
+	<div class="shortcuts-list">
+		{#each Object.entries(filteredGroups) as [category, shortcuts]}
+			<div class="category">
+				<h4>{category}</h4>
+				<div class="shortcuts">
+					{#each shortcuts as [action, shortcut]}
+						<div class="shortcut-row">
+							<span class="label">{shortcut.label}</span>
 
-              {#if editingAction === action}
-                <div class="editing">
-                  <kbd class="binding-input" class:empty={!newBinding}>
-                    {newBinding || 'Press keys...'}
-                  </kbd>
-                  <Button variant="primary" size="xs" on:click={saveBinding} disabled={!newBinding}>
-                    Save
-                  </Button>
-                  <Button variant="ghost" size="xs" on:click={cancelEditing}>
-                    Cancel
-                  </Button>
-                </div>
-              {:else}
-                <div class="binding-display">
-                  <kbd
-                    class="binding"
-                    class:custom={shortcut.custom_binding}
-                    on:click={() =>
-                      startEditing(
-                        action,
-                        shortcut.custom_binding || shortcut.binding
-                      )}
-                  >
-                    {formatShortcut(shortcut.custom_binding || shortcut.binding)}
-                  </kbd>
+							{#if editingAction === action}
+								<div class="editing">
+									<kbd class="binding-input" class:empty={!newBinding}>
+										{newBinding || 'Press keys...'}
+									</kbd>
+									<Button variant="primary" size="xs" on:click={saveBinding} disabled={!newBinding}>
+										Save
+									</Button>
+									<Button variant="ghost" size="xs" on:click={cancelEditing}>Cancel</Button>
+								</div>
+							{:else}
+								<div class="binding-display">
+									<kbd
+										class="binding"
+										class:custom={shortcut.custom_binding}
+										on:click={() =>
+											startEditing(action, shortcut.custom_binding || shortcut.binding)}
+									>
+										{formatShortcut(shortcut.custom_binding || shortcut.binding)}
+									</kbd>
 
-                  {#if shortcut.custom_binding}
-                    <button
-                      class="reset-btn"
-                      on:click={() => resetBinding(action)}
-                      title="Reset to default"
-                    >
-                      <RotateCcw size={12} />
-                    </button>
-                  {/if}
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/each}
-  </div>
+									{#if shortcut.custom_binding}
+										<button
+											class="reset-btn"
+											on:click={() => resetBinding(action)}
+											title="Reset to default"
+										>
+											<RotateCcw size={12} />
+										</button>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/each}
+	</div>
 </div>
 
 <style>
-  .shortcuts-settings {
-    max-width: 700px;
-  }
+	.shortcuts-settings {
+		max-width: 700px;
+	}
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-  }
+	.header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 24px;
+	}
 
-  .header h3 {
-    font-size: 20px;
-    font-weight: 600;
-  }
+	.header h3 {
+		font-size: 20px;
+		font-weight: 600;
+	}
 
-  .actions {
-    display: flex;
-    gap: 8px;
-  }
+	.actions {
+		display: flex;
+		gap: 8px;
+	}
 
-  .search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 24px;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-  }
+	.search {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-bottom: 24px;
+		padding: 8px 12px;
+		background: var(--bg-secondary);
+		border-radius: 6px;
+	}
 
-  .search :global(input) {
-    flex: 1;
-    background: none;
-    border: none;
-  }
+	.search :global(input) {
+		flex: 1;
+		background: none;
+		border: none;
+	}
 
-  .category {
-    margin-bottom: 24px;
-  }
+	.category {
+		margin-bottom: 24px;
+	}
 
-  .category h4 {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-  }
+	.category h4 {
+		font-size: 14px;
+		font-weight: 600;
+		color: var(--text-secondary);
+		margin-bottom: 12px;
+		padding-bottom: 8px;
+		border-bottom: 1px solid var(--border-color);
+	}
 
-  .shortcuts {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+	.shortcuts {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
 
-  .shortcut-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-  }
+	.shortcut-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 8px 12px;
+		background: var(--bg-secondary);
+		border-radius: 6px;
+	}
 
-  .label {
-    font-size: 14px;
-  }
+	.label {
+		font-size: 14px;
+	}
 
-  .binding-display {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+	.binding-display {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
 
-  kbd.binding {
-    padding: 4px 8px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
+	kbd.binding {
+		padding: 4px 8px;
+		background: var(--bg-tertiary);
+		border: 1px solid var(--border-color);
+		border-radius: 4px;
+		font-family: var(--font-mono);
+		font-size: 12px;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
 
-  kbd.binding:hover {
-    background: var(--bg-hover);
-    border-color: var(--primary-color);
-  }
+	kbd.binding:hover {
+		background: var(--bg-hover);
+		border-color: var(--primary-color);
+	}
 
-  kbd.binding.custom {
-    border-color: var(--primary-color);
-    background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-tertiary));
-  }
+	kbd.binding.custom {
+		border-color: var(--primary-color);
+		background: color-mix(in srgb, var(--primary-color) 10%, var(--bg-tertiary));
+	}
 
-  .editing {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+	.editing {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
 
-  .binding-input {
-    min-width: 120px;
-    padding: 4px 8px;
-    background: var(--bg-primary);
-    border: 2px solid var(--primary-color);
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    text-align: center;
-  }
+	.binding-input {
+		min-width: 120px;
+		padding: 4px 8px;
+		background: var(--bg-primary);
+		border: 2px solid var(--primary-color);
+		border-radius: 4px;
+		font-family: var(--font-mono);
+		font-size: 12px;
+		text-align: center;
+	}
 
-  .binding-input.empty {
-    color: var(--text-tertiary);
-  }
+	.binding-input.empty {
+		color: var(--text-tertiary);
+	}
 
-  .reset-btn {
-    padding: 4px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-tertiary);
-    border-radius: 4px;
-  }
+	.reset-btn {
+		padding: 4px;
+		background: none;
+		border: none;
+		cursor: pointer;
+		color: var(--text-tertiary);
+		border-radius: 4px;
+	}
 
-  .reset-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
+	.reset-btn:hover {
+		background: var(--bg-hover);
+		color: var(--text-primary);
+	}
 </style>
 ```
 
@@ -1221,14 +1213,14 @@ pub async fn reset_settings(
 
 ### 29.7 Performance Targets Verification
 
-| Metric | Target | Implementation |
-|--------|--------|----------------|
-| Cold start | < 1 second | Lazy loading, minimal initial bundle |
-| Memory (idle) | < 100 MB | Efficient Rust memory, no retained data |
-| Memory (1M rows) | < 500 MB | Streaming + virtual scrolling, rows not held in memory |
-| Query result render (1000 rows) | < 100ms | Virtual scrolling renders ~50 visible rows |
-| Schema browser load (1000 tables) | < 500ms | Cached introspection, virtual tree |
-| Autocomplete response | < 50ms | In-memory trie index from schema cache |
+| Metric                            | Target     | Implementation                                         |
+| --------------------------------- | ---------- | ------------------------------------------------------ |
+| Cold start                        | < 1 second | Lazy loading, minimal initial bundle                   |
+| Memory (idle)                     | < 100 MB   | Efficient Rust memory, no retained data                |
+| Memory (1M rows)                  | < 500 MB   | Streaming + virtual scrolling, rows not held in memory |
+| Query result render (1000 rows)   | < 100ms    | Virtual scrolling renders ~50 visible rows             |
+| Schema browser load (1000 tables) | < 500ms    | Cached introspection, virtual tree                     |
+| Autocomplete response             | < 50ms     | In-memory trie index from schema cache                 |
 
 ## Acceptance Criteria
 
@@ -1316,9 +1308,9 @@ await driver_session({ action: 'start', port: 9223 });
 
 // Execute large query
 await webview_keyboard({
-  action: 'type',
-  selector: '.monaco-editor textarea',
-  text: 'SELECT * FROM generate_series(1, 100000)'
+	action: 'type',
+	selector: '.monaco-editor textarea',
+	text: 'SELECT * FROM generate_series(1, 100000)'
 });
 
 const start = Date.now();

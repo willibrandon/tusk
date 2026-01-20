@@ -958,180 +958,180 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 export interface QueryResult {
-  query_id: string;
-  status: 'success' | 'error' | 'cancelled';
-  command: string;
-  columns?: ColumnMeta[];
-  rows?: Value[][];
-  total_rows?: number;
-  truncated?: boolean;
-  rows_affected?: number;
-  plan?: QueryPlan;
-  elapsed_ms: number;
-  error?: QueryError;
+	query_id: string;
+	status: 'success' | 'error' | 'cancelled';
+	command: string;
+	columns?: ColumnMeta[];
+	rows?: Value[][];
+	total_rows?: number;
+	truncated?: boolean;
+	rows_affected?: number;
+	plan?: QueryPlan;
+	elapsed_ms: number;
+	error?: QueryError;
 }
 
 export interface ColumnMeta {
-  name: string;
-  type_oid: number;
-  type_name: string;
-  type_modifier: number;
-  table_oid?: number;
-  column_ordinal?: number;
+	name: string;
+	type_oid: number;
+	type_name: string;
+	type_modifier: number;
+	table_oid?: number;
+	column_ordinal?: number;
 }
 
 export type Value =
-  | null
-  | boolean
-  | number
-  | string
-  | object
-  | { hex: string }       // bytea
-  | { iso: string }       // interval
-  | { x: number; y: number }  // point
-  | { text: string };     // unknown
+	| null
+	| boolean
+	| number
+	| string
+	| object
+	| { hex: string } // bytea
+	| { iso: string } // interval
+	| { x: number; y: number } // point
+	| { text: string }; // unknown
 
 export interface QueryError {
-  message: string;
-  detail?: string;
-  hint?: string;
-  position?: number;
-  code: string;
+	message: string;
+	detail?: string;
+	hint?: string;
+	position?: number;
+	code: string;
 }
 
 export interface QueryOptions {
-  statement_timeout_ms?: number;
-  row_limit?: number;
-  batch_size?: number;
-  stop_on_error?: boolean;
+	statement_timeout_ms?: number;
+	row_limit?: number;
+	batch_size?: number;
+	stop_on_error?: boolean;
 }
 
 export interface RowBatch {
-  query_id: string;
-  rows: Value[][];
-  batch_num: number;
+	query_id: string;
+	rows: Value[][];
+	batch_num: number;
 }
 
 export interface QueryComplete {
-  query_id: string;
-  total_rows: number;
-  elapsed_ms: number;
+	query_id: string;
+	total_rows: number;
+	elapsed_ms: number;
 }
 
 export interface QueryPlan {
-  raw: string;
-  format: 'text' | 'json';
-  root?: PlanNode;
-  planning_time_ms: number;
-  execution_time_ms?: number;
+	raw: string;
+	format: 'text' | 'json';
+	root?: PlanNode;
+	planning_time_ms: number;
+	execution_time_ms?: number;
 }
 
 export interface PlanNode {
-  node_type: string;
-  relation_name?: string;
-  alias?: string;
-  index_name?: string;
-  startup_cost: number;
-  total_cost: number;
-  plan_rows: number;
-  plan_width: number;
-  actual_startup_time?: number;
-  actual_total_time?: number;
-  actual_rows?: number;
-  actual_loops?: number;
-  filter?: string;
-  index_cond?: string;
-  children: PlanNode[];
+	node_type: string;
+	relation_name?: string;
+	alias?: string;
+	index_name?: string;
+	startup_cost: number;
+	total_cost: number;
+	plan_rows: number;
+	plan_width: number;
+	actual_startup_time?: number;
+	actual_total_time?: number;
+	actual_rows?: number;
+	actual_loops?: number;
+	filter?: string;
+	index_cond?: string;
+	children: PlanNode[];
 }
 
 class QueryService {
-  private rowListeners: Map<string, UnlistenFn> = new Map();
-  private completeListeners: Map<string, UnlistenFn> = new Map();
+	private rowListeners: Map<string, UnlistenFn> = new Map();
+	private completeListeners: Map<string, UnlistenFn> = new Map();
 
-  async executeQuery(
-    connId: string,
-    sql: string,
-    params?: Value[],
-    options?: QueryOptions
-  ): Promise<QueryResult> {
-    return invoke<QueryResult>('execute_query', {
-      connId,
-      sql,
-      params,
-      options,
-    });
-  }
+	async executeQuery(
+		connId: string,
+		sql: string,
+		params?: Value[],
+		options?: QueryOptions
+	): Promise<QueryResult> {
+		return invoke<QueryResult>('execute_query', {
+			connId,
+			sql,
+			params,
+			options
+		});
+	}
 
-  async executeMultiple(
-    connId: string,
-    sql: string,
-    options?: QueryOptions
-  ): Promise<QueryResult[]> {
-    return invoke<QueryResult[]>('execute_query_multiple', {
-      connId,
-      sql,
-      options,
-    });
-  }
+	async executeMultiple(
+		connId: string,
+		sql: string,
+		options?: QueryOptions
+	): Promise<QueryResult[]> {
+		return invoke<QueryResult[]>('execute_query_multiple', {
+			connId,
+			sql,
+			options
+		});
+	}
 
-  async cancelQuery(queryId: string): Promise<void> {
-    return invoke('cancel_query', { queryId });
-  }
+	async cancelQuery(queryId: string): Promise<void> {
+		return invoke('cancel_query', { queryId });
+	}
 
-  async explainQuery(
-    connId: string,
-    sql: string,
-    options: {
-      analyze?: boolean;
-      buffers?: boolean;
-      verbose?: boolean;
-      costs?: boolean;
-      timing?: boolean;
-      format?: 'text' | 'json';
-    } = {}
-  ): Promise<QueryResult> {
-    return invoke<QueryResult>('explain_query', {
-      connId,
-      sql,
-      analyze: options.analyze ?? false,
-      buffers: options.buffers ?? false,
-      verbose: options.verbose ?? false,
-      costs: options.costs ?? true,
-      timing: options.timing ?? true,
-      format: options.format ?? 'json',
-    });
-  }
+	async explainQuery(
+		connId: string,
+		sql: string,
+		options: {
+			analyze?: boolean;
+			buffers?: boolean;
+			verbose?: boolean;
+			costs?: boolean;
+			timing?: boolean;
+			format?: 'text' | 'json';
+		} = {}
+	): Promise<QueryResult> {
+		return invoke<QueryResult>('explain_query', {
+			connId,
+			sql,
+			analyze: options.analyze ?? false,
+			buffers: options.buffers ?? false,
+			verbose: options.verbose ?? false,
+			costs: options.costs ?? true,
+			timing: options.timing ?? true,
+			format: options.format ?? 'json'
+		});
+	}
 
-  async subscribeToResults(
-    queryId: string,
-    onRows: (batch: RowBatch) => void,
-    onComplete: (info: QueryComplete) => void
-  ): Promise<() => void> {
-    const rowUnlisten = await listen<RowBatch>('query:rows', (event) => {
-      if (event.payload.query_id === queryId) {
-        onRows(event.payload);
-      }
-    });
+	async subscribeToResults(
+		queryId: string,
+		onRows: (batch: RowBatch) => void,
+		onComplete: (info: QueryComplete) => void
+	): Promise<() => void> {
+		const rowUnlisten = await listen<RowBatch>('query:rows', (event) => {
+			if (event.payload.query_id === queryId) {
+				onRows(event.payload);
+			}
+		});
 
-    const completeUnlisten = await listen<QueryComplete>('query:complete', (event) => {
-      if (event.payload.query_id === queryId) {
-        onComplete(event.payload);
-        // Auto-cleanup
-        rowUnlisten();
-        completeUnlisten();
-      }
-    });
+		const completeUnlisten = await listen<QueryComplete>('query:complete', (event) => {
+			if (event.payload.query_id === queryId) {
+				onComplete(event.payload);
+				// Auto-cleanup
+				rowUnlisten();
+				completeUnlisten();
+			}
+		});
 
-    this.rowListeners.set(queryId, rowUnlisten);
-    this.completeListeners.set(queryId, completeUnlisten);
+		this.rowListeners.set(queryId, rowUnlisten);
+		this.completeListeners.set(queryId, completeUnlisten);
 
-    return () => {
-      rowUnlisten();
-      completeUnlisten();
-      this.rowListeners.delete(queryId);
-      this.completeListeners.delete(queryId);
-    };
-  }
+		return () => {
+			rowUnlisten();
+			completeUnlisten();
+			this.rowListeners.delete(queryId);
+			this.completeListeners.delete(queryId);
+		};
+	}
 }
 
 export const queryService = new QueryService();
@@ -1142,107 +1142,109 @@ export const queryService = new QueryService();
 ```typescript
 // src/lib/stores/queryExecution.svelte.ts
 
-import { queryService, type QueryResult, type QueryOptions, type RowBatch, type QueryComplete } from '$lib/services/query';
+import {
+	queryService,
+	type QueryResult,
+	type QueryOptions,
+	type RowBatch,
+	type QueryComplete
+} from '$lib/services/query';
 
 interface ExecutingQuery {
-  id: string;
-  sql: string;
-  connId: string;
-  startedAt: Date;
-  rows: any[][];
-  columns: any[];
-  status: 'running' | 'success' | 'error' | 'cancelled';
-  error?: any;
-  totalRows?: number;
-  elapsedMs?: number;
+	id: string;
+	sql: string;
+	connId: string;
+	startedAt: Date;
+	rows: any[][];
+	columns: any[];
+	status: 'running' | 'success' | 'error' | 'cancelled';
+	error?: any;
+	totalRows?: number;
+	elapsedMs?: number;
 }
 
 class QueryExecutionStore {
-  executingQueries = $state<Map<string, ExecutingQuery>>(new Map());
+	executingQueries = $state<Map<string, ExecutingQuery>>(new Map());
 
-  async execute(
-    connId: string,
-    sql: string,
-    options?: QueryOptions
-  ): Promise<QueryResult> {
-    const tempId = crypto.randomUUID();
+	async execute(connId: string, sql: string, options?: QueryOptions): Promise<QueryResult> {
+		const tempId = crypto.randomUUID();
 
-    // Track as executing
-    this.executingQueries.set(tempId, {
-      id: tempId,
-      sql,
-      connId,
-      startedAt: new Date(),
-      rows: [],
-      columns: [],
-      status: 'running',
-    });
+		// Track as executing
+		this.executingQueries.set(tempId, {
+			id: tempId,
+			sql,
+			connId,
+			startedAt: new Date(),
+			rows: [],
+			columns: [],
+			status: 'running'
+		});
 
-    try {
-      // Subscribe to streaming results first
-      let resolveComplete: (result: QueryResult) => void;
-      const completePromise = new Promise<QueryResult>((resolve) => {
-        resolveComplete = resolve;
-      });
+		try {
+			// Subscribe to streaming results first
+			let resolveComplete: (result: QueryResult) => void;
+			const completePromise = new Promise<QueryResult>((resolve) => {
+				resolveComplete = resolve;
+			});
 
-      // Execute query
-      const result = await queryService.executeQuery(connId, sql, undefined, options);
+			// Execute query
+			const result = await queryService.executeQuery(connId, sql, undefined, options);
 
-      // Update tracking
-      const query = this.executingQueries.get(tempId);
-      if (query) {
-        query.id = result.query_id;
-        query.status = result.status;
-        query.columns = result.columns ?? [];
-        query.rows = result.rows ?? [];
-        query.totalRows = result.total_rows;
-        query.elapsedMs = result.elapsed_ms;
-        query.error = result.error;
+			// Update tracking
+			const query = this.executingQueries.get(tempId);
+			if (query) {
+				query.id = result.query_id;
+				query.status = result.status;
+				query.columns = result.columns ?? [];
+				query.rows = result.rows ?? [];
+				query.totalRows = result.total_rows;
+				query.elapsedMs = result.elapsed_ms;
+				query.error = result.error;
 
-        // Re-key with real query ID
-        this.executingQueries.delete(tempId);
-        this.executingQueries.set(result.query_id, query);
-      }
+				// Re-key with real query ID
+				this.executingQueries.delete(tempId);
+				this.executingQueries.set(result.query_id, query);
+			}
 
-      return result;
-    } catch (error) {
-      const query = this.executingQueries.get(tempId);
-      if (query) {
-        query.status = 'error';
-        query.error = error;
-      }
-      throw error;
-    }
-  }
+			return result;
+		} catch (error) {
+			const query = this.executingQueries.get(tempId);
+			if (query) {
+				query.status = 'error';
+				query.error = error;
+			}
+			throw error;
+		}
+	}
 
-  async executeMultiple(
-    connId: string,
-    sql: string,
-    options?: QueryOptions
-  ): Promise<QueryResult[]> {
-    return queryService.executeMultiple(connId, sql, options);
-  }
+	async executeMultiple(
+		connId: string,
+		sql: string,
+		options?: QueryOptions
+	): Promise<QueryResult[]> {
+		return queryService.executeMultiple(connId, sql, options);
+	}
 
-  async cancel(queryId: string): Promise<void> {
-    await queryService.cancelQuery(queryId);
+	async cancel(queryId: string): Promise<void> {
+		await queryService.cancelQuery(queryId);
 
-    const query = this.executingQueries.get(queryId);
-    if (query) {
-      query.status = 'cancelled';
-    }
-  }
+		const query = this.executingQueries.get(queryId);
+		if (query) {
+			query.status = 'cancelled';
+		}
+	}
 
-  getExecutingQuery(queryId: string): ExecutingQuery | undefined {
-    return this.executingQueries.get(queryId);
-  }
+	getExecutingQuery(queryId: string): ExecutingQuery | undefined {
+		return this.executingQueries.get(queryId);
+	}
 
-  clearCompleted(): void {
-    for (const [id, query] of this.executingQueries) {
-      if (query.status !== 'running') {
-        this.executingQueries.delete(id);
-      }
-    }
-  }
+	clearCompleted(): void {
+		for (const [id, query] of this.executingQueries) {
+			if (query.status !== 'running') {
+				this.executingQueries.delete(id);
+			}
+		}
+	}
 }
 
 export const queryExecutionStore = new QueryExecutionStore();
@@ -1292,12 +1294,12 @@ export const queryExecutionStore = new QueryExecutionStore();
 ```typescript
 // Test query execution
 const result = await mcp.ipc_execute_command({
-  command: 'execute_query',
-  args: {
-    conn_id: connectionId,
-    sql: 'SELECT * FROM users LIMIT 10',
-    options: { row_limit: 10 }
-  }
+	command: 'execute_query',
+	args: {
+		conn_id: connectionId,
+		sql: 'SELECT * FROM users LIMIT 10',
+		options: { row_limit: 10 }
+	}
 });
 
 // Verify result structure
@@ -1307,31 +1309,31 @@ assert(result.rows.length <= 10);
 
 // Test query cancellation
 const longQueryResult = mcp.ipc_execute_command({
-  command: 'execute_query',
-  args: {
-    conn_id: connectionId,
-    sql: 'SELECT pg_sleep(60)'
-  }
+	command: 'execute_query',
+	args: {
+		conn_id: connectionId,
+		sql: 'SELECT pg_sleep(60)'
+	}
 });
 
 // Cancel after short delay
 await sleep(100);
 await mcp.ipc_execute_command({
-  command: 'cancel_query',
-  args: { query_id: longQueryResult.query_id }
+	command: 'cancel_query',
+	args: { query_id: longQueryResult.query_id }
 });
 
 // Test multiple statements
 const multiResult = await mcp.ipc_execute_command({
-  command: 'execute_query_multiple',
-  args: {
-    conn_id: connectionId,
-    sql: `
+	command: 'execute_query_multiple',
+	args: {
+		conn_id: connectionId,
+		sql: `
       SELECT 1 as a;
       SELECT 2 as b;
       SELECT 3 as c;
     `
-  }
+	}
 });
 
 assert(multiResult.length === 3);

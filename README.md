@@ -21,6 +21,7 @@ Tusk aims to replace pgAdmin and DBeaver for Postgres-only workflows with sub-se
 ## Tech Stack
 
 **Frontend**
+
 - Svelte 5 with runes
 - Monaco Editor
 - TanStack Table + virtual scrolling
@@ -28,6 +29,7 @@ Tusk aims to replace pgAdmin and DBeaver for Postgres-only workflows with sub-se
 - Tailwind CSS
 
 **Backend (Rust)**
+
 - Tauri v2
 - tokio-postgres (async, streaming, COPY protocol)
 - deadpool-postgres (connection pooling)
@@ -59,6 +61,7 @@ npm run tauri build
 ```
 
 Outputs are in `src-tauri/target/release/bundle/`:
+
 - **macOS**: `.dmg` and `.app`
 - **Windows**: `.msi` and `.exe`
 - **Linux**: `.AppImage`, `.deb`, `.rpm`
@@ -92,14 +95,14 @@ tusk/
 
 ## Performance Targets
 
-| Metric | Target |
-|--------|--------|
-| Cold start | < 1 second |
-| Memory (idle) | < 100 MB |
-| Memory (1M rows loaded) | < 500 MB |
-| Render 1000 rows | < 100ms |
-| Schema load (1000 tables) | < 500ms |
-| Autocomplete response | < 50ms |
+| Metric                    | Target     |
+| ------------------------- | ---------- |
+| Cold start                | < 1 second |
+| Memory (idle)             | < 100 MB   |
+| Memory (1M rows loaded)   | < 500 MB   |
+| Render 1000 rows          | < 100ms    |
+| Schema load (1000 tables) | < 500ms    |
+| Autocomplete response     | < 50ms     |
 
 ## License
 

@@ -28,124 +28,130 @@ The Import Wizard provides a step-by-step interface for importing data from CSV 
 // src/lib/types/import.ts
 
 export interface ImportJob {
-  id: string;
-  status: ImportStatus;
-  source: ImportSource;
-  target: ImportTarget;
-  mapping: ColumnMapping[];
-  options: ImportOptions;
-  progress: ImportProgress;
-  result: ImportResult | null;
+	id: string;
+	status: ImportStatus;
+	source: ImportSource;
+	target: ImportTarget;
+	mapping: ColumnMapping[];
+	options: ImportOptions;
+	progress: ImportProgress;
+	result: ImportResult | null;
 }
 
-export type ImportStatus = 'configuring' | 'validating' | 'importing' | 'completed' | 'failed' | 'cancelled';
+export type ImportStatus =
+	| 'configuring'
+	| 'validating'
+	| 'importing'
+	| 'completed'
+	| 'failed'
+	| 'cancelled';
 
 export interface ImportSource {
-  filePath: string;
-  fileType: 'csv' | 'json' | 'jsonl';
-  fileSize: number;
-  encoding: string;
-  csvOptions?: CsvOptions;
-  preview: PreviewData;
+	filePath: string;
+	fileType: 'csv' | 'json' | 'jsonl';
+	fileSize: number;
+	encoding: string;
+	csvOptions?: CsvOptions;
+	preview: PreviewData;
 }
 
 export interface CsvOptions {
-  delimiter: string;
-  quoteChar: string;
-  escapeChar: string;
-  hasHeader: boolean;
-  nullString: string;
-  skipRows: number;
+	delimiter: string;
+	quoteChar: string;
+	escapeChar: string;
+	hasHeader: boolean;
+	nullString: string;
+	skipRows: number;
 }
 
 export interface PreviewData {
-  columns: string[];
-  rows: string[][];
-  totalRows: number;
-  detectedTypes: ColumnTypeHint[];
+	columns: string[];
+	rows: string[][];
+	totalRows: number;
+	detectedTypes: ColumnTypeHint[];
 }
 
 export interface ColumnTypeHint {
-  column: string;
-  suggestedType: string;
-  sampleValues: string[];
-  nullCount: number;
+	column: string;
+	suggestedType: string;
+	sampleValues: string[];
+	nullCount: number;
 }
 
 export interface ImportTarget {
-  type: 'existing' | 'new';
-  schema: string;
-  table: string;
-  columns?: TableColumn[];
+	type: 'existing' | 'new';
+	schema: string;
+	table: string;
+	columns?: TableColumn[];
 }
 
 export interface TableColumn {
-  name: string;
-  type: string;
-  nullable: boolean;
-  hasDefault: boolean;
+	name: string;
+	type: string;
+	nullable: boolean;
+	hasDefault: boolean;
 }
 
 export interface ColumnMapping {
-  sourceColumn: string;
-  targetColumn: string | null; // null = skip this column
-  transform: ColumnTransform | null;
+	sourceColumn: string;
+	targetColumn: string | null; // null = skip this column
+	transform: ColumnTransform | null;
 }
 
 export interface ColumnTransform {
-  type: TransformType;
-  options?: Record<string, any>;
+	type: TransformType;
+	options?: Record<string, any>;
 }
 
 export type TransformType =
-  | 'none'
-  | 'trim'
-  | 'uppercase'
-  | 'lowercase'
-  | 'parse_date'
-  | 'parse_boolean'
-  | 'parse_number'
-  | 'custom_sql';
+	| 'none'
+	| 'trim'
+	| 'uppercase'
+	| 'lowercase'
+	| 'parse_date'
+	| 'parse_boolean'
+	| 'parse_number'
+	| 'custom_sql';
 
 export interface ImportOptions {
-  conflictHandling: 'error' | 'skip' | 'update';
-  conflictColumns?: string[]; // For upsert
-  updateColumns?: string[]; // Columns to update on conflict
-  batchSize: number;
-  useTransaction: boolean;
-  useCopy: boolean;
-  truncateFirst: boolean;
+	conflictHandling: 'error' | 'skip' | 'update';
+	conflictColumns?: string[]; // For upsert
+	updateColumns?: string[]; // Columns to update on conflict
+	batchSize: number;
+	useTransaction: boolean;
+	useCopy: boolean;
+	truncateFirst: boolean;
 }
 
 export interface ImportProgress {
-  phase: 'reading' | 'validating' | 'inserting';
-  rowsRead: number;
-  rowsProcessed: number;
-  rowsInserted: number;
-  rowsSkipped: number;
-  rowsFailed: number;
-  currentBatch: number;
-  totalBatches: number;
-  elapsedMs: number;
-  estimatedRemainingMs: number | null;
+	phase: 'reading' | 'validating' | 'inserting';
+	rowsRead: number;
+	rowsProcessed: number;
+	rowsInserted: number;
+	rowsSkipped: number;
+	rowsFailed: number;
+	currentBatch: number;
+	totalBatches: number;
+	elapsedMs: number;
+	estimatedRemainingMs: number | null;
 }
 
 export interface ImportResult {
-  success: boolean;
-  rowsInserted: number;
-  rowsUpdated: number;
-  rowsSkipped: number;
-  rowsFailed: number;
-  errors: ImportError[];
-  duration: number;
+	success: boolean;
+	rowsInserted: number;
+	rowsUpdated: number;
+	rowsSkipped: number;
+	rowsFailed: number;
+	errors: ImportError[];
+	duration: number;
 }
 
 export interface ImportError {
-  row: number;
-  column?: string;
-  value?: string;
-  message: string;
-  sqlState?: string;
+	row: number;
+	column?: string;
+	value?: string;
+	message: string;
+	sqlState?: string;
 }
 ```
 
@@ -944,158 +950,197 @@ pub enum ImportServiceError {
 ```svelte
 <!-- src/lib/components/import/ImportWizard.svelte -->
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import type { ImportSource, ImportTarget, ColumnMapping, ImportOptions } from '$lib/types/import';
-  import ImportStep1Source from './ImportStep1Source.svelte';
-  import ImportStep2Target from './ImportStep2Target.svelte';
-  import ImportStep3Mapping from './ImportStep3Mapping.svelte';
-  import ImportStep4Options from './ImportStep4Options.svelte';
-  import ImportStep5Execute from './ImportStep5Execute.svelte';
+	import { createEventDispatcher } from 'svelte';
+	import type { ImportSource, ImportTarget, ColumnMapping, ImportOptions } from '$lib/types/import';
+	import ImportStep1Source from './ImportStep1Source.svelte';
+	import ImportStep2Target from './ImportStep2Target.svelte';
+	import ImportStep3Mapping from './ImportStep3Mapping.svelte';
+	import ImportStep4Options from './ImportStep4Options.svelte';
+	import ImportStep5Execute from './ImportStep5Execute.svelte';
 
-  interface Props {
-    open: boolean;
-    connId: string;
-  }
+	interface Props {
+		open: boolean;
+		connId: string;
+	}
 
-  let { open = $bindable(), connId }: Props = $props();
+	let { open = $bindable(), connId }: Props = $props();
 
-  const dispatch = createEventDispatcher<{
-    complete: void;
-    cancel: void;
-  }>();
+	const dispatch = createEventDispatcher<{
+		complete: void;
+		cancel: void;
+	}>();
 
-  let step = $state(1);
-  let source = $state<ImportSource | null>(null);
-  let target = $state<ImportTarget | null>(null);
-  let mappings = $state<ColumnMapping[]>([]);
-  let options = $state<ImportOptions>({
-    conflictHandling: 'error',
-    batchSize: 1000,
-    useTransaction: true,
-    useCopy: true,
-    truncateFirst: false,
-  });
+	let step = $state(1);
+	let source = $state<ImportSource | null>(null);
+	let target = $state<ImportTarget | null>(null);
+	let mappings = $state<ColumnMapping[]>([]);
+	let options = $state<ImportOptions>({
+		conflictHandling: 'error',
+		batchSize: 1000,
+		useTransaction: true,
+		useCopy: true,
+		truncateFirst: false
+	});
 
-  function handleSourceComplete(src: ImportSource) {
-    source = src;
-    step = 2;
-  }
+	function handleSourceComplete(src: ImportSource) {
+		source = src;
+		step = 2;
+	}
 
-  function handleTargetComplete(tgt: ImportTarget) {
-    target = tgt;
+	function handleTargetComplete(tgt: ImportTarget) {
+		target = tgt;
 
-    // Initialize mappings
-    mappings = source!.preview.columns.map((col, i) => ({
-      sourceColumn: col,
-      targetColumn: tgt.columns?.find(c => c.name.toLowerCase() === col.toLowerCase())?.name ?? null,
-      transform: null,
-    }));
+		// Initialize mappings
+		mappings = source!.preview.columns.map((col, i) => ({
+			sourceColumn: col,
+			targetColumn:
+				tgt.columns?.find((c) => c.name.toLowerCase() === col.toLowerCase())?.name ?? null,
+			transform: null
+		}));
 
-    step = 3;
-  }
+		step = 3;
+	}
 
-  function handleMappingComplete(maps: ColumnMapping[]) {
-    mappings = maps;
-    step = 4;
-  }
+	function handleMappingComplete(maps: ColumnMapping[]) {
+		mappings = maps;
+		step = 4;
+	}
 
-  function handleOptionsComplete(opts: ImportOptions) {
-    options = opts;
-    step = 5;
-  }
+	function handleOptionsComplete(opts: ImportOptions) {
+		options = opts;
+		step = 5;
+	}
 
-  function handleBack() {
-    if (step > 1) step--;
-  }
+	function handleBack() {
+		if (step > 1) step--;
+	}
 
-  function handleComplete() {
-    dispatch('complete');
-    open = false;
-  }
+	function handleComplete() {
+		dispatch('complete');
+		open = false;
+	}
 
-  function handleCancel() {
-    dispatch('cancel');
-    open = false;
-  }
+	function handleCancel() {
+		dispatch('cancel');
+		open = false;
+	}
 
-  const stepTitles = [
-    'Select Source',
-    'Select Target',
-    'Map Columns',
-    'Import Options',
-    'Execute Import',
-  ];
+	const stepTitles = [
+		'Select Source',
+		'Select Target',
+		'Map Columns',
+		'Import Options',
+		'Execute Import'
+	];
 </script>
 
 {#if open}
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    role="dialog"
-    aria-modal="true"
-  >
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[800px] max-h-[85vh] flex flex-col">
-      <!-- Header -->
-      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold">Import Data</h2>
-          <button
-            onclick={handleCancel}
-            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+	<div
+		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+		role="dialog"
+		aria-modal="true"
+	>
+		<div
+			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[800px] max-h-[85vh] flex flex-col"
+		>
+			<!-- Header -->
+			<div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+				<div class="flex items-center justify-between">
+					<h2 class="text-lg font-semibold">Import Data</h2>
+					<button
+						onclick={handleCancel}
+						class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+					>
+						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					</button>
+				</div>
 
-        <!-- Step Indicator -->
-        <div class="flex items-center mt-4">
-          {#each stepTitles as title, i}
-            <div class="flex items-center {i < stepTitles.length - 1 ? 'flex-1' : ''}">
-              <div
-                class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+				<!-- Step Indicator -->
+				<div class="flex items-center mt-4">
+					{#each stepTitles as title, i}
+						<div class="flex items-center {i < stepTitles.length - 1 ? 'flex-1' : ''}">
+							<div
+								class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
                        {i + 1 < step
-                         ? 'bg-green-500 text-white'
-                         : i + 1 === step
-                           ? 'bg-blue-600 text-white'
-                           : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}"
-              >
-                {#if i + 1 < step}
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                  </svg>
-                {:else}
-                  {i + 1}
-                {/if}
-              </div>
-              <span class="ml-2 text-sm hidden sm:inline
-                          {i + 1 === step ? 'font-medium' : 'text-gray-500 dark:text-gray-400'}">
-                {title}
-              </span>
-              {#if i < stepTitles.length - 1}
-                <div class="flex-1 h-px mx-4 bg-gray-200 dark:bg-gray-700"></div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      </div>
+									? 'bg-green-500 text-white'
+									: i + 1 === step
+										? 'bg-blue-600 text-white'
+										: 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}"
+							>
+								{#if i + 1 < step}
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
+								{:else}
+									{i + 1}
+								{/if}
+							</div>
+							<span
+								class="ml-2 text-sm hidden sm:inline
+                          {i + 1 === step ? 'font-medium' : 'text-gray-500 dark:text-gray-400'}"
+							>
+								{title}
+							</span>
+							{#if i < stepTitles.length - 1}
+								<div class="flex-1 h-px mx-4 bg-gray-200 dark:bg-gray-700"></div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
 
-      <!-- Content -->
-      <div class="flex-1 overflow-auto p-6">
-        {#if step === 1}
-          <ImportStep1Source {connId} onComplete={handleSourceComplete} />
-        {:else if step === 2 && source}
-          <ImportStep2Target {connId} {source} onComplete={handleTargetComplete} onBack={handleBack} />
-        {:else if step === 3 && source && target}
-          <ImportStep3Mapping {source} {target} initialMappings={mappings} onComplete={handleMappingComplete} onBack={handleBack} />
-        {:else if step === 4}
-          <ImportStep4Options {target} initialOptions={options} onComplete={handleOptionsComplete} onBack={handleBack} />
-        {:else if step === 5 && source && target}
-          <ImportStep5Execute {connId} {source} {target} {mappings} {options} onComplete={handleComplete} onBack={handleBack} />
-        {/if}
-      </div>
-    </div>
-  </div>
+			<!-- Content -->
+			<div class="flex-1 overflow-auto p-6">
+				{#if step === 1}
+					<ImportStep1Source {connId} onComplete={handleSourceComplete} />
+				{:else if step === 2 && source}
+					<ImportStep2Target
+						{connId}
+						{source}
+						onComplete={handleTargetComplete}
+						onBack={handleBack}
+					/>
+				{:else if step === 3 && source && target}
+					<ImportStep3Mapping
+						{source}
+						{target}
+						initialMappings={mappings}
+						onComplete={handleMappingComplete}
+						onBack={handleBack}
+					/>
+				{:else if step === 4}
+					<ImportStep4Options
+						{target}
+						initialOptions={options}
+						onComplete={handleOptionsComplete}
+						onBack={handleBack}
+					/>
+				{:else if step === 5 && source && target}
+					<ImportStep5Execute
+						{connId}
+						{source}
+						{target}
+						{mappings}
+						{options}
+						onComplete={handleComplete}
+						onBack={handleBack}
+					/>
+				{/if}
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -1104,203 +1149,201 @@ pub enum ImportServiceError {
 ```svelte
 <!-- src/lib/components/import/ImportStep1Source.svelte -->
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
-  import { open as openDialog } from '@tauri-apps/plugin-dialog';
-  import type { ImportSource } from '$lib/types/import';
+	import { invoke } from '@tauri-apps/api/core';
+	import { open as openDialog } from '@tauri-apps/plugin-dialog';
+	import type { ImportSource } from '$lib/types/import';
 
-  interface Props {
-    connId: string;
-    onComplete: (source: ImportSource) => void;
-  }
+	interface Props {
+		connId: string;
+		onComplete: (source: ImportSource) => void;
+	}
 
-  let { connId, onComplete }: Props = $props();
+	let { connId, onComplete }: Props = $props();
 
-  let filePath = $state('');
-  let analyzing = $state(false);
-  let error = $state<string | null>(null);
-  let source = $state<ImportSource | null>(null);
+	let filePath = $state('');
+	let analyzing = $state(false);
+	let error = $state<string | null>(null);
+	let source = $state<ImportSource | null>(null);
 
-  async function handleSelectFile() {
-    const selected = await openDialog({
-      multiple: false,
-      filters: [
-        { name: 'Data Files', extensions: ['csv', 'tsv', 'json', 'jsonl', 'ndjson'] },
-        { name: 'CSV', extensions: ['csv', 'tsv'] },
-        { name: 'JSON', extensions: ['json', 'jsonl', 'ndjson'] },
-      ],
-    });
+	async function handleSelectFile() {
+		const selected = await openDialog({
+			multiple: false,
+			filters: [
+				{ name: 'Data Files', extensions: ['csv', 'tsv', 'json', 'jsonl', 'ndjson'] },
+				{ name: 'CSV', extensions: ['csv', 'tsv'] },
+				{ name: 'JSON', extensions: ['json', 'jsonl', 'ndjson'] }
+			]
+		});
 
-    if (selected && typeof selected === 'string') {
-      filePath = selected;
-      await analyzeFile();
-    }
-  }
+		if (selected && typeof selected === 'string') {
+			filePath = selected;
+			await analyzeFile();
+		}
+	}
 
-  async function analyzeFile() {
-    analyzing = true;
-    error = null;
+	async function analyzeFile() {
+		analyzing = true;
+		error = null;
 
-    try {
-      source = await invoke<ImportSource>('analyze_import_file', { filePath });
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
-      source = null;
-    } finally {
-      analyzing = false;
-    }
-  }
+		try {
+			source = await invoke<ImportSource>('analyze_import_file', { filePath });
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+			source = null;
+		} finally {
+			analyzing = false;
+		}
+	}
 
-  function handleContinue() {
-    if (source) {
-      onComplete(source);
-    }
-  }
+	function handleContinue() {
+		if (source) {
+			onComplete(source);
+		}
+	}
 
-  function formatSize(bytes: number): string {
-    if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' GB';
-    if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(2) + ' MB';
-    if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
-    return bytes + ' B';
-  }
+	function formatSize(bytes: number): string {
+		if (bytes >= 1_073_741_824) return (bytes / 1_073_741_824).toFixed(2) + ' GB';
+		if (bytes >= 1_048_576) return (bytes / 1_048_576).toFixed(2) + ' MB';
+		if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+		return bytes + ' B';
+	}
 </script>
 
 <div class="space-y-6">
-  <!-- File Selection -->
-  <div>
-    <label class="block text-sm font-medium mb-2">Source File</label>
-    <div class="flex gap-2">
-      <input
-        type="text"
-        value={filePath}
-        readonly
-        placeholder="Select a file..."
-        class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
+	<!-- File Selection -->
+	<div>
+		<label class="block text-sm font-medium mb-2">Source File</label>
+		<div class="flex gap-2">
+			<input
+				type="text"
+				value={filePath}
+				readonly
+				placeholder="Select a file..."
+				class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
                bg-gray-50 dark:bg-gray-900 text-sm"
-      />
-      <button
-        onclick={handleSelectFile}
-        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-      >
-        Browse...
-      </button>
-    </div>
-  </div>
+			/>
+			<button
+				onclick={handleSelectFile}
+				class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+			>
+				Browse...
+			</button>
+		</div>
+	</div>
 
-  {#if analyzing}
-    <div class="flex items-center justify-center py-8">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      <span class="ml-3">Analyzing file...</span>
-    </div>
-  {:else if error}
-    <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200
-                dark:border-red-800 rounded text-red-700 dark:text-red-400">
-      {error}
-    </div>
-  {:else if source}
-    <!-- File Info -->
-    <div class="grid grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded">
-      <div>
-        <span class="text-xs text-gray-500 block">Type</span>
-        <span class="font-medium uppercase">{source.fileType}</span>
-      </div>
-      <div>
-        <span class="text-xs text-gray-500 block">Size</span>
-        <span class="font-medium">{formatSize(source.fileSize)}</span>
-      </div>
-      <div>
-        <span class="text-xs text-gray-500 block">Encoding</span>
-        <span class="font-medium">{source.encoding}</span>
-      </div>
-      <div>
-        <span class="text-xs text-gray-500 block">Rows</span>
-        <span class="font-medium">{source.preview.totalRows.toLocaleString()}</span>
-      </div>
-    </div>
+	{#if analyzing}
+		<div class="flex items-center justify-center py-8">
+			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+			<span class="ml-3">Analyzing file...</span>
+		</div>
+	{:else if error}
+		<div
+			class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200
+                dark:border-red-800 rounded text-red-700 dark:text-red-400"
+		>
+			{error}
+		</div>
+	{:else if source}
+		<!-- File Info -->
+		<div class="grid grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded">
+			<div>
+				<span class="text-xs text-gray-500 block">Type</span>
+				<span class="font-medium uppercase">{source.fileType}</span>
+			</div>
+			<div>
+				<span class="text-xs text-gray-500 block">Size</span>
+				<span class="font-medium">{formatSize(source.fileSize)}</span>
+			</div>
+			<div>
+				<span class="text-xs text-gray-500 block">Encoding</span>
+				<span class="font-medium">{source.encoding}</span>
+			</div>
+			<div>
+				<span class="text-xs text-gray-500 block">Rows</span>
+				<span class="font-medium">{source.preview.totalRows.toLocaleString()}</span>
+			</div>
+		</div>
 
-    <!-- CSV Options (if applicable) -->
-    {#if source.csvOptions}
-      <div>
-        <h3 class="text-sm font-medium mb-2">CSV Options</h3>
-        <div class="grid grid-cols-3 gap-4">
-          <div>
-            <label class="block text-xs text-gray-500 mb-1">Delimiter</label>
-            <select
-              bind:value={source.csvOptions.delimiter}
-              class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded
+		<!-- CSV Options (if applicable) -->
+		{#if source.csvOptions}
+			<div>
+				<h3 class="text-sm font-medium mb-2">CSV Options</h3>
+				<div class="grid grid-cols-3 gap-4">
+					<div>
+						<label class="block text-xs text-gray-500 mb-1">Delimiter</label>
+						<select
+							bind:value={source.csvOptions.delimiter}
+							class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            >
-              <option value=",">Comma (,)</option>
-              <option value="&#9;">Tab</option>
-              <option value=";">Semicolon (;)</option>
-              <option value="|">Pipe (|)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs text-gray-500 mb-1">Quote Character</label>
-            <select
-              bind:value={source.csvOptions.quoteChar}
-              class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded
+						>
+							<option value=",">Comma (,)</option>
+							<option value="&#9;">Tab</option>
+							<option value=";">Semicolon (;)</option>
+							<option value="|">Pipe (|)</option>
+						</select>
+					</div>
+					<div>
+						<label class="block text-xs text-gray-500 mb-1">Quote Character</label>
+						<select
+							bind:value={source.csvOptions.quoteChar}
+							class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded
                      bg-white dark:bg-gray-700 text-sm"
-            >
-              <option value="&quot;">Double Quote (")</option>
-              <option value="'">Single Quote (')</option>
-            </select>
-          </div>
-          <div class="flex items-end">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                bind:checked={source.csvOptions.hasHeader}
-                class="rounded"
-              />
-              <span class="text-sm">Has header row</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    {/if}
+						>
+							<option value="&quot;">Double Quote (")</option>
+							<option value="'">Single Quote (')</option>
+						</select>
+					</div>
+					<div class="flex items-end">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input type="checkbox" bind:checked={source.csvOptions.hasHeader} class="rounded" />
+							<span class="text-sm">Has header row</span>
+						</label>
+					</div>
+				</div>
+			</div>
+		{/if}
 
-    <!-- Data Preview -->
-    <div>
-      <h3 class="text-sm font-medium mb-2">Preview (first 5 rows)</h3>
-      <div class="overflow-auto border border-gray-200 dark:border-gray-700 rounded">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-          <thead class="bg-gray-50 dark:bg-gray-900/50">
-            <tr>
-              {#each source.preview.columns as col}
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                  {col}
-                </th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-            {#each source.preview.rows as row}
-              <tr>
-                {#each row as cell}
-                  <td class="px-3 py-2 font-mono text-xs truncate max-w-[200px]">
-                    {cell || '<empty>'}
-                  </td>
-                {/each}
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  {/if}
+		<!-- Data Preview -->
+		<div>
+			<h3 class="text-sm font-medium mb-2">Preview (first 5 rows)</h3>
+			<div class="overflow-auto border border-gray-200 dark:border-gray-700 rounded">
+				<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+					<thead class="bg-gray-50 dark:bg-gray-900/50">
+						<tr>
+							{#each source.preview.columns as col}
+								<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+									{col}
+								</th>
+							{/each}
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+						{#each source.preview.rows as row}
+							<tr>
+								{#each row as cell}
+									<td class="px-3 py-2 font-mono text-xs truncate max-w-[200px]">
+										{cell || '<empty>'}
+									</td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	{/if}
 
-  <!-- Footer -->
-  <div class="flex justify-end pt-4">
-    <button
-      onclick={handleContinue}
-      disabled={!source}
-      class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700
+	<!-- Footer -->
+	<div class="flex justify-end pt-4">
+		<button
+			onclick={handleContinue}
+			disabled={!source}
+			class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700
              disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-    >
-      Continue
-    </button>
-  </div>
+		>
+			Continue
+		</button>
+	</div>
 </div>
 ```
 
@@ -1343,30 +1386,32 @@ pub enum ImportServiceError {
 ```typescript
 // Analyze a CSV file
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'analyze_import_file',
-  args: { filePath: '/path/to/data.csv' }
+	command: 'analyze_import_file',
+	args: { filePath: '/path/to/data.csv' }
 });
 
 // Execute import
 await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-  command: 'execute_import',
-  args: {
-    connId: 'test-conn',
-    source: { /* ImportSource */ },
-    targetSchema: 'public',
-    targetTable: 'users',
-    mappings: [
-      { sourceColumn: 'email', targetColumn: 'email', transform: null },
-      { sourceColumn: 'name', targetColumn: 'full_name', transform: { type: 'trim' } }
-    ],
-    options: {
-      conflictHandling: 'skip',
-      conflictColumns: ['email'],
-      batchSize: 1000,
-      useTransaction: true,
-      useCopy: false
-    }
-  }
+	command: 'execute_import',
+	args: {
+		connId: 'test-conn',
+		source: {
+			/* ImportSource */
+		},
+		targetSchema: 'public',
+		targetTable: 'users',
+		mappings: [
+			{ sourceColumn: 'email', targetColumn: 'email', transform: null },
+			{ sourceColumn: 'name', targetColumn: 'full_name', transform: { type: 'trim' } }
+		],
+		options: {
+			conflictHandling: 'skip',
+			conflictColumns: ['email'],
+			batchSize: 1000,
+			useTransaction: true,
+			useCopy: false
+		}
+	}
 });
 ```
 
@@ -1375,18 +1420,18 @@ await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
 ```typescript
 // Open import wizard
 await mcp__playwright__browser_click({
-  element: 'Import button',
-  ref: 'button:has-text("Import")'
+	element: 'Import button',
+	ref: 'button:has-text("Import")'
 });
 
 // Select file
 await mcp__playwright__browser_click({
-  element: 'Browse button',
-  ref: 'button:has-text("Browse")'
+	element: 'Browse button',
+	ref: 'button:has-text("Browse")'
 });
 
 // Take screenshot of wizard
 await mcp__playwright__browser_take_screenshot({
-  filename: 'import-wizard-step1.png'
+	filename: 'import-wizard-step1.png'
 });
 ```

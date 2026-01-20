@@ -139,71 +139,71 @@ strip = true
 
 ```json
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Tusk",
-  "version": "0.1.0",
-  "identifier": "com.tusk.app",
-  "build": {
-    "beforeBuildCommand": "npm run build",
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5173",
-    "frontendDist": "../build"
-  },
-  "app": {
-    "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "Tusk",
-        "width": 1400,
-        "height": 900,
-        "minWidth": 800,
-        "minHeight": 600,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "transparent": false,
-        "center": true
-      }
-    ],
-    "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://localhost:*"
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "macOS": {
-      "minimumSystemVersion": "10.15",
-      "frameworks": [],
-      "exceptionDomain": "",
-      "signingIdentity": null,
-      "providerShortName": null,
-      "entitlements": null
-    },
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    },
-    "linux": {
-      "appimage": {
-        "bundleMediaFramework": false
-      },
-      "deb": {
-        "depends": ["libssl3", "libpq5"]
-      },
-      "rpm": {
-        "depends": ["openssl", "postgresql-libs"]
-      }
-    }
-  }
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "Tusk",
+	"version": "0.1.0",
+	"identifier": "com.tusk.app",
+	"build": {
+		"beforeBuildCommand": "npm run build",
+		"beforeDevCommand": "npm run dev",
+		"devUrl": "http://localhost:5173",
+		"frontendDist": "../build"
+	},
+	"app": {
+		"withGlobalTauri": true,
+		"windows": [
+			{
+				"title": "Tusk",
+				"width": 1400,
+				"height": 900,
+				"minWidth": 800,
+				"minHeight": 600,
+				"resizable": true,
+				"fullscreen": false,
+				"decorations": true,
+				"transparent": false,
+				"center": true
+			}
+		],
+		"security": {
+			"csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws://localhost:*"
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": "all",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"macOS": {
+			"minimumSystemVersion": "10.15",
+			"frameworks": [],
+			"exceptionDomain": "",
+			"signingIdentity": null,
+			"providerShortName": null,
+			"entitlements": null
+		},
+		"windows": {
+			"certificateThumbprint": null,
+			"digestAlgorithm": "sha256",
+			"timestampUrl": ""
+		},
+		"linux": {
+			"appimage": {
+				"bundleMediaFramework": false
+			},
+			"deb": {
+				"depends": ["libssl3", "libpq5"]
+			},
+			"rpm": {
+				"depends": ["openssl", "postgresql-libs"]
+			}
+		}
+	}
 }
 ```
 
@@ -211,52 +211,52 @@ strip = true
 
 ```json
 {
-  "name": "tusk",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "lint": "eslint . --ext .js,.ts,.svelte",
-    "lint:fix": "eslint . --ext .js,.ts,.svelte --fix",
-    "format": "prettier --write .",
-    "test": "vitest",
-    "test:e2e": "playwright test",
-    "tauri": "tauri"
-  },
-  "devDependencies": {
-    "@sveltejs/adapter-static": "^3.0.0",
-    "@sveltejs/kit": "^2.0.0",
-    "@sveltejs/vite-plugin-svelte": "^4.0.0",
-    "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/cli": "^2.0.0",
-    "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "autoprefixer": "^10.4.0",
-    "eslint": "^9.0.0",
-    "eslint-plugin-svelte": "^2.0.0",
-    "postcss": "^8.4.0",
-    "prettier": "^3.0.0",
-    "prettier-plugin-svelte": "^3.0.0",
-    "prettier-plugin-tailwindcss": "^0.6.0",
-    "svelte": "^5.0.0",
-    "svelte-check": "^4.0.0",
-    "tailwindcss": "^3.4.0",
-    "typescript": "^5.5.0",
-    "vite": "^5.0.0",
-    "vitest": "^2.0.0"
-  },
-  "dependencies": {
-    "@tauri-apps/plugin-shell": "^2.0.0",
-    "monaco-editor": "^0.52.0",
-    "@tanstack/svelte-table": "^8.20.0",
-    "@xyflow/svelte": "^0.1.0"
-  }
+	"name": "tusk",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "eslint . --ext .js,.ts,.svelte",
+		"lint:fix": "eslint . --ext .js,.ts,.svelte --fix",
+		"format": "prettier --write .",
+		"test": "vitest",
+		"test:e2e": "playwright test",
+		"tauri": "tauri"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0.0",
+		"@sveltejs/kit": "^2.0.0",
+		"@sveltejs/vite-plugin-svelte": "^4.0.0",
+		"@tauri-apps/api": "^2.0.0",
+		"@tauri-apps/cli": "^2.0.0",
+		"@types/node": "^22.0.0",
+		"@typescript-eslint/eslint-plugin": "^8.0.0",
+		"@typescript-eslint/parser": "^8.0.0",
+		"autoprefixer": "^10.4.0",
+		"eslint": "^9.0.0",
+		"eslint-plugin-svelte": "^2.0.0",
+		"postcss": "^8.4.0",
+		"prettier": "^3.0.0",
+		"prettier-plugin-svelte": "^3.0.0",
+		"prettier-plugin-tailwindcss": "^0.6.0",
+		"svelte": "^5.0.0",
+		"svelte-check": "^4.0.0",
+		"tailwindcss": "^3.4.0",
+		"typescript": "^5.5.0",
+		"vite": "^5.0.0",
+		"vitest": "^2.0.0"
+	},
+	"dependencies": {
+		"@tauri-apps/plugin-shell": "^2.0.0",
+		"monaco-editor": "^0.52.0",
+		"@tanstack/svelte-table": "^8.20.0",
+		"@xyflow/svelte": "^0.1.0"
+	}
 }
 ```
 
@@ -267,21 +267,21 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  plugins: [sveltekit()],
-  clearScreen: false,
-  server: {
-    port: 5173,
-    strictPort: true,
-    watch: {
-      ignored: ['**/src-tauri/**']
-    }
-  },
-  envPrefix: ['VITE_', 'TAURI_'],
-  build: {
-    target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
-    sourcemap: !!process.env.TAURI_DEBUG
-  }
+	plugins: [sveltekit()],
+	clearScreen: false,
+	server: {
+		port: 5173,
+		strictPort: true,
+		watch: {
+			ignored: ['**/src-tauri/**']
+		}
+	},
+	envPrefix: ['VITE_', 'TAURI_'],
+	build: {
+		target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari13',
+		minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
+		sourcemap: !!process.env.TAURI_DEBUG
+	}
 });
 ```
 
@@ -293,22 +293,22 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
-  preprocess: vitePreprocess(),
-  kit: {
-    adapter: adapter({
-      pages: 'build',
-      assets: 'build',
-      fallback: 'index.html',
-      precompress: false,
-      strict: true
-    }),
-    alias: {
-      $components: 'src/lib/components',
-      $stores: 'src/lib/stores',
-      $services: 'src/lib/services',
-      $utils: 'src/lib/utils'
-    }
-  }
+	preprocess: vitePreprocess(),
+	kit: {
+		adapter: adapter({
+			pages: 'build',
+			assets: 'build',
+			fallback: 'index.html',
+			precompress: false,
+			strict: true
+		}),
+		alias: {
+			$components: 'src/lib/components',
+			$stores: 'src/lib/stores',
+			$services: 'src/lib/services',
+			$utils: 'src/lib/utils'
+		}
+	}
 };
 
 export default config;
@@ -319,32 +319,32 @@ export default config;
 ```javascript
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./src/**/*.{html,js,svelte,ts}'],
-  darkMode: 'class',
-  theme: {
-    extend: {
-      colors: {
-        // Custom color palette for Tusk
-        tusk: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-          950: '#082f49'
-        }
-      },
-      fontFamily: {
-        mono: ['JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', 'monospace']
-      }
-    }
-  },
-  plugins: []
+	content: ['./src/**/*.{html,js,svelte,ts}'],
+	darkMode: 'class',
+	theme: {
+		extend: {
+			colors: {
+				// Custom color palette for Tusk
+				tusk: {
+					50: '#f0f9ff',
+					100: '#e0f2fe',
+					200: '#bae6fd',
+					300: '#7dd3fc',
+					400: '#38bdf8',
+					500: '#0ea5e9',
+					600: '#0284c7',
+					700: '#0369a1',
+					800: '#075985',
+					900: '#0c4a6e',
+					950: '#082f49'
+				}
+			},
+			fontFamily: {
+				mono: ['JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', 'monospace']
+			}
+		}
+	},
+	plugins: []
 };
 ```
 
@@ -353,18 +353,18 @@ export default {
 ```json
 // tsconfig.json
 {
-  "extends": "./.svelte-kit/tsconfig.json",
-  "compilerOptions": {
-    "allowJs": true,
-    "checkJs": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "sourceMap": true,
-    "strict": true,
-    "moduleResolution": "bundler"
-  }
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true,
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"moduleResolution": "bundler"
+	}
 }
 ```
 
@@ -419,25 +419,23 @@ pub fn run() {
 ```svelte
 <!-- src/routes/+page.svelte -->
 <script lang="ts">
-  // Main application entry
+	// Main application entry
 </script>
 
 <main class="h-screen w-screen bg-white dark:bg-gray-900">
-  <div class="flex h-full">
-    <!-- Sidebar placeholder -->
-    <aside class="w-64 border-r border-gray-200 dark:border-gray-700">
-      <div class="p-4">
-        <h1 class="text-xl font-bold text-gray-900 dark:text-white">Tusk</h1>
-      </div>
-    </aside>
+	<div class="flex h-full">
+		<!-- Sidebar placeholder -->
+		<aside class="w-64 border-r border-gray-200 dark:border-gray-700">
+			<div class="p-4">
+				<h1 class="text-xl font-bold text-gray-900 dark:text-white">Tusk</h1>
+			</div>
+		</aside>
 
-    <!-- Main content placeholder -->
-    <div class="flex-1">
-      <p class="p-4 text-gray-600 dark:text-gray-300">
-        Welcome to Tusk
-      </p>
-    </div>
-  </div>
+		<!-- Main content placeholder -->
+		<div class="flex-1">
+			<p class="p-4 text-gray-600 dark:text-gray-300">Welcome to Tusk</p>
+		</div>
+	</div>
 </main>
 ```
 
@@ -448,36 +446,36 @@ pub fn run() {
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+	font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
 /* Prevent text selection on UI elements */
 .no-select {
-  user-select: none;
-  -webkit-user-select: none;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+	width: 8px;
+	height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+	background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+	background: #cbd5e1;
+	border-radius: 4px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #475569;
+	background: #475569;
 }
 ```
 
@@ -542,6 +540,7 @@ yarn-error.log*
 ## Testing with MCP
 
 ### Tauri MCP Testing
+
 ```
 1. Start the app: npm run tauri dev
 2. Connect: driver_session action=start
