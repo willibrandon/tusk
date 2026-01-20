@@ -11,6 +11,9 @@ function createThemeStore() {
 	let mode = $state<ThemeMode>('light');
 	let preferSystem = $state<boolean>(true);
 
+	// Getter to read current preferSystem value (avoids state_referenced_locally warning)
+	const isSystemPreferred = () => preferSystem;
+
 	// Initialize from localStorage and system preference
 	if (browser) {
 		const stored = localStorage.getItem('theme');
@@ -25,14 +28,14 @@ function createThemeStore() {
 		}
 
 		// Apply system preference if enabled
-		if (preferSystem) {
+		if (isSystemPreferred()) {
 			const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 			mode = systemDark ? 'dark' : 'light';
 		}
 
 		// Listen for system preference changes
 		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-			if (preferSystem) {
+			if (isSystemPreferred()) {
 				mode = e.matches ? 'dark' : 'light';
 				applyTheme();
 			}

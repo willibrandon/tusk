@@ -1,10 +1,8 @@
 mod commands;
-mod error;
 mod models;
 mod services;
 
 use commands::get_app_info;
-use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -15,19 +13,25 @@ pub fn run() {
         )
         .init();
 
-    let mut builder = tauri::Builder::default()
+    #[cfg(debug_assertions)]
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_mcp_bridge::init())
+        .invoke_handler(tauri::generate_handler![get_app_info]);
+
+    #[cfg(not(debug_assertions))]
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![get_app_info]);
 
-    #[cfg(debug_assertions)]
-    {
-        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
-    }
-
     builder
         .setup(|app| {
+            let info = app.package_info();
+            tracing::info!("Starting {} v{}", info.name, info.version);
+
             #[cfg(debug_assertions)]
             {
+                use tauri::Manager;
                 if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
                 }
