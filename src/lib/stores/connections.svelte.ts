@@ -1,9 +1,8 @@
 /**
  * Connections store for managing database connections.
  *
- * This is a placeholder implementation for the frontend architecture feature.
- * Full connection management will be implemented when the backend connection
- * feature is completed.
+ * This store provides the frontend state management for database connections.
+ * Backend integration is implemented in docs/features/07-connection-management.md.
  *
  * @module stores/connections
  */

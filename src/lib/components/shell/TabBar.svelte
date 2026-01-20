@@ -13,6 +13,7 @@
 
 	// Drag and drop state
 	let draggedTab: Tab | null = $state(null);
+	let dragOverTabId: string | null = $state(null);
 
 	function handleNewTab() {
 		tabStore.createTab('query');
@@ -31,6 +32,18 @@
 		if (e.dataTransfer) {
 			e.dataTransfer.effectAllowed = 'move';
 			e.dataTransfer.setData('text/plain', tab.id);
+		}
+	}
+
+	function handleDragEnter(_e: DragEvent, tab: Tab) {
+		if (draggedTab && draggedTab.id !== tab.id) {
+			dragOverTabId = tab.id;
+		}
+	}
+
+	function handleDragLeave(_e: DragEvent, tab: Tab) {
+		if (dragOverTabId === tab.id) {
+			dragOverTabId = null;
 		}
 	}
 
@@ -65,6 +78,7 @@
 
 	function resetDragState() {
 		draggedTab = null;
+		dragOverTabId = null;
 	}
 </script>
 
@@ -84,9 +98,12 @@
 				<TabComponent
 					{tab}
 					isActive={tab.id === tabStore.activeTabId}
+					isDragOver={dragOverTabId === tab.id}
 					onActivate={handleActivate}
 					onClose={handleClose}
 					onDragStart={handleDragStart}
+					onDragEnter={handleDragEnter}
+					onDragLeave={handleDragLeave}
 					onDragOver={handleDragOver}
 					onDrop={handleDrop}
 				/>

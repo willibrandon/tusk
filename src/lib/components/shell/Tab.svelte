@@ -6,9 +6,12 @@
 	interface Props {
 		tab: Tab;
 		isActive?: boolean;
+		isDragOver?: boolean;
 		onActivate?: (id: string) => void;
 		onClose?: (id: string) => void;
 		onDragStart?: (e: DragEvent, tab: Tab) => void;
+		onDragEnter?: (e: DragEvent, tab: Tab) => void;
+		onDragLeave?: (e: DragEvent, tab: Tab) => void;
 		onDragOver?: (e: DragEvent) => void;
 		onDrop?: (e: DragEvent, tab: Tab) => void;
 	}
@@ -16,9 +19,12 @@
 	let {
 		tab,
 		isActive = false,
+		isDragOver = false,
 		onActivate,
 		onClose,
 		onDragStart,
+		onDragEnter,
+		onDragLeave,
 		onDragOver,
 		onDrop
 	}: Props = $props();
@@ -92,10 +98,28 @@
 	}
 
 	/**
+	 * Handle drag enter.
+	 */
+	function handleDragEnter(e: DragEvent) {
+		e.preventDefault();
+		onDragEnter?.(e, tab);
+	}
+
+	/**
+	 * Handle drag leave.
+	 */
+	function handleDragLeave(e: DragEvent) {
+		onDragLeave?.(e, tab);
+	}
+
+	/**
 	 * Handle drag over.
 	 */
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
+		if (e.dataTransfer) {
+			e.dataTransfer.dropEffect = 'move';
+		}
 		onDragOver?.(e);
 	}
 
@@ -113,6 +137,7 @@
 <div
 	class="tab group relative flex h-9 min-w-[120px] max-w-[200px] cursor-pointer items-center gap-2 border-r border-gray-200 px-3 transition-colors dark:border-gray-700"
 	class:tab-active={isActive}
+	class:tab-drag-over={isDragOver}
 	class:bg-white={isActive}
 	class:dark:bg-gray-800={isActive}
 	class:bg-gray-100={!isActive}
@@ -126,6 +151,8 @@
 	onmousedown={handleClick}
 	onkeydown={handleKeyDown}
 	ondragstart={handleDragStart}
+	ondragenter={handleDragEnter}
+	ondragleave={handleDragLeave}
 	ondragover={handleDragOver}
 	ondrop={handleDrop}
 >
@@ -167,6 +194,11 @@
 	.tab-active {
 		border-bottom: 2px solid var(--color-tusk-500);
 		margin-bottom: -1px;
+	}
+
+	/* Drag over indicator */
+	.tab-drag-over {
+		border-left: 2px solid var(--color-tusk-500);
 	}
 
 	/* Focus styles for keyboard navigation */

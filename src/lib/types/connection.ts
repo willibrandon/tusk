@@ -50,7 +50,7 @@ export interface Connection {
 	/** Sort order within group */
 	sortOrder: number;
 
-	/** SSH tunnel configuration (future feature) */
+	/** SSH tunnel configuration. See docs/features/08-ssl-ssh-security.md */
 	sshTunnel: SshTunnelConfig | null;
 }
 

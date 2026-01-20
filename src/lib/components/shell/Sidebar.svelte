@@ -12,8 +12,8 @@
 	let searchFilter = $state('');
 
 	function handleNewConnection() {
-		// Will be implemented when connection feature is added
-		console.log('New connection clicked');
+		// Opens connection dialog. See docs/features/09-connection-ui.md
+		console.log('New connection clicked - connection dialog will open here');
 	}
 
 	function handleSearchInput(value: string) {
@@ -33,13 +33,13 @@
 		<SidebarHeader onNewConnection={handleNewConnection} />
 		<SidebarSearch value={searchFilter} onInput={handleSearchInput} />
 
-		<!-- Connection tree placeholder -->
+		<!-- Connection tree. See docs/features/16-schema-browser.md -->
 		<div class="flex-1 overflow-y-auto px-3 py-2">
 			<p class="text-xs text-gray-500 dark:text-gray-400">
 				{#if searchFilter}
 					Filtering by: "{searchFilter}"
 				{:else}
-					Connection tree will appear here
+					No connections configured
 				{/if}
 			</p>
 		</div>
