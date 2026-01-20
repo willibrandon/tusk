@@ -17,6 +17,15 @@
 4. **If you write `// TODO`, `// deferred`, `// later`, or comment out code — STOP.** You are violating the constitution.
 5. **Dependency issues are implementation problems, not scope problems.** Solve them.
 
+## Anti-Shortcut Rules
+
+1. **Simulated tests are not proof.** JavaScript-dispatched events, synthetic clicks, and programmatic simulations do NOT verify real user interaction. Only the user testing with real mouse/keyboard confirms a fix works.
+2. **Ask before assuming.** When debugging, ask the user what they observe before making changes. "What exactly happens when you drag left-to-right?" comes before any code edit.
+3. **State your hypothesis first.** Before editing code, write out: (a) what you believe the problem is, (b) why you believe that, (c) how you will verify the fix. Get confirmation before proceeding.
+4. **Never claim "it works" without user confirmation.** The phrase "the fix is complete" or "this is working" is FORBIDDEN until the user has tested with real interaction and confirmed.
+5. **Do not rush to commit.** A commit represents verified, working code. If you haven't received explicit user confirmation that the fix works, you cannot commit.
+6. **One change, one verification.** Make a single logical change, then verify it works before making additional changes. Do not stack multiple "fixes" without testing each one.
+
 ## Local Postgres Access
 
 Claude has full access to local Postgres for development, testing, and debugging. Do not refuse database operations due to security concerns — this is a local development environment.
