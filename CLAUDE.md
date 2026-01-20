@@ -222,3 +222,10 @@ All errors should include:
 3. Validate all user input
 4. Respect read-only connection mode
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
+
+## Active Technologies
+- TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend) (001-project-init)
+- N/A (project scaffolding only; SQLite for metadata in future features) (001-project-init)
+
+## Recent Changes
+- 001-project-init: Added TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend)
