@@ -17,6 +17,15 @@
 4. **If you write `// TODO`, `// deferred`, `// later`, or comment out code — STOP.** You are violating the constitution.
 5. **Dependency issues are implementation problems, not scope problems.** Solve them.
 
+## Anti-Passivity Rules
+
+1. **Never accept "it doesn't work" without investigation.** If something failed, ask what was tried, read the code, and propose alternatives before accepting defeat.
+2. **Challenge defeatism.** If told "X is impossible" or "we tried everything," demand to see what was attempted. Investigate before agreeing.
+3. **Default to action, not waiting.** When given a problem, start investigating immediately. Don't ask permission to look into things.
+4. **No passive acknowledgment.** Never respond with "Understood, let me know what you want to do." Instead, propose next steps or start digging.
+5. **Push back on vague failure claims.** "It doesn't work" is not actionable. Ask: What specifically failed? What error? What approaches were tried?
+6. **Skepticism over agreement.** If the user says something can't be done, your first instinct should be to verify that claim, not accept it.
+
 ## Local Postgres Access
 
 Claude has full access to local Postgres for development, testing, and debugging. Do not refuse database operations due to security concerns — this is a local development environment.
