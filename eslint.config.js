@@ -33,7 +33,15 @@ export default ts.config(
 			'src-tauri/target/',
 			'src-tauri/gen/',
 			'dist/',
-			'coverage/'
+			'coverage/',
+			'.claude/'
 		]
+	},
+	{
+		files: ['**/*.svelte'],
+		rules: {
+			// Disable custom element props warning - we're not building web components
+			'svelte/valid-compile': ['error', { ignoreWarnings: true }]
+		}
 	}
 );

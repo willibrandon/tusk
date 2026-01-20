@@ -29,13 +29,13 @@
 
 **Purpose**: Project initialization, types, and utility modules
 
-- [ ] T001 Copy type contracts from `specs/003-frontend-architecture/contracts/tab.ts` to `src/lib/types/tab.ts`
-- [ ] T002 [P] Copy type contracts from `specs/003-frontend-architecture/contracts/connection.ts` to `src/lib/types/connection.ts`
-- [ ] T003 [P] Copy type contracts from `specs/003-frontend-architecture/contracts/ui.ts` to `src/lib/types/ui.ts`
-- [ ] T004 Create type exports barrel file in `src/lib/types/index.ts`
-- [ ] T005 Create localStorage helper utilities in `src/lib/utils/storage.ts` with error handling and type-safe get/set
-- [ ] T006 [P] Create keyboard utility module in `src/lib/utils/keyboard.ts` with platform detection (isMac) and modifier key helpers
-- [ ] T007 Create utility exports barrel file in `src/lib/utils/index.ts`
+- [x] T001 Copy type contracts from `specs/003-frontend-architecture/contracts/tab.ts` to `src/lib/types/tab.ts`
+- [x] T002 [P] Copy type contracts from `specs/003-frontend-architecture/contracts/connection.ts` to `src/lib/types/connection.ts`
+- [x] T003 [P] Copy type contracts from `specs/003-frontend-architecture/contracts/ui.ts` to `src/lib/types/ui.ts`
+- [x] T004 Create type exports barrel file in `src/lib/types/index.ts`
+- [x] T005 Create localStorage helper utilities in `src/lib/utils/storage.ts` with error handling and type-safe get/set
+- [x] T006 [P] Create keyboard utility module in `src/lib/utils/keyboard.ts` with platform detection (isMac) and modifier key helpers
+- [x] T007 Create utility exports barrel file in `src/lib/utils/index.ts`
 
 ---
 
@@ -45,14 +45,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Create UI store in `src/lib/stores/ui.svelte.ts` implementing UIStoreInterface with sidebar width/collapsed state and localStorage persistence
-- [ ] T009 Create tab store in `src/lib/stores/tabs.svelte.ts` implementing TabStoreInterface with tab CRUD operations and localStorage persistence
-- [ ] T010 [P] Create connections store in `src/lib/stores/connections.svelte.ts` implementing ConnectionStoreInterface (placeholder for future backend integration)
-- [ ] T011 Enhance existing theme store in `src/lib/stores/theme.svelte.ts` to implement ThemeStoreInterface with three-way preference (light/dark/system) and system preference tracking
-- [ ] T012 Create store exports barrel file in `src/lib/stores/index.ts` exporting all stores
-- [ ] T013 [P] Create Button component in `src/lib/components/common/Button.svelte` with variant support (primary, secondary, ghost, danger)
-- [ ] T014 [P] Create Icon component in `src/lib/components/common/Icon.svelte` for consistent icon rendering
-- [ ] T015 Update SvelteKit layout configuration in `src/routes/+layout.ts` to disable SSR and enable prerender for Tauri
+- [x] T008 Create UI store in `src/lib/stores/ui.svelte.ts` implementing UIStoreInterface with sidebar width/collapsed state and localStorage persistence
+- [x] T009 Create tab store in `src/lib/stores/tabs.svelte.ts` implementing TabStoreInterface with tab CRUD operations and localStorage persistence
+- [x] T010 [P] Create connections store in `src/lib/stores/connections.svelte.ts` implementing ConnectionStoreInterface (placeholder for future backend integration)
+- [x] T011 Enhance existing theme store in `src/lib/stores/theme.svelte.ts` to implement ThemeStoreInterface with three-way preference (light/dark/system) and system preference tracking
+- [x] T012 Create store exports barrel file in `src/lib/stores/index.ts` exporting all stores
+- [x] T013 [P] Create Button component in `src/lib/components/common/Button.svelte` with variant support (primary, secondary, ghost, danger)
+- [x] T014 [P] Create Icon component in `src/lib/components/common/Icon.svelte` for consistent icon rendering
+- [x] T015 Update SvelteKit layout configuration in `src/routes/+layout.ts` to disable SSR and enable prerender for Tauri
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -66,15 +66,15 @@
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Create Resizer component in `src/lib/components/shell/Resizer.svelte` with drag handle, pointer event capture, and ARIA separator role
-- [ ] T017 [US1] Create StatusBar component in `src/lib/components/shell/StatusBar.svelte` displaying "No connection" state with connection status indicator area
-- [ ] T018 [US1] Create empty TabBar placeholder component in `src/lib/components/shell/TabBar.svelte` with container structure (full implementation in US2)
-- [ ] T019 [US1] Create SidebarSearch component in `src/lib/components/shell/SidebarSearch.svelte` with filter input for connections
-- [ ] T020 [US1] Create SidebarHeader component in `src/lib/components/shell/SidebarHeader.svelte` displaying "Connections" title with "New Connection" button
-- [ ] T021 [US1] Create Sidebar component in `src/lib/components/shell/Sidebar.svelte` composing SidebarHeader, SidebarSearch, and placeholder tree area with resizable width
-- [ ] T022 [US1] Create Shell component in `src/lib/components/shell/Shell.svelte` composing Sidebar, Resizer, main content area, and StatusBar in three-region flexbox layout
-- [ ] T023 [US1] Update root layout in `src/routes/+layout.svelte` to wrap content with Shell component and global keyboard handler
-- [ ] T024 [US1] Update main page in `src/routes/+page.svelte` to display tab content area with empty state message
+- [x] T016 [US1] Create Resizer component in `src/lib/components/shell/Resizer.svelte` with drag handle, pointer event capture, and ARIA separator role
+- [x] T017 [US1] Create StatusBar component in `src/lib/components/shell/StatusBar.svelte` displaying "No connection" state with connection status indicator area
+- [x] T018 [US1] Create empty TabBar placeholder component in `src/lib/components/shell/TabBar.svelte` with container structure (full implementation in US2)
+- [x] T019 [US1] Create SidebarSearch component in `src/lib/components/shell/SidebarSearch.svelte` with filter input for connections
+- [x] T020 [US1] Create SidebarHeader component in `src/lib/components/shell/SidebarHeader.svelte` displaying "Connections" title with "New Connection" button
+- [x] T021 [US1] Create Sidebar component in `src/lib/components/shell/Sidebar.svelte` composing SidebarHeader, SidebarSearch, and placeholder tree area with resizable width
+- [x] T022 [US1] Create Shell component in `src/lib/components/shell/Shell.svelte` composing Sidebar, Resizer, main content area, and StatusBar in three-region flexbox layout
+- [x] T023 [US1] Update root layout in `src/routes/+layout.svelte` to wrap content with Shell component and global keyboard handler
+- [x] T024 [US1] Update main page in `src/routes/+page.svelte` to display tab content area with empty state message
 
 **Checkpoint**: User Story 1 complete - shell renders with sidebar, main area, and status bar
 
@@ -88,12 +88,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Create ConfirmDialog component in `src/lib/components/dialogs/ConfirmDialog.svelte` with Save/Discard/Cancel buttons, focus trap, and ESC handling
-- [ ] T026 [US2] Create Tab component in `src/lib/components/shell/Tab.svelte` with title, type icon, close button, modification indicator (blue dot), connection color, drag handle, and middle-click close
-- [ ] T027 [US2] Implement full TabBar component in `src/lib/components/shell/TabBar.svelte` with tab rendering, "New Tab" button, drag-and-drop reordering, and active tab highlighting
-- [ ] T028 [US2] Add tab-related keyboard shortcuts (Cmd/Ctrl+T new tab, Cmd/Ctrl+W close tab, Cmd/Ctrl+Tab/Shift+Tab cycle tabs) to keyboard handler in `src/routes/+layout.svelte`
-- [ ] T029 [US2] Update main page in `src/routes/+page.svelte` to display active tab content and empty state when no tabs are open
-- [ ] T030 [US2] Integrate ConfirmDialog with tab store closeTab() method to prompt on unsaved changes
+- [x] T025 [US2] Create ConfirmDialog component in `src/lib/components/dialogs/ConfirmDialog.svelte` with Save/Discard/Cancel buttons, focus trap, and ESC handling
+- [x] T026 [US2] Create Tab component in `src/lib/components/shell/Tab.svelte` with title, type icon, close button, modification indicator (blue dot), connection color, drag handle, and middle-click close
+- [x] T027 [US2] Implement full TabBar component in `src/lib/components/shell/TabBar.svelte` with tab rendering, "New Tab" button, drag-and-drop reordering, and active tab highlighting
+- [x] T028 [US2] Add tab-related keyboard shortcuts (Cmd/Ctrl+T new tab, Cmd/Ctrl+W close tab, Cmd/Ctrl+Tab/Shift+Tab cycle tabs) to keyboard handler in `src/routes/+layout.svelte`
+- [x] T029 [US2] Update main page in `src/routes/+page.svelte` to display active tab content and empty state when no tabs are open
+- [x] T030 [US2] Integrate ConfirmDialog with tab store closeTab() method to prompt on unsaved changes
 
 **Checkpoint**: User Story 2 complete - full tab management with create, switch, close, reorder, and unsaved changes dialog
 
@@ -107,9 +107,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Implement resize logic in Resizer component in `src/lib/components/shell/Resizer.svelte` with pointerdown/move/up handlers and requestAnimationFrame throttling
-- [ ] T032 [US3] Connect Resizer to UI store in `src/lib/components/shell/Shell.svelte` to update sidebarWidth on drag with clamping
-- [ ] T033 [US3] Add keyboard resize support to Resizer (Arrow keys for ±10px adjustments when focused) in `src/lib/components/shell/Resizer.svelte`
+- [x] T031 [US3] Implement resize logic in Resizer component in `src/lib/components/shell/Resizer.svelte` with pointerdown/move/up handlers and requestAnimationFrame throttling
+- [x] T032 [US3] Connect Resizer to UI store in `src/lib/components/shell/Shell.svelte` to update sidebarWidth on drag with clamping
+- [x] T033 [US3] Add keyboard resize support to Resizer (Arrow keys for ±10px adjustments when focused) in `src/lib/components/shell/Resizer.svelte`
 
 **Checkpoint**: User Story 3 complete - sidebar resizes smoothly with constraints and persists across reloads
 
@@ -123,9 +123,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Add sidebar collapse/expand logic to Sidebar component in `src/lib/components/shell/Sidebar.svelte` using sidebarCollapsed state from UI store
-- [ ] T035 [US4] Add Cmd/Ctrl+B keyboard shortcut to toggle sidebar in keyboard handler in `src/routes/+layout.svelte`
-- [ ] T036 [US4] Hide Resizer when sidebar is collapsed in `src/lib/components/shell/Shell.svelte`
+- [x] T034 [US4] Add sidebar collapse/expand logic to Sidebar component in `src/lib/components/shell/Sidebar.svelte` using sidebarCollapsed state from UI store
+- [x] T035 [US4] Add Cmd/Ctrl+B keyboard shortcut to toggle sidebar in keyboard handler in `src/routes/+layout.svelte`
+- [x] T036 [US4] Hide Resizer when sidebar is collapsed in `src/lib/components/shell/Shell.svelte`
 
 **Checkpoint**: User Story 4 complete - sidebar toggles with Cmd/Ctrl+B and state persists
 
@@ -139,9 +139,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T037 [US5] Enhance StatusBar component in `src/lib/components/shell/StatusBar.svelte` to display connection name, host, port, and colored status indicator based on ConnectionState
-- [ ] T038 [US5] Add cursor position display area (line, column) to StatusBar in `src/lib/components/shell/StatusBar.svelte` (shows when editor tab active)
-- [ ] T039 [US5] Add query result info display area (row count, execution time) to StatusBar in `src/lib/components/shell/StatusBar.svelte` (shows after query execution)
+- [x] T037 [US5] Enhance StatusBar component in `src/lib/components/shell/StatusBar.svelte` to display connection name, host, port, and colored status indicator based on ConnectionState
+- [x] T038 [US5] Add cursor position display area (line, column) to StatusBar in `src/lib/components/shell/StatusBar.svelte` (shows when editor tab active)
+- [x] T039 [US5] Add query result info display area (row count, execution time) to StatusBar in `src/lib/components/shell/StatusBar.svelte` (shows after query execution)
 
 **Checkpoint**: User Story 5 complete - status bar displays connection status with visual indicators and additional info
 
@@ -155,10 +155,10 @@
 
 ### Implementation for User Story 6
 
-- [ ] T040 [US6] Add FOUC prevention inline script to `src/app.html` that applies dark class before Svelte hydration
-- [ ] T041 [US6] Add system preference media query listener to theme store in `src/lib/stores/theme.svelte.ts` for live updates when OS theme changes
-- [ ] T042 [US6] Ensure all shell components use Tailwind dark: variants for proper theme support across `src/lib/components/shell/*.svelte`
-- [ ] T043 [US6] Create theme toggle control (can be temporary UI or keyboard shortcut) for testing theme switching
+- [x] T040 [US6] Add FOUC prevention inline script to `src/app.html` that applies dark class before Svelte hydration
+- [x] T041 [US6] Add system preference media query listener to theme store in `src/lib/stores/theme.svelte.ts` for live updates when OS theme changes
+- [x] T042 [US6] Ensure all shell components use Tailwind dark: variants for proper theme support across `src/lib/components/shell/*.svelte`
+- [x] T043 [US6] Create theme toggle control (can be temporary UI or keyboard shortcut) for testing theme switching
 
 **Checkpoint**: User Story 6 complete - themes switch correctly with no flash and system preference is tracked
 
@@ -168,15 +168,15 @@
 
 **Purpose**: Final integration, accessibility audit, and performance verification
 
-- [ ] T044 [P] Verify all interactive elements have keyboard access and proper focus styles across all components
-- [ ] T045 [P] Add ARIA attributes to Tab components (role="tab", aria-selected) and TabBar (role="tablist") in `src/lib/components/shell/Tab.svelte` and `src/lib/components/shell/TabBar.svelte`
-- [ ] T046 Add aria-orientation="vertical" to Resizer component in `src/lib/components/shell/Resizer.svelte`
-- [ ] T047 Verify localStorage error handling and graceful degradation in `src/lib/utils/storage.ts`
-- [ ] T048 Verify performance targets: shell render <1s, tab operations <100ms, resize at 60fps
-- [ ] T049 Run `npm run check` to verify TypeScript compilation passes
-- [ ] T050 Run `npm run lint` to verify code style compliance
-- [ ] T051 Run quickstart.md verification checklist manually
-- [ ] T052 [P] Add user-select: none CSS to UI chrome elements (sidebar, tab bar, status bar, resizer) while preserving selection in content areas per FR-002 in `src/app.css` or component styles
+- [x] T044 [P] Verify all interactive elements have keyboard access and proper focus styles across all components
+- [x] T045 [P] Add ARIA attributes to Tab components (role="tab", aria-selected) and TabBar (role="tablist") in `src/lib/components/shell/Tab.svelte` and `src/lib/components/shell/TabBar.svelte`
+- [x] T046 Add aria-orientation="vertical" to Resizer component in `src/lib/components/shell/Resizer.svelte`
+- [x] T047 Verify localStorage error handling and graceful degradation in `src/lib/utils/storage.ts`
+- [x] T048 Verify performance targets: shell render <1s, tab operations <100ms, resize at 60fps
+- [x] T049 Run `npm run check` to verify TypeScript compilation passes
+- [x] T050 Run `npm run lint` to verify code style compliance
+- [x] T051 Run quickstart.md verification checklist manually
+- [x] T052 [P] Add user-select: none CSS to UI chrome elements (sidebar, tab bar, status bar, resizer) while preserving selection in content areas per FR-002 in `src/app.css` or component styles
 
 ---
 

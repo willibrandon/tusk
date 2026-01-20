@@ -1,96 +1,121 @@
+/**
+ * Theme store for managing light/dark/system theme preferences.
+ *
+ * @module stores/theme
+ */
+
 import { browser } from '$app/environment';
+import type { ThemeMode, ThemePreference, ThemeStoreInterface } from '$lib/types';
+import { getStorageItem, setStorageItem, STORAGE_KEYS } from '$lib/utils';
 
-type ThemeMode = 'light' | 'dark';
-
+/**
+ * Stored theme state.
+ */
 interface ThemeState {
-	mode: ThemeMode;
-	preferSystem: boolean;
+  preference: ThemePreference;
 }
 
-function createThemeStore() {
-	let mode = $state<ThemeMode>('light');
-	let preferSystem = $state<boolean>(true);
+/**
+ * Default theme preference.
+ */
+const DEFAULT_PREFERENCE: ThemePreference = 'system';
 
-	// Getter to read current preferSystem value (avoids state_referenced_locally warning)
-	const isSystemPreferred = () => preferSystem;
+/**
+ * Create the theme store with Svelte 5 runes pattern.
+ */
+function createThemeStore(): ThemeStoreInterface {
+  // Load stored preference
+  const stored = browser
+    ? getStorageItem<ThemeState>(STORAGE_KEYS.THEME, { preference: DEFAULT_PREFERENCE })
+    : { preference: DEFAULT_PREFERENCE };
 
-	// Initialize from localStorage and system preference
-	if (browser) {
-		const stored = localStorage.getItem('theme');
-		if (stored) {
-			try {
-				const parsed = JSON.parse(stored) as ThemeState;
-				mode = parsed.mode;
-				preferSystem = parsed.preferSystem;
-			} catch {
-				// Use defaults if parsing fails
-			}
-		}
+  // Initialize state
+  let preference = $state<ThemePreference>(stored.preference ?? DEFAULT_PREFERENCE);
+  let systemPrefersDark = $state(
+    browser ? window.matchMedia('(prefers-color-scheme: dark)').matches : false
+  );
 
-		// Apply system preference if enabled
-		if (isSystemPreferred()) {
-			const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-			mode = systemDark ? 'dark' : 'light';
-		}
+  // Helper to resolve mode
+  function resolveMode(): ThemeMode {
+    if (preference === 'system') {
+      return systemPrefersDark ? 'dark' : 'light';
+    }
+    return preference;
+  }
 
-		// Listen for system preference changes
-		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-			if (isSystemPreferred()) {
-				mode = e.matches ? 'dark' : 'light';
-				applyTheme();
-			}
-		});
+  // Apply theme to document
+  function applyTheme() {
+    if (!browser) return;
 
-		// Apply initial theme
-		applyTheme();
-	}
+    const resolvedMode = resolveMode();
 
-	function applyTheme() {
-		if (!browser) return;
+    const root = document.documentElement;
+    if (resolvedMode === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }
 
-		const root = document.documentElement;
-		if (mode === 'dark') {
-			root.classList.add('dark');
-		} else {
-			root.classList.remove('dark');
-		}
+  // Track first run to avoid persisting initial load
+  let isFirstRun = true;
 
-		// Persist to localStorage
-		localStorage.setItem('theme', JSON.stringify({ mode, preferSystem }));
-	}
+  // Initialize and persist
+  if (browser) {
+    // Apply initial theme
+    applyTheme();
 
-	function setMode(newMode: ThemeMode) {
-		mode = newMode;
-		preferSystem = false;
-		applyTheme();
-	}
+    // Listen for system preference changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', (e) => {
+      systemPrefersDark = e.matches;
+      applyTheme();
+    });
 
-	function toggle() {
-		mode = mode === 'light' ? 'dark' : 'light';
-		preferSystem = false;
-		applyTheme();
-	}
+    // Persist preference changes
+    $effect.root(() => {
+      $effect(() => {
+        const state: ThemeState = { preference };
 
-	function useSystemPreference() {
-		preferSystem = true;
-		if (browser) {
-			const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-			mode = systemDark ? 'dark' : 'light';
-			applyTheme();
-		}
-	}
+        if (!isFirstRun) {
+          setStorageItem(STORAGE_KEYS.THEME, state);
+        }
+        isFirstRun = false;
 
-	return {
-		get mode() {
-			return mode;
-		},
-		get preferSystem() {
-			return preferSystem;
-		},
-		setMode,
-		toggle,
-		useSystemPreference
-	};
+        // Apply theme whenever preference changes
+        applyTheme();
+      });
+    });
+  }
+
+  return {
+    get mode() {
+      return resolveMode();
+    },
+
+    get preference() {
+      return preference;
+    },
+
+    get isDark() {
+      return resolveMode() === 'dark';
+    },
+
+    setPreference(newPreference: ThemePreference) {
+      preference = newPreference;
+      applyTheme();
+    },
+
+    toggle() {
+      // Toggle directly to light/dark, ignoring system
+      const currentMode = resolveMode();
+      preference = currentMode === 'light' ? 'dark' : 'light';
+      applyTheme();
+    },
+  };
 }
 
-export const theme = createThemeStore();
+export const themeStore = createThemeStore();
+
+// Re-export for backward compatibility with existing code
+export const theme = themeStore;

@@ -4,6 +4,28 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			// FOUC prevention: Apply dark class before Svelte hydration
+			// This runs synchronously before the page renders to prevent flash
+			(function() {
+				try {
+					const stored = localStorage.getItem('tusk-theme');
+					const preference = stored ? JSON.parse(stored).preference : 'system';
+
+					if (preference === 'dark' ||
+						(preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+						document.documentElement.classList.add('dark');
+					} else {
+						document.documentElement.classList.remove('dark');
+					}
+				} catch (e) {
+					// If localStorage fails, check system preference
+					if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+						document.documentElement.classList.add('dark');
+					}
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
