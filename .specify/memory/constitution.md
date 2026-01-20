@@ -1,50 +1,102 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Tusk Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Postgres Exclusivity
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Tusk MUST support only PostgreSQL. No multi-database abstractions, connection adapters for other databases, or "generic SQL" layers. Every feature MUST leverage Postgres-specific capabilities (pg_stat_*, COPY protocol, LISTEN/NOTIFY, RLS, etc.) rather than lowest-common-denominator SQL.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**Rationale**: Deep Postgres integration delivers better performance, richer features, and simpler code than generic database support. This is a Postgres client, not a universal database tool.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Complete Local Privacy
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+Tusk MUST NOT make any network calls except to user-configured PostgreSQL servers. No telemetry, no cloud sync, no update checks to external servers, no analytics. All data (connections, query history, settings) MUST remain on the user's machine.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**Rationale**: Database clients handle sensitive data. Users must trust that their queries, credentials, and database contents never leave their control.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. OS Keychain for Credentials
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Passwords and sensitive credentials MUST be stored exclusively in the operating system's secure credential storage (macOS Keychain, Windows Credential Manager, Secret Service on Linux). Credentials MUST NEVER be written to SQLite, config files, logs, or any other plaintext storage.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Rationale**: The OS keychain provides hardware-backed encryption and proper access controls. Rolling custom encryption invites security vulnerabilities.
+
+### IV. Complete Implementation (NON-NEGOTIABLE)
+
+Every feature MUST be implemented completely before moving to the next. This means:
+- No placeholder implementations or stub functions
+- No "TODO" comments deferring work
+- No "future work" or "later iterations" references
+- No scope reduction or deprioritization
+- If a problem is discovered, fix it immediately regardless of when it was introduced
+
+**Rationale**: Incomplete features accumulate technical debt and create maintenance burden. Each feature represents a commitment to users.
+
+### V. Performance Discipline
+
+All features MUST meet these performance targets:
+
+| Metric | Target |
+|--------|--------|
+| Cold start | < 1 second |
+| Memory (idle) | < 100 MB |
+| Memory (1M rows loaded) | < 500 MB |
+| Query result render (1000 rows) | < 100ms |
+| Schema browser load (1000 tables) | < 500ms |
+| Autocomplete response | < 50ms |
+
+Performance MUST be achieved through streaming (batch row emission via Tauri events) and virtual scrolling (render only visible content). Lazy loading and pagination are acceptable; blocking the UI thread is not.
+
+**Rationale**: Users choose native applications for performance. Failing these targets negates the value proposition versus web-based tools.
+
+## Security Requirements
+
+**Credential Handling**:
+- MUST never log passwords, connection strings with passwords, or authentication tokens
+- MUST use parameterized queries for all database operations (never string interpolation)
+- MUST validate all user input before processing
+- MUST respect read-only connection mode (block INSERT, UPDATE, DELETE, DDL)
+- MUST confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
+
+**Connection Security**:
+- SSL/TLS MUST be preferred by default (ssl_mode: prefer)
+- SSH tunnels MUST be supported for secure remote access
+- Certificate validation MUST be enforced when ssl_mode requires it
+
+## Technology Stack
+
+**Frontend** (WebView):
+- Svelte 5 for compiled reactivity
+- Monaco Editor for SQL editing
+- TanStack Table + custom virtualization for data grids
+- @xyflow/svelte for ER diagrams
+- Tailwind CSS for styling
+
+**Backend** (Rust):
+- Tauri v2 for native shell
+- tokio-postgres for async Postgres operations
+- deadpool-postgres for connection pooling
+- russh for SSH tunnels
+- rusqlite for local metadata storage
+- keyring for OS credential storage
+
+Deviations from this stack require explicit justification and constitution amendment.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes all other practices. Violations discovered during development MUST be fixed before proceeding.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Amendment Process**:
+1. Document the proposed change with rationale
+2. Assess impact on existing features
+3. Update constitution version according to semantic versioning:
+   - MAJOR: Principle removal or incompatible redefinition
+   - MINOR: New principle added or material expansion
+   - PATCH: Clarifications, wording, non-semantic refinements
+4. Propagate changes to dependent templates
+
+**Compliance**:
+- All code reviews MUST verify constitution compliance
+- Complexity MUST be justified against Principle IV (Complete Implementation)
+- See `CLAUDE.md` for runtime development guidance
+
+**Version**: 1.0.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-19
