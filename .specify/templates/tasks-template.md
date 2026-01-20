@@ -249,3 +249,14 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+
+## ⚠️ TASK IMMUTABILITY (Constitution Principle V)
+
+**Once tasks are created, they are IMMUTABLE:**
+- Tasks MUST NEVER be removed, deleted, or merged
+- Tasks MUST NEVER be renumbered (task IDs are permanent)
+- Tasks MUST NEVER have their scope reduced
+- If a task seems wrong, FLAG IT for human review — do NOT modify or delete it
+- The ONLY valid change is marking a task complete (unchecked → checked)
+
+**Violation Consequence**: Task removal/merger/scope reduction requires immediate branch deletion.

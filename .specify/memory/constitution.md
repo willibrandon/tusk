@@ -31,7 +31,20 @@ Every feature MUST be implemented completely before moving to the next. This mea
 
 **Rationale**: Incomplete features accumulate technical debt and create maintenance burden. Each feature represents a commitment to users.
 
-### V. Performance Discipline
+### V. Task Immutability (NON-NEGOTIABLE)
+
+Once tasks are created in a tasks.md file, they are IMMUTABLE. This means:
+- Tasks MUST NEVER be removed, deleted, or merged
+- Tasks MUST NEVER be renumbered (task IDs are permanent)
+- Tasks MUST NEVER have their scope reduced or simplified
+- If a task appears redundant or incorrect, flag it for human review — do NOT modify or delete it
+- Task completion is the ONLY valid state change (unchecked → checked)
+
+**Violation Consequence**: Any task removal, merger, or scope reduction is a constitution violation requiring immediate branch deletion and restart from scratch.
+
+**Rationale**: Task lists represent commitments. Removing tasks is scope reduction by stealth. Every task created reflects a deliberate decision that MUST be honored through completion.
+
+### VI. Performance Discipline
 
 All features MUST meet these performance targets:
 
@@ -97,6 +110,7 @@ This constitution supersedes all other practices. Violations discovered during d
 **Compliance**:
 - All code reviews MUST verify constitution compliance
 - Complexity MUST be justified against Principle IV (Complete Implementation)
+- Task modifications MUST be rejected per Principle V (Task Immutability)
 - See `CLAUDE.md` for runtime development guidance
 
-**Version**: 1.0.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-19
+**Version**: 1.1.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-19

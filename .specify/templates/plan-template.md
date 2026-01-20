@@ -33,6 +33,10 @@
 
 [Gates determined based on constitution file]
 
+**NON-NEGOTIABLE Principles (automatic failure if violated):**
+- Principle IV: Complete Implementation — No placeholders, TODOs, "future work", or scope reduction
+- Principle V: Task Immutability — Tasks MUST NEVER be removed, merged, renumbered, or reduced in scope
+
 ## Project Structure
 
 ### Documentation (this feature)

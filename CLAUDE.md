@@ -7,6 +7,7 @@
 3. Do not create placeholder implementations or "TODO" comments for later.
 4. **No "pre-existing issues" excuse.** If you discover a problem, fix it immediately. Never defer a fix because the issue existed before you found it.
 5. **This is the only chance.** When implementing a feature, do it completely. Nothing gets left for "future work" or "later iterations" — there is no later.
+6. **Never remove, merge, or renumber tasks.** Once a task is created, it exists until completed. If a task seems redundant or incorrect, flag it for review — do not delete it. Task removal is a constitution violation requiring branch deletion.
 
 ## Local Postgres Access
 
