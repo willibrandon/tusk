@@ -1,5 +1,13 @@
 # Tusk — Claude Development Context
 
+## Rules
+
+1. **Never defer, reduce scope, deprioritize, or skip.** When implementing features, include everything. If uncertain, increase scope rather than decrease it.
+2. Every feature document must be implemented completely before moving to the next.
+3. Do not create placeholder implementations or "TODO" comments for later.
+4. **No "pre-existing issues" excuse.** If you discover a problem, fix it immediately. Never defer a fix because the issue existed before you found it.
+5. **This is the only chance.** When implementing a feature, do it completely. Nothing gets left for "future work" or "later iterations" — there is no later.
+
 ## Project Overview
 
 Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.
