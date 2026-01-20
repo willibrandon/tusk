@@ -24,10 +24,10 @@
 
 **Purpose**: Add missing dependencies and prepare module structure
 
-- [ ] T001 Add `tracing-appender = "0.2"` dependency to src-tauri/Cargo.toml
-- [ ] T002 [P] Create commands module structure with src-tauri/src/commands/mod.rs
-- [ ] T003 [P] Create services module structure with src-tauri/src/services/mod.rs
-- [ ] T004 [P] Create models module structure with src-tauri/src/models/mod.rs
+- [x] T001 Add `tracing-appender = "0.2"` dependency to src-tauri/Cargo.toml
+- [x] T002 [P] Create commands module structure with src-tauri/src/commands/mod.rs
+- [x] T003 [P] Create services module structure with src-tauri/src/services/mod.rs
+- [x] T004 [P] Create models module structure with src-tauri/src/models/mod.rs
 
 ---
 
@@ -37,15 +37,15 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create TuskError enum with all variants in src-tauri/src/error.rs
-- [ ] T006 Implement From<tokio_postgres::Error> for TuskError with PostgreSQL error preservation in src-tauri/src/error.rs
-- [ ] T007 Implement From<rusqlite::Error> for TuskError in src-tauri/src/error.rs
-- [ ] T008 Implement From<keyring::Error> for TuskError in src-tauri/src/error.rs
-- [ ] T009 [P] Create ErrorKind enum in src-tauri/src/models/error.rs for frontend serialization
-- [ ] T010 [P] Create AppInfo struct in src-tauri/src/models/app.rs
-- [ ] T011 Create AppDirs struct with Tauri path resolver in src-tauri/src/services/dirs.rs
-- [ ] T012 Implement directory creation on first launch in src-tauri/src/services/dirs.rs
-- [ ] T013 Export error module from src-tauri/src/lib.rs
+- [x] T005 Create TuskError enum with all variants in src-tauri/src/error.rs
+- [x] T006 Implement From<tokio_postgres::Error> for TuskError with PostgreSQL error preservation in src-tauri/src/error.rs
+- [x] T007 Implement From<rusqlite::Error> for TuskError in src-tauri/src/error.rs
+- [x] T008 Implement From<keyring::Error> for TuskError in src-tauri/src/error.rs
+- [x] T009 [P] Create ErrorKind enum in src-tauri/src/models/error.rs for frontend serialization
+- [x] T010 [P] Create AppInfo struct in src-tauri/src/models/app.rs
+- [x] T011 Create AppDirs struct with Tauri path resolver in src-tauri/src/services/dirs.rs
+- [x] T012 Implement directory creation on first launch in src-tauri/src/services/dirs.rs
+- [x] T013 Export error module from src-tauri/src/lib.rs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -59,18 +59,18 @@
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Create LogGuard struct in src-tauri/src/services/logging.rs
-- [ ] T015 [US1] Implement init_logging() with daily rotation in src-tauri/src/services/logging.rs
-- [ ] T016 [US1] Configure debug/release log levels in src-tauri/src/services/logging.rs
-- [ ] T017 [US1] Implement health_check command in src-tauri/src/commands/app.rs
-- [ ] T018 [US1] Implement get_log_directory command in src-tauri/src/commands/app.rs
-- [ ] T019 [US1] Export commands/app module from src-tauri/src/commands/mod.rs
-- [ ] T020 [US1] Create AppState struct with service fields in src-tauri/src/state.rs
-- [ ] T021 [US1] Implement AppState::new() initialization in src-tauri/src/state.rs
-- [ ] T022 [US1] Initialize logging before Builder in src-tauri/src/lib.rs
-- [ ] T023 [US1] Create AppState in setup() closure in src-tauri/src/lib.rs
-- [ ] T024 [US1] Register health_check and get_log_directory commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T025 [US1] Add graceful shutdown handling in src-tauri/src/lib.rs
+- [x] T014 [US1] Create LogGuard struct in src-tauri/src/services/logging.rs
+- [x] T015 [US1] Implement init_logging() with daily rotation in src-tauri/src/services/logging.rs
+- [x] T016 [US1] Configure debug/release log levels in src-tauri/src/services/logging.rs
+- [x] T017 [US1] Implement health_check command in src-tauri/src/commands/app.rs
+- [x] T018 [US1] Implement get_log_directory command in src-tauri/src/commands/app.rs
+- [x] T019 [US1] Export commands/app module from src-tauri/src/commands/mod.rs
+- [x] T020 [US1] Create AppState struct with service fields in src-tauri/src/state.rs
+- [x] T021 [US1] Implement AppState::new() initialization in src-tauri/src/state.rs
+- [x] T022 [US1] Initialize logging before Builder in src-tauri/src/lib.rs
+- [x] T023 [US1] Create AppState in setup() closure in src-tauri/src/lib.rs
+- [x] T024 [US1] Register health_check and get_log_directory commands in src-tauri/src/lib.rs invoke_handler
+- [x] T025 [US1] Add graceful shutdown handling in src-tauri/src/lib.rs
 
 **Checkpoint**: Application starts successfully, health_check returns valid response, logs appear in app data directory
 
@@ -84,12 +84,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Add Validation variant to TuskError in src-tauri/src/error.rs
-- [ ] T027 [US2] Implement Display trait for TuskError with actionable messages in src-tauri/src/error.rs
-- [ ] T028 [US2] Add hint generation helper for common error types in src-tauri/src/error.rs
-- [ ] T029 [US2] Create ErrorResponse struct matching frontend interface in src-tauri/src/models/error.rs
-- [ ] T030 [US2] Implement From<TuskError> for ErrorResponse in src-tauri/src/models/error.rs
-- [ ] T031 [US2] Export models/error module from src-tauri/src/models/mod.rs
+- [x] T026 [US2] Add Validation variant to TuskError in src-tauri/src/error.rs
+- [x] T027 [US2] Implement Display trait for TuskError with actionable messages in src-tauri/src/error.rs
+- [x] T028 [US2] Add hint generation helper for common error types in src-tauri/src/error.rs
+- [x] T029 [US2] Create ErrorResponse struct matching frontend interface in src-tauri/src/models/error.rs
+- [x] T030 [US2] Implement From<TuskError> for ErrorResponse in src-tauri/src/models/error.rs
+- [x] T031 [US2] Export models/error module from src-tauri/src/models/mod.rs
 
 **Checkpoint**: Error types are complete with actionable messages, hints, and PostgreSQL error preservation
 
@@ -103,39 +103,39 @@
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Create ConnectionConfig struct in src-tauri/src/models/connection.rs
-- [ ] T033 [US3] Create SslMode enum in src-tauri/src/models/connection.rs
-- [ ] T034 [US3] Create SshTunnel struct in src-tauri/src/models/connection.rs
-- [ ] T035 [US3] Create SshAuthMethod enum in src-tauri/src/models/connection.rs
-- [ ] T036 [US3] Implement Serialize/Deserialize for ConnectionConfig in src-tauri/src/models/connection.rs
-- [ ] T037 [US3] Export models/connection module from src-tauri/src/models/mod.rs
-- [ ] T038 [US3] Create StorageService struct in src-tauri/src/services/storage.rs
-- [ ] T039 [US3] Implement open_or_repair() with PRAGMA integrity_check in src-tauri/src/services/storage.rs
-- [ ] T040 [US3] Implement backup_corrupted() with timestamp naming in src-tauri/src/services/storage.rs
-- [ ] T041 [US3] Implement create_fresh() database initialization in src-tauri/src/services/storage.rs
-- [ ] T042 [US3] Create SQLite schema with connections table in src-tauri/src/services/storage.rs
-- [ ] T043 [US3] Create SQLite schema with preferences table in src-tauri/src/services/storage.rs
-- [ ] T044 [US3] Create SQLite schema with migrations table in src-tauri/src/services/storage.rs
-- [ ] T045 [US3] Implement migration system for schema versioning in src-tauri/src/services/storage.rs
-- [ ] T046 [US3] Implement list_connections() in src-tauri/src/services/storage.rs
-- [ ] T047 [US3] Implement get_connection() in src-tauri/src/services/storage.rs
-- [ ] T048 [US3] Implement save_connection() in src-tauri/src/services/storage.rs
-- [ ] T049 [US3] Implement delete_connection() in src-tauri/src/services/storage.rs
-- [ ] T050 [US3] Implement get_preference() in src-tauri/src/services/storage.rs
-- [ ] T051 [US3] Implement set_preference() in src-tauri/src/services/storage.rs
-- [ ] T052 [US3] Implement check_integrity() returning DatabaseHealth in src-tauri/src/services/storage.rs
-- [ ] T053 [US3] Create DatabaseHealth struct in src-tauri/src/models/app.rs
-- [ ] T054 [US3] Export services/storage module from src-tauri/src/services/mod.rs
-- [ ] T055 [US3] Implement list_connections command in src-tauri/src/commands/storage.rs
-- [ ] T056 [US3] Implement get_connection command in src-tauri/src/commands/storage.rs
-- [ ] T057 [US3] Implement save_connection command in src-tauri/src/commands/storage.rs
-- [ ] T058 [US3] Implement delete_connection command in src-tauri/src/commands/storage.rs
-- [ ] T059 [US3] Implement get_preference command in src-tauri/src/commands/storage.rs
-- [ ] T060 [US3] Implement set_preference command in src-tauri/src/commands/storage.rs
-- [ ] T061 [US3] Implement check_database_health command in src-tauri/src/commands/storage.rs
-- [ ] T062 [US3] Export commands/storage module from src-tauri/src/commands/mod.rs
-- [ ] T063 [US3] Register storage commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T064 [US3] Wire StorageService into AppState in src-tauri/src/state.rs
+- [x] T032 [US3] Create ConnectionConfig struct in src-tauri/src/models/connection.rs
+- [x] T033 [US3] Create SslMode enum in src-tauri/src/models/connection.rs
+- [x] T034 [US3] Create SshTunnel struct in src-tauri/src/models/connection.rs
+- [x] T035 [US3] Create SshAuthMethod enum in src-tauri/src/models/connection.rs
+- [x] T036 [US3] Implement Serialize/Deserialize for ConnectionConfig in src-tauri/src/models/connection.rs
+- [x] T037 [US3] Export models/connection module from src-tauri/src/models/mod.rs
+- [x] T038 [US3] Create StorageService struct in src-tauri/src/services/storage.rs
+- [x] T039 [US3] Implement open_or_repair() with PRAGMA integrity_check in src-tauri/src/services/storage.rs
+- [x] T040 [US3] Implement backup_corrupted() with timestamp naming in src-tauri/src/services/storage.rs
+- [x] T041 [US3] Implement create_fresh() database initialization in src-tauri/src/services/storage.rs
+- [x] T042 [US3] Create SQLite schema with connections table in src-tauri/src/services/storage.rs
+- [x] T043 [US3] Create SQLite schema with preferences table in src-tauri/src/services/storage.rs
+- [x] T044 [US3] Create SQLite schema with migrations table in src-tauri/src/services/storage.rs
+- [x] T045 [US3] Implement migration system for schema versioning in src-tauri/src/services/storage.rs
+- [x] T046 [US3] Implement list_connections() in src-tauri/src/services/storage.rs
+- [x] T047 [US3] Implement get_connection() in src-tauri/src/services/storage.rs
+- [x] T048 [US3] Implement save_connection() in src-tauri/src/services/storage.rs
+- [x] T049 [US3] Implement delete_connection() in src-tauri/src/services/storage.rs
+- [x] T050 [US3] Implement get_preference() in src-tauri/src/services/storage.rs
+- [x] T051 [US3] Implement set_preference() in src-tauri/src/services/storage.rs
+- [x] T052 [US3] Implement check_integrity() returning DatabaseHealth in src-tauri/src/services/storage.rs
+- [x] T053 [US3] Create DatabaseHealth struct in src-tauri/src/models/app.rs
+- [x] T054 [US3] Export services/storage module from src-tauri/src/services/mod.rs
+- [x] T055 [US3] Implement list_connections command in src-tauri/src/commands/storage.rs
+- [x] T056 [US3] Implement get_connection command in src-tauri/src/commands/storage.rs
+- [x] T057 [US3] Implement save_connection command in src-tauri/src/commands/storage.rs
+- [x] T058 [US3] Implement delete_connection command in src-tauri/src/commands/storage.rs
+- [x] T059 [US3] Implement get_preference command in src-tauri/src/commands/storage.rs
+- [x] T060 [US3] Implement set_preference command in src-tauri/src/commands/storage.rs
+- [x] T061 [US3] Implement check_database_health command in src-tauri/src/commands/storage.rs
+- [x] T062 [US3] Export commands/storage module from src-tauri/src/commands/mod.rs
+- [x] T063 [US3] Register storage commands in src-tauri/src/lib.rs invoke_handler
+- [x] T064 [US3] Wire StorageService into AppState in src-tauri/src/state.rs
 
 **Checkpoint**: Connections and preferences persist across restarts, corrupted storage triggers backup and reset
 
@@ -149,25 +149,25 @@
 
 ### Implementation for User Story 4
 
-- [ ] T065 [US4] Create ConnectionPool struct in src-tauri/src/models/connection.rs
-- [ ] T066 [US4] Create ActiveConnection struct in src-tauri/src/models/connection.rs
-- [ ] T067 [US4] Create ConnectionTestResult struct in src-tauri/src/models/connection.rs
-- [ ] T068 [US4] Create ConnectionService struct in src-tauri/src/services/connection.rs
-- [ ] T069 [US4] Implement create_pool() with deadpool-postgres configuration in src-tauri/src/services/connection.rs
-- [ ] T070 [US4] Implement SSL/TLS configuration helper in src-tauri/src/services/connection.rs
-- [ ] T071 [US4] Implement connect() storing pool in AppState.connections in src-tauri/src/services/connection.rs
-- [ ] T072 [US4] Implement disconnect() removing pool and cleaning up resources in src-tauri/src/services/connection.rs
-- [ ] T073 [US4] Implement test_connection() for validation without saving in src-tauri/src/services/connection.rs
-- [ ] T074 [US4] Implement get_active_connections() listing all pools in src-tauri/src/services/connection.rs
-- [ ] T075 [US4] Export services/connection module from src-tauri/src/services/mod.rs
-- [ ] T076 [US4] Implement connect command in src-tauri/src/commands/connection.rs
-- [ ] T077 [US4] Implement disconnect command in src-tauri/src/commands/connection.rs
-- [ ] T078 [US4] Implement test_connection command in src-tauri/src/commands/connection.rs
-- [ ] T079 [US4] Implement get_active_connections command in src-tauri/src/commands/connection.rs
-- [ ] T080 [US4] Export commands/connection module from src-tauri/src/commands/mod.rs
-- [ ] T081 [US4] Register connection commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T082 [US4] Add connections HashMap<Uuid, ConnectionPool> to AppState in src-tauri/src/state.rs
-- [ ] T083 [US4] Wire ConnectionService into AppState in src-tauri/src/state.rs
+- [x] T065 [US4] Create ConnectionPool struct in src-tauri/src/models/connection.rs
+- [x] T066 [US4] Create ActiveConnection struct in src-tauri/src/models/connection.rs
+- [x] T067 [US4] Create ConnectionTestResult struct in src-tauri/src/models/connection.rs
+- [x] T068 [US4] Create ConnectionService struct in src-tauri/src/services/connection.rs
+- [x] T069 [US4] Implement create_pool() with deadpool-postgres configuration in src-tauri/src/services/connection.rs
+- [x] T070 [US4] Implement SSL/TLS configuration helper in src-tauri/src/services/connection.rs
+- [x] T071 [US4] Implement connect() storing pool in AppState.connections in src-tauri/src/services/connection.rs
+- [x] T072 [US4] Implement disconnect() removing pool and cleaning up resources in src-tauri/src/services/connection.rs
+- [x] T073 [US4] Implement test_connection() for validation without saving in src-tauri/src/services/connection.rs
+- [x] T074 [US4] Implement get_active_connections() listing all pools in src-tauri/src/services/connection.rs
+- [x] T075 [US4] Export services/connection module from src-tauri/src/services/mod.rs
+- [x] T076 [US4] Implement connect command in src-tauri/src/commands/connection.rs
+- [x] T077 [US4] Implement disconnect command in src-tauri/src/commands/connection.rs
+- [x] T078 [US4] Implement test_connection command in src-tauri/src/commands/connection.rs
+- [x] T079 [US4] Implement get_active_connections command in src-tauri/src/commands/connection.rs
+- [x] T080 [US4] Export commands/connection module from src-tauri/src/commands/mod.rs
+- [x] T081 [US4] Register connection commands in src-tauri/src/lib.rs invoke_handler
+- [x] T082 [US4] Add connections HashMap<Uuid, ConnectionPool> to AppState in src-tauri/src/state.rs
+- [x] T083 [US4] Wire ConnectionService into AppState in src-tauri/src/state.rs
 
 **Checkpoint**: Multiple connections can be established and operate independently
 
@@ -181,25 +181,25 @@
 
 ### Implementation for User Story 5
 
-- [ ] T084 [US5] Create QueryHandle struct with CancelToken in src-tauri/src/models/query.rs
-- [ ] T085 [US5] Create QueryStatus enum in src-tauri/src/models/query.rs
-- [ ] T086 [US5] Create QueryResult struct in src-tauri/src/models/query.rs
-- [ ] T087 [US5] Create Column struct in src-tauri/src/models/query.rs
-- [ ] T088 [US5] Create ActiveQuery struct in src-tauri/src/models/query.rs
-- [ ] T089 [US5] Export models/query module from src-tauri/src/models/mod.rs
-- [ ] T090 [US5] Create QueryService struct in src-tauri/src/services/query.rs
-- [ ] T091 [US5] Implement execute() with tokio::select! timeout in src-tauri/src/services/query.rs
-- [ ] T092 [US5] Implement query registration in active_queries HashMap in src-tauri/src/services/query.rs
-- [ ] T093 [US5] Implement cancel() using CancelToken in src-tauri/src/services/query.rs
-- [ ] T094 [US5] Implement get_active_queries() listing running queries in src-tauri/src/services/query.rs
-- [ ] T095 [US5] Implement query result serialization for IPC transport in src-tauri/src/services/query.rs
-- [ ] T096 [US5] Export services/query module from src-tauri/src/services/mod.rs
-- [ ] T097 [US5] Implement execute_query command in src-tauri/src/commands/query.rs
-- [ ] T098 [US5] Implement cancel_query command in src-tauri/src/commands/query.rs
-- [ ] T099 [US5] Implement get_active_queries command in src-tauri/src/commands/query.rs
-- [ ] T100 [US5] Export commands/query module from src-tauri/src/commands/mod.rs
-- [ ] T101 [US5] Register query commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T102 [US5] Add active_queries HashMap<Uuid, QueryHandle> to AppState in src-tauri/src/state.rs
+- [x] T084 [US5] Create QueryHandle struct with CancelToken in src-tauri/src/models/query.rs
+- [x] T085 [US5] Create QueryStatus enum in src-tauri/src/models/query.rs
+- [x] T086 [US5] Create QueryResult struct in src-tauri/src/models/query.rs
+- [x] T087 [US5] Create Column struct in src-tauri/src/models/query.rs
+- [x] T088 [US5] Create ActiveQuery struct in src-tauri/src/models/query.rs
+- [x] T089 [US5] Export models/query module from src-tauri/src/models/mod.rs
+- [x] T090 [US5] Create QueryService struct in src-tauri/src/services/query.rs
+- [x] T091 [US5] Implement execute() with tokio::select! timeout in src-tauri/src/services/query.rs
+- [x] T092 [US5] Implement query registration in active_queries HashMap in src-tauri/src/services/query.rs
+- [x] T093 [US5] Implement cancel() using CancelToken in src-tauri/src/services/query.rs
+- [x] T094 [US5] Implement get_active_queries() listing running queries in src-tauri/src/services/query.rs
+- [x] T095 [US5] Implement query result serialization for IPC transport in src-tauri/src/services/query.rs
+- [x] T096 [US5] Export services/query module from src-tauri/src/services/mod.rs
+- [x] T097 [US5] Implement execute_query command in src-tauri/src/commands/query.rs
+- [x] T098 [US5] Implement cancel_query command in src-tauri/src/commands/query.rs
+- [x] T099 [US5] Implement get_active_queries command in src-tauri/src/commands/query.rs
+- [x] T100 [US5] Export commands/query module from src-tauri/src/commands/mod.rs
+- [x] T101 [US5] Register query commands in src-tauri/src/lib.rs invoke_handler
+- [x] T102 [US5] Add active_queries HashMap<Uuid, QueryHandle> to AppState in src-tauri/src/state.rs
 
 **Checkpoint**: Queries can be executed and cancelled, connection remains usable after cancellation
 
@@ -213,20 +213,20 @@
 
 ### Implementation for User Story 6
 
-- [ ] T103 [US6] Create CredentialService struct in src-tauri/src/services/credentials.rs
-- [ ] T104 [US6] Implement keychain availability detection in src-tauri/src/services/credentials.rs
-- [ ] T105 [US6] Implement store_password() using keyring crate in src-tauri/src/services/credentials.rs
-- [ ] T106 [US6] Implement get_password() with NoEntry handling in src-tauri/src/services/credentials.rs
-- [ ] T107 [US6] Implement delete_password() in src-tauri/src/services/credentials.rs
-- [ ] T108 [US6] Implement has_password() for checking existence in src-tauri/src/services/credentials.rs
-- [ ] T109 [US6] Export services/credentials module from src-tauri/src/services/mod.rs
-- [ ] T110 [US6] Implement check_keychain_available command in src-tauri/src/commands/storage.rs
-- [ ] T111 [US6] Implement has_stored_password command in src-tauri/src/commands/storage.rs
-- [ ] T112 [US6] Register credential commands in src-tauri/src/lib.rs invoke_handler
-- [ ] T113 [US6] Wire CredentialService into AppState in src-tauri/src/state.rs
-- [ ] T114 [US6] Integrate credential storage into save_connection flow in src-tauri/src/commands/storage.rs
-- [ ] T115 [US6] Integrate credential deletion into delete_connection flow in src-tauri/src/commands/storage.rs
-- [ ] T116 [US6] Integrate credential retrieval into connect flow in src-tauri/src/commands/connection.rs
+- [x] T103 [US6] Create CredentialService struct in src-tauri/src/services/credentials.rs
+- [x] T104 [US6] Implement keychain availability detection in src-tauri/src/services/credentials.rs
+- [x] T105 [US6] Implement store_password() using keyring crate in src-tauri/src/services/credentials.rs
+- [x] T106 [US6] Implement get_password() with NoEntry handling in src-tauri/src/services/credentials.rs
+- [x] T107 [US6] Implement delete_password() in src-tauri/src/services/credentials.rs
+- [x] T108 [US6] Implement has_password() for checking existence in src-tauri/src/services/credentials.rs
+- [x] T109 [US6] Export services/credentials module from src-tauri/src/services/mod.rs
+- [x] T110 [US6] Implement check_keychain_available command in src-tauri/src/commands/storage.rs
+- [x] T111 [US6] Implement has_stored_password command in src-tauri/src/commands/storage.rs
+- [x] T112 [US6] Register credential commands in src-tauri/src/lib.rs invoke_handler
+- [x] T113 [US6] Wire CredentialService into AppState in src-tauri/src/state.rs
+- [x] T114 [US6] Integrate credential storage into save_connection flow in src-tauri/src/commands/storage.rs
+- [x] T115 [US6] Integrate credential deletion into delete_connection flow in src-tauri/src/commands/storage.rs
+- [x] T116 [US6] Integrate credential retrieval into connect flow in src-tauri/src/commands/connection.rs
 
 **Checkpoint**: Passwords stored in OS keychain, not visible in app data directory
 
@@ -236,14 +236,14 @@
 
 **Purpose**: Final integration, verification, and cleanup
 
-- [ ] T117 Verify all 19 IPC commands are registered in src-tauri/src/lib.rs
-- [ ] T118 Add PRAGMA busy_timeout = 5000 to SQLite connections in src-tauri/src/services/storage.rs
-- [ ] T119 Verify TuskError is serializable and all variants have actionable messages
-- [ ] T120 Run cargo build and fix any compilation errors
-- [ ] T121 Run cargo clippy and address warnings
-- [ ] T122 Verify cold start completes in under 1 second per SC-001
-- [ ] T123 Verify memory usage under 100MB idle per SC-002
-- [ ] T124 Verify log files are created in app data directory per SC-009
+- [x] T117 Verify all 19 IPC commands are registered in src-tauri/src/lib.rs
+- [x] T118 Add PRAGMA busy_timeout = 5000 to SQLite connections in src-tauri/src/services/storage.rs
+- [x] T119 Verify TuskError is serializable and all variants have actionable messages
+- [x] T120 Run cargo build and fix any compilation errors
+- [x] T121 Run cargo clippy and address warnings
+- [x] T122 Verify cold start completes in under 1 second per SC-001
+- [x] T123 Verify memory usage under 100MB idle per SC-002
+- [x] T124 Verify log files are created in app data directory per SC-009
 
 ---
 

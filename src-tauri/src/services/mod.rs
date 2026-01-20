@@ -1,7 +1,13 @@
-// Services module - business logic services
-// Expanded in subsequent features for:
-// - Connection management
-// - Query execution
-// - Schema introspection
-// - Admin/monitoring
-// - Local storage
+pub mod connection;
+pub mod credentials;
+pub mod dirs;
+pub mod logging;
+pub mod query;
+pub mod storage;
+
+pub use connection::*;
+pub use credentials::*;
+pub use dirs::*;
+pub use logging::*;
+pub use query::*;
+pub use storage::*;
