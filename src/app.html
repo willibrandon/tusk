@@ -7,13 +7,15 @@
 		<script>
 			// FOUC prevention: Apply dark class before Svelte hydration
 			// This runs synchronously before the page renders to prevent flash
-			(function() {
+			(function () {
 				try {
 					const stored = localStorage.getItem('tusk-theme');
 					const preference = stored ? JSON.parse(stored).preference : 'system';
 
-					if (preference === 'dark' ||
-						(preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+					if (
+						preference === 'dark' ||
+						(preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+					) {
 						document.documentElement.classList.add('dark');
 					} else {
 						document.documentElement.classList.remove('dark');

@@ -24,18 +24,23 @@ Establish the Svelte 5 frontend structure with a complete application shell (sid
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 ### Principle I: Postgres Exclusivity — ✅ PASS
+
 Frontend architecture is Postgres-agnostic infrastructure. Connection display will show Postgres-specific information when connections feature is implemented.
 
 ### Principle II: Complete Local Privacy — ✅ PASS
+
 - All state persists to localStorage (local only)
 - No telemetry, analytics, or external network calls
 - Theme, sidebar width, tab state remain on user's machine
 
 ### Principle III: OS Keychain for Credentials — ✅ PASS (N/A)
+
 Frontend stores no credentials. Connection passwords will be handled by Rust backend via keyring crate in future connection feature.
 
 ### Principle IV: Complete Implementation — ✅ WILL COMPLY
+
 All shell components, stores, and features will be fully implemented:
+
 - No placeholder components
 - No TODO comments
 - No stub functions
@@ -43,15 +48,17 @@ All shell components, stores, and features will be fully implemented:
 - Full theme support including system preference tracking
 
 ### Principle V: Task Immutability — ✅ WILL COMPLY
+
 Once tasks.md is generated, no tasks will be removed, merged, or renumbered.
 
 ### Principle VI: Performance Discipline — ✅ WILL COMPLY
-| Metric | Target | Approach |
-|--------|--------|----------|
-| Cold start | < 1 second | Minimal component tree, lazy load future features |
-| Sidebar resize | 60fps (16ms) | CSS-based resize, no re-renders during drag |
-| Tab operations | < 100ms | Svelte 5 fine-grained reactivity |
-| Theme change | < 100ms | CSS custom properties, class toggle |
+
+| Metric         | Target       | Approach                                          |
+| -------------- | ------------ | ------------------------------------------------- |
+| Cold start     | < 1 second   | Minimal component tree, lazy load future features |
+| Sidebar resize | 60fps (16ms) | CSS-based resize, no re-renders during drag       |
+| Tab operations | < 100ms      | Svelte 5 fine-grained reactivity                  |
+| Theme change   | < 100ms      | CSS custom properties, class toggle               |
 
 **NON-NEGOTIABLE Principles (automatic failure if violated):**
 
@@ -139,24 +146,30 @@ src-tauri/                     # Rust backend (existing)
 _Re-evaluated after Phase 1 design completion._
 
 ### Principle I: Postgres Exclusivity — ✅ PASS
+
 Design artifacts (data-model.md, contracts/) define connection types that will display Postgres-specific info. No generic database abstractions.
 
 ### Principle II: Complete Local Privacy — ✅ PASS
+
 All persistence uses localStorage. No external network calls in any artifact. Connection data comes from local SQLite via backend.
 
 ### Principle III: OS Keychain for Credentials — ✅ PASS
+
 Connection interface explicitly excludes password field. Contracts document that passwords are stored via keyring crate.
 
 ### Principle IV: Complete Implementation — ✅ DESIGNED FOR COMPLIANCE
+
 - 26 files planned in quickstart.md with concrete implementation order
 - Type contracts fully defined (no "TBD" or "to be determined")
 - Data model complete with validation rules and state transitions
 - No deferred functionality within this feature's scope
 
 ### Principle V: Task Immutability — ✅ READY FOR TASKS
+
 Plan complete. `/speckit.tasks` will generate immutable task list.
 
 ### Principle VI: Performance Discipline — ✅ DESIGNED FOR COMPLIANCE
+
 - research.md documents RAF throttling for resize operations
 - Svelte 5 runes provide fine-grained reactivity
 - CSS class toggle for instant theme changes

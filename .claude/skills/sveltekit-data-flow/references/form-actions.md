@@ -21,7 +21,7 @@ export const actions: Actions = {
 
 		await login(email, password);
 		throw redirect(303, '/dashboard');
-	},
+	}
 };
 ```
 
@@ -51,13 +51,12 @@ export const actions: Actions = {
 
 	register: async ({ request }) => {
 		// Handle registration
-	},
+	}
 };
 ```
 
 ```svelte
-<form method="POST" action="?/login">...</form>
-<form method="POST" action="?/register">...</form>
+<form method="POST" action="?/login">...</form><form method="POST" action="?/register">...</form>
 ```
 
 ## Return Values
@@ -74,12 +73,12 @@ export const actions = {
 		if (!isValid(data)) {
 			return fail(400, {
 				error: 'Invalid data',
-				fields: Object.fromEntries(data), // Preserve input
+				fields: Object.fromEntries(data) // Preserve input
 			});
 		}
 
 		// Success - no return needed
-	},
+	}
 };
 ```
 
@@ -92,7 +91,7 @@ export const actions = {
 	default: async ({ request }) => {
 		await processForm(request);
 		throw redirect(303, '/success'); // MUST throw
-	},
+	}
 };
 ```
 
@@ -110,7 +109,7 @@ export const actions = {
 		}
 
 		// Process...
-	},
+	}
 };
 ```
 
@@ -157,7 +156,7 @@ import { z } from 'zod';
 
 const schema = z.object({
 	email: z.string().email(),
-	password: z.string().min(8),
+	password: z.string().min(8)
 });
 
 export const actions = {
@@ -165,7 +164,7 @@ export const actions = {
 		const data = await request.formData();
 		const rawData = {
 			email: data.get('email'),
-			password: data.get('password'),
+			password: data.get('password')
 		};
 
 		const result = schema.safeParse(rawData);
@@ -173,14 +172,14 @@ export const actions = {
 		if (!result.success) {
 			return fail(400, {
 				errors: result.error.flatten().fieldErrors,
-				data: rawData,
+				data: rawData
 			});
 		}
 
 		// result.data is validated
 		await createUser(result.data);
 		throw redirect(303, '/welcome');
-	},
+	}
 };
 ```
 
@@ -193,14 +192,14 @@ export const actions = {
 export const actions = {
 	default: async () => {
 		redirect(303, '/home'); // DOESN'T WORK - must throw
-	},
+	}
 };
 
 // RIGHT
 export const actions = {
 	default: async () => {
 		throw redirect(303, '/home');
-	},
+	}
 };
 ```
 
@@ -216,7 +215,7 @@ export const actions = {
 		} catch (e) {
 			console.error(e); // Catches redirect!
 		}
-	},
+	}
 };
 
 // RIGHT
@@ -229,7 +228,7 @@ export const actions = {
 			if (e instanceof Redirect) throw e; // Rethrow
 			console.error(e);
 		}
-	},
+	}
 };
 ```
 
@@ -240,14 +239,14 @@ export const actions = {
 export const actions = {
 	default: async () => {
 		return { date: new Date() }; // Date is not serializable
-	},
+	}
 };
 
 // RIGHT
 export const actions = {
 	default: async () => {
 		return { date: new Date().toISOString() };
-	},
+	}
 };
 ```
 
@@ -268,7 +267,7 @@ export const actions = {
 
 		await saveFile(buffer, file.name);
 		throw redirect(303, '/uploads');
-	},
+	}
 };
 ```
 

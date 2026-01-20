@@ -8,9 +8,7 @@
 	let { children } = $props();
 </script>
 
-<header>Header</header>
-<main>{@render children()}</main>
-<footer>Footer</footer>
+<header>Header</header><main>{@render children()}</main><footer>Footer</footer>
 ```
 
 **Key points:**
@@ -227,7 +225,7 @@ export const load = async ({ locals }) => {
 	}
 
 	return {
-		user: locals.user,
+		user: locals.user
 	};
 };
 ```

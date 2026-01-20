@@ -6,8 +6,8 @@
 // svelte.config.js
 export default {
 	compilerOptions: {
-		customElement: true, // Enable for entire project
-	},
+		customElement: true // Enable for entire project
+	}
 };
 ```
 
@@ -83,8 +83,8 @@ Styles are scoped to shadow DOM by default:
 	customElement={{
 		tag: 'my-counter',
 		props: {
-			count: { reflect: true, type: 'Number' },
-		},
+			count: { reflect: true, type: 'Number' }
+		}
 	}}
 />
 
@@ -107,18 +107,14 @@ Dispatch custom events:
 	const dispatch = createEventDispatcher();
 </script>
 
-<button onclick={() => dispatch('clicked', { time: Date.now() })}>
-	Click me
-</button>
+<button onclick={() => dispatch('clicked', { time: Date.now() })}> Click me </button>
 ```
 
 ```html
 <!-- Usage -->
 <event-button></event-button>
 <script>
-	document
-		.querySelector('event-button')
-		.addEventListener('clicked', (e) => console.log(e.detail));
+	document.querySelector('event-button').addEventListener('clicked', (e) => console.log(e.detail));
 </script>
 ```
 

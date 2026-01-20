@@ -239,6 +239,7 @@ All errors should include:
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
 ## Active Technologies
+
 - TypeScript 5.5+ (frontend) + Svelte 5.17+, SvelteKit 2.15+, Tailwind CSS 4.0+, @tauri-apps/api 2.2+ (003-frontend-architecture)
 - localStorage (UI state persistence), OS keychain via Tauri backend (credentials - future) (003-frontend-architecture)
 

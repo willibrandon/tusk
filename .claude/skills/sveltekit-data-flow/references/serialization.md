@@ -42,7 +42,7 @@ Data travels from server → client as JSON. Non-JSON types break.
 // +page.server.ts - WRONG
 export const load = async () => {
 	return {
-		createdAt: new Date(), // Serializes as string, not Date object
+		createdAt: new Date() // Serializes as string, not Date object
 	};
 };
 ```
@@ -67,8 +67,8 @@ export const load = async () => {
 		user: {
 			id: user.id,
 			name: user.name,
-			createdAt: user.createdAt.toISOString(), // Convert to string
-		},
+			createdAt: user.createdAt.toISOString() // Convert to string
+		}
 	};
 };
 ```
@@ -88,7 +88,7 @@ export const load = async () => {
 class User {
 	constructor(
 		public id: number,
-		public name: string,
+		public name: string
 	) {}
 
 	getDisplayName() {
@@ -120,9 +120,9 @@ export const load = async () => {
 		user: {
 			id: user.id,
 			name: user.name,
-			email: user.email,
+			email: user.email
 			// Only plain data, no methods
-		},
+		}
 	};
 };
 ```
@@ -134,7 +134,7 @@ export const load = async () => {
 export const load = async () => {
 	return {
 		name: 'Alice',
-		email: undefined, // Removed during JSON.stringify
+		email: undefined // Removed during JSON.stringify
 	};
 };
 ```
@@ -153,7 +153,7 @@ export const load = async () => {
 export const load = async () => {
 	return {
 		name: 'Alice',
-		email: null, // Preserved
+		email: null // Preserved
 	};
 };
 ```
@@ -168,7 +168,7 @@ export const load = async () => {
 
 	return {
 		tags, // Becomes {}
-		metadata, // Becomes {}
+		metadata // Becomes {}
 	};
 };
 ```
@@ -183,7 +183,7 @@ export const load = async () => {
 
 	return {
 		tags: Array.from(tags), // ['svelte', 'typescript']
-		metadata: Object.fromEntries(metadata), // { version: '1.0' }
+		metadata: Object.fromEntries(metadata) // { version: '1.0' }
 	};
 };
 ```
@@ -201,8 +201,8 @@ export const load = async () => {
 	return {
 		user: {
 			...user,
-			createdAt: user.createdAt.toISOString(), // Convert Date
-		},
+			createdAt: user.createdAt.toISOString() // Convert Date
+		}
 	};
 };
 ```
@@ -226,14 +226,14 @@ export const load = async () => {
 // +page.server.ts - WRONG
 export const load = async () => {
 	return {
-		userId: 123456789012345678901234567890n, // ERROR - can't serialize
+		userId: 123456789012345678901234567890n // ERROR - can't serialize
 	};
 };
 
 // +page.server.ts - RIGHT
 export const load = async () => {
 	return {
-		userId: '123456789012345678901234567890', // String
+		userId: '123456789012345678901234567890' // String
 	};
 };
 ```
@@ -273,8 +273,8 @@ export const load = (async () => {
 		user: {
 			id: 1,
 			name: 'Alice',
-			createdAt: new Date(), // TypeScript allows this, but it's problematic
-		},
+			createdAt: new Date() // TypeScript allows this, but it's problematic
+		}
 	};
 }) satisfies PageServerLoad;
 ```
@@ -295,8 +295,8 @@ export const load: PageServerLoad = async () => {
 		user: {
 			id: 1,
 			name: 'Alice',
-			createdAt: new Date().toISOString(), // Must be string
-		},
+			createdAt: new Date().toISOString() // Must be string
+		}
 	};
 
 	return data;

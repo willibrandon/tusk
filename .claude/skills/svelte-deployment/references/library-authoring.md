@@ -47,12 +47,12 @@ import adapter from '@sveltejs/adapter-auto';
 
 export default {
 	kit: {
-		adapter: adapter(),
+		adapter: adapter()
 	},
 	package: {
 		source: './src/lib',
-		dir: 'dist',
-	},
+		dir: 'dist'
+	}
 };
 ```
 

@@ -264,6 +264,7 @@ Task: US5 - Connection Status Display (T037-T039)
 **MVP = User Story 1 + User Story 2** (Phases 1-4, Tasks T001-T030)
 
 This delivers:
+
 - Complete application shell with sidebar, main area, status bar
 - Full tab management with create, switch, close, reorder
 - Unsaved changes protection

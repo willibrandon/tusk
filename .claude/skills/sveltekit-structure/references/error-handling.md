@@ -72,7 +72,7 @@ export const load = async ({ params }) => {
 	if (!post) {
 		throw error(404, {
 			message: 'Post not found',
-			postId: params.id,
+			postId: params.id
 		});
 	}
 
@@ -187,7 +187,7 @@ export const handleError: HandleServerError = ({ error, event }) => {
 	// Return user-friendly message (don't expose internals)
 	return {
 		message: 'An unexpected error occurred',
-		code: error?.code ?? 'UNKNOWN',
+		code: error?.code ?? 'UNKNOWN'
 	};
 };
 ```

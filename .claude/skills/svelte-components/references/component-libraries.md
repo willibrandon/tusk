@@ -70,7 +70,7 @@ pnpm add @melt-ui/svelte
 
 	const {
 		elements: { trigger, portalled, overlay, content, title, close },
-		states: { open },
+		states: { open }
 	} = createDialog();
 </script>
 

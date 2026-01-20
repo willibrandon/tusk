@@ -270,7 +270,7 @@ Extract plain JavaScript values from proxies:
 	function saveToAPI() {
 		const plain = $state.snapshot(user); // Get plain object
 		fetch('/api/users', {
-			body: JSON.stringify(plain),
+			body: JSON.stringify(plain)
 		});
 	}
 </script>

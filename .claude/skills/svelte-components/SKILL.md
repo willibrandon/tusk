@@ -30,8 +30,8 @@ description: Svelte component patterns. Use for web components, component librar
 // svelte.config.js
 export default {
 	compilerOptions: {
-		customElement: true,
-	},
+		customElement: true
+	}
 };
 ```
 

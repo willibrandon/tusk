@@ -10,9 +10,9 @@ import { browser } from '$app/environment';
  * Detect if the current platform is macOS.
  */
 export const isMac: boolean =
-  browser && typeof navigator !== 'undefined'
-    ? navigator.platform.toUpperCase().includes('MAC')
-    : false;
+	browser && typeof navigator !== 'undefined'
+		? navigator.platform.toUpperCase().includes('MAC')
+		: false;
 
 /**
  * Check if the platform-appropriate modifier key is pressed.
@@ -23,7 +23,7 @@ export const isMac: boolean =
  * @returns true if the modifier key is pressed
  */
 export function isModifierPressed(event: KeyboardEvent): boolean {
-  return isMac ? event.metaKey : event.ctrlKey;
+	return isMac ? event.metaKey : event.ctrlKey;
 }
 
 /**
@@ -33,7 +33,7 @@ export function isModifierPressed(event: KeyboardEvent): boolean {
  * @returns true if Shift is pressed
  */
 export function isShiftPressed(event: KeyboardEvent): boolean {
-  return event.shiftKey;
+	return event.shiftKey;
 }
 
 /**
@@ -43,7 +43,7 @@ export function isShiftPressed(event: KeyboardEvent): boolean {
  * @returns true if Alt/Option is pressed
  */
 export function isAltPressed(event: KeyboardEvent): boolean {
-  return event.altKey;
+	return event.altKey;
 }
 
 /**
@@ -53,22 +53,22 @@ export function isAltPressed(event: KeyboardEvent): boolean {
  * @returns true if the event originates from an input-like element
  */
 export function isInputElement(event: KeyboardEvent): boolean {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
+	const target = event.target;
+	if (!(target instanceof HTMLElement)) {
+		return false;
+	}
 
-  const tagName = target.tagName.toLowerCase();
-  if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
-    return true;
-  }
+	const tagName = target.tagName.toLowerCase();
+	if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+		return true;
+	}
 
-  // Check for contenteditable
-  if (target.isContentEditable) {
-    return true;
-  }
+	// Check for contenteditable
+	if (target.isContentEditable) {
+		return true;
+	}
 
-  return false;
+	return false;
 }
 
 /**
@@ -81,43 +81,43 @@ export function isInputElement(event: KeyboardEvent): boolean {
  * @returns Formatted shortcut string (e.g., '⌘B' on Mac, 'Ctrl+B' on Windows)
  */
 export function formatShortcutKey(
-  key: string,
-  modifier = false,
-  shift = false,
-  alt = false
+	key: string,
+	modifier = false,
+	shift = false,
+	alt = false
 ): string {
-  const parts: string[] = [];
+	const parts: string[] = [];
 
-  if (modifier) {
-    parts.push(isMac ? '⌘' : 'Ctrl');
-  }
+	if (modifier) {
+		parts.push(isMac ? '⌘' : 'Ctrl');
+	}
 
-  if (shift) {
-    parts.push(isMac ? '⇧' : 'Shift');
-  }
+	if (shift) {
+		parts.push(isMac ? '⇧' : 'Shift');
+	}
 
-  if (alt) {
-    parts.push(isMac ? '⌥' : 'Alt');
-  }
+	if (alt) {
+		parts.push(isMac ? '⌥' : 'Alt');
+	}
 
-  // Format special keys
-  const keyMap: Record<string, string> = {
-    Enter: isMac ? '↵' : 'Enter',
-    Tab: isMac ? '⇥' : 'Tab',
-    Escape: 'Esc',
-    ArrowUp: '↑',
-    ArrowDown: '↓',
-    ArrowLeft: '←',
-    ArrowRight: '→',
-    Backspace: isMac ? '⌫' : 'Backspace',
-    Delete: isMac ? '⌦' : 'Del',
-    ' ': 'Space',
-  };
+	// Format special keys
+	const keyMap: Record<string, string> = {
+		Enter: isMac ? '↵' : 'Enter',
+		Tab: isMac ? '⇥' : 'Tab',
+		Escape: 'Esc',
+		ArrowUp: '↑',
+		ArrowDown: '↓',
+		ArrowLeft: '←',
+		ArrowRight: '→',
+		Backspace: isMac ? '⌫' : 'Backspace',
+		Delete: isMac ? '⌦' : 'Del',
+		' ': 'Space'
+	};
 
-  const displayKey = keyMap[key] ?? key.toUpperCase();
-  parts.push(displayKey);
+	const displayKey = keyMap[key] ?? key.toUpperCase();
+	parts.push(displayKey);
 
-  return isMac ? parts.join('') : parts.join('+');
+	return isMac ? parts.join('') : parts.join('+');
 }
 
 /**
@@ -127,8 +127,8 @@ export function formatShortcutKey(
  * @returns Normalized key string
  */
 export function normalizeKey(key: string): string {
-  // Normalize common key variations
-  return key.toLowerCase();
+	// Normalize common key variations
+	return key.toLowerCase();
 }
 
 /**
@@ -142,17 +142,17 @@ export function normalizeKey(key: string): string {
  * @returns true if the event matches the shortcut
  */
 export function matchesShortcut(
-  event: KeyboardEvent,
-  key: string,
-  modifier = false,
-  shift = false,
-  alt = false
+	event: KeyboardEvent,
+	key: string,
+	modifier = false,
+	shift = false,
+	alt = false
 ): boolean {
-  // Check modifiers
-  if (modifier !== isModifierPressed(event)) return false;
-  if (shift !== event.shiftKey) return false;
-  if (alt !== event.altKey) return false;
+	// Check modifiers
+	if (modifier !== isModifierPressed(event)) return false;
+	if (shift !== event.shiftKey) return false;
+	if (alt !== event.altKey) return false;
 
-  // Check key (case-insensitive)
-  return normalizeKey(event.key) === normalizeKey(key);
+	// Check key (case-insensitive)
+	return normalizeKey(event.key) === normalizeKey(key);
 }

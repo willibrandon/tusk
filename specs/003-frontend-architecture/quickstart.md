@@ -25,14 +25,17 @@ This guide provides step-by-step instructions for implementing the Tusk frontend
 Follow this order to ensure dependencies are satisfied:
 
 ### Phase 1: Type Foundation
+
 1. Copy type contracts to `src/lib/types/`
 2. Update `src/lib/types/index.ts` with exports
 
 ### Phase 2: Utility Modules
+
 3. Create `src/lib/utils/storage.ts` — localStorage helpers
 4. Create `src/lib/utils/keyboard.ts` — Platform detection, shortcut utilities
 
 ### Phase 3: State Management
+
 5. Enhance `src/lib/stores/theme.svelte.ts` — Add three-way preference support
 6. Create `src/lib/stores/ui.svelte.ts` — Sidebar width, collapsed state
 7. Create `src/lib/stores/tabs.svelte.ts` — Tab management
@@ -40,10 +43,12 @@ Follow this order to ensure dependencies are satisfied:
 9. Update `src/lib/stores/index.ts` — Export all stores
 
 ### Phase 4: Base Components
+
 10. Create `src/lib/components/common/Button.svelte`
 11. Create `src/lib/components/common/Icon.svelte`
 
 ### Phase 5: Shell Components
+
 12. Create `src/lib/components/shell/Resizer.svelte` — Drag handle
 13. Create `src/lib/components/shell/StatusBar.svelte` — Bottom status bar
 14. Create `src/lib/components/shell/Tab.svelte` — Individual tab
@@ -54,14 +59,17 @@ Follow this order to ensure dependencies are satisfied:
 19. Create `src/lib/components/shell/Shell.svelte` — Main layout container
 
 ### Phase 6: Dialogs
+
 20. Create `src/lib/components/dialogs/ConfirmDialog.svelte` — Unsaved changes
 
 ### Phase 7: Integration
+
 21. Update `src/routes/+layout.svelte` — Add Shell component
 22. Update `src/routes/+page.svelte` — Tab content area
 23. Update `src/app.html` — Add FOUC prevention script
 
 ### Phase 8: Testing
+
 24. Create unit tests for stores
 25. Create component tests
 26. Create E2E tests for shell interactions
@@ -79,32 +87,38 @@ import { browser } from '$app/environment';
 const STORAGE_KEY = 'tusk-example';
 
 function createExampleStore() {
-  let value = $state<string>('default');
-  let isFirstRun = true;
+	let value = $state<string>('default');
+	let isFirstRun = true;
 
-  // Load from localStorage
-  if (browser) {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        value = JSON.parse(stored);
-      } catch { /* use default */ }
-    }
+	// Load from localStorage
+	if (browser) {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored) {
+			try {
+				value = JSON.parse(stored);
+			} catch {
+				/* use default */
+			}
+		}
 
-    // Persist changes
-    $effect(() => {
-      const current = value;
-      if (!isFirstRun) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-      }
-      isFirstRun = false;
-    });
-  }
+		// Persist changes
+		$effect(() => {
+			const current = value;
+			if (!isFirstRun) {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+			}
+			isFirstRun = false;
+		});
+	}
 
-  return {
-    get value() { return value; },
-    setValue(newValue: string) { value = newValue; }
-  };
+	return {
+		get value() {
+			return value;
+		},
+		setValue(newValue: string) {
+			value = newValue;
+		}
+	};
 }
 
 export const exampleStore = createExampleStore();
@@ -115,28 +129,28 @@ export const exampleStore = createExampleStore();
 ```svelte
 <!-- src/lib/components/shell/Example.svelte -->
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
 
-  interface Props {
-    title: string;
-    class?: string;
-    children?: Snippet;
-  }
+	interface Props {
+		title: string;
+		class?: string;
+		children?: Snippet;
+	}
 
-  let { title, class: className = '', children }: Props = $props();
+	let { title, class: className = '', children }: Props = $props();
 </script>
 
 <div class="example {className}">
-  <h2>{title}</h2>
-  {#if children}
-    {@render children()}
-  {/if}
+	<h2>{title}</h2>
+	{#if children}
+		{@render children()}
+	{/if}
 </div>
 
 <style>
-  .example {
-    @apply p-4 bg-white dark:bg-gray-900;
-  }
+	.example {
+		@apply p-4 bg-white dark:bg-gray-900;
+	}
 </style>
 ```
 
@@ -148,10 +162,10 @@ import { isModifierPressed } from '$lib/utils/keyboard';
 import { uiStore } from '$lib/stores';
 
 function handleKeyDown(e: KeyboardEvent) {
-  if (isModifierPressed(e) && e.key === 'b') {
-    e.preventDefault();
-    uiStore.toggleSidebar();
-  }
+	if (isModifierPressed(e) && e.key === 'b') {
+		e.preventDefault();
+		uiStore.toggleSidebar();
+	}
 }
 ```
 
@@ -221,16 +235,21 @@ After implementation, verify:
 ## Common Issues
 
 ### Theme flash on page load
+
 Add the inline script to `app.html` `<head>` to apply theme before render.
 
 ### Store not reactive
+
 Ensure you're using `$state()` and returning getters, not direct values.
 
 ### Drag-and-drop not working
+
 Check that `e.preventDefault()` is called in `dragover` handler.
 
 ### Sidebar not persisting
+
 Verify localStorage is available (`browser` check from `$app/environment`).
 
 ### Type errors in stores
+
 Ensure `.svelte.ts` extension is used for files with runes.

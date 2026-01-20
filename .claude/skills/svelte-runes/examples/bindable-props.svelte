@@ -53,11 +53,7 @@
 
 	<div class="state-display">
 		<h3>Current State</h3>
-		<pre>{JSON.stringify(
-				{ name, email, isEnabled, count, formValid },
-				null,
-				2,
-			)}</pre>
+		<pre>{JSON.stringify({ name, email, isEnabled, count, formValid }, null, 2)}</pre>
 	</div>
 
 	<div class="guidelines">

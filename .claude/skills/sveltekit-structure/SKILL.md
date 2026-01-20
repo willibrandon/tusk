@@ -37,9 +37,7 @@ src/routes/
 	let { children } = $props();
 </script>
 
-<nav><!-- Navigation --></nav>
-<main>{@render children()}</main>
-<footer><!-- Footer --></footer>
+<nav><!-- Navigation --></nav><main>{@render children()}</main><footer><!-- Footer --></footer>
 ```
 
 ## Reference Files

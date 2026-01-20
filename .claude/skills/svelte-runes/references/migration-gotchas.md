@@ -202,18 +202,20 @@ two-way binding.
 
 ```svelte
 <script>
-  import { onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
-  onMount(() => {
-    console.log('mounted');
-    return () => console.log('cleanup');
-  });
+	onMount(() => {
+		console.log('mounted');
+		return () => console.log('cleanup');
+	});
 
-  // For most cleanup, use $effect:
-  $effect(() => {
-    const interval = setInterval(() => {...}, 1000);
-    return () => clearInterval(interval);
-  });
+	// For most cleanup, use $effect:
+	$effect(() => {
+		const interval = setInterval(() => {
+			/* work */
+		}, 1000);
+		return () => clearInterval(interval);
+	});
 </script>
 ```
 

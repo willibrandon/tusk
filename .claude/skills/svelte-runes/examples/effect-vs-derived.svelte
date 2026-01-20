@@ -12,9 +12,7 @@
 	// ✅ CORRECT: Use $derived for computed values
 	let doubled = $derived(count * 2);
 	let tripled = $derived(count * 3);
-	let message = $derived(
-		count === 0 ? 'Zero' : count > 10 ? 'High' : 'Low',
-	);
+	let message = $derived(count === 0 ? 'Zero' : count > 10 ? 'High' : 'Low');
 
 	// ✅ CORRECT: Use $effect for side effects
 	$effect(() => {

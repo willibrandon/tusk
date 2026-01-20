@@ -16,6 +16,7 @@ This research covers the technical patterns and best practices required to imple
 **Rationale**: Svelte 5 runes (`$state`, `$derived`, `$effect`) cannot be exported directly due to compiler limitations. The function pattern encapsulates state while exposing reactive getters and mutation methods.
 
 **Alternatives Considered**:
+
 - Class-based stores — Better V8 optimization but less idiomatic for simple stores
 - Direct export of `$state` — Not supported by Svelte 5 compiler
 - Legacy `writable`/`readable` stores — Deprecated pattern, not recommended for new Svelte 5 code
@@ -27,18 +28,30 @@ This research covers the technical patterns and best practices required to imple
 import { browser } from '$app/environment';
 
 function createExampleStore() {
-  let items = $state<Item[]>([]);
-  let activeId = $state<string | null>(null);
+	let items = $state<Item[]>([]);
+	let activeId = $state<string | null>(null);
 
-  return {
-    get items() { return items; },
-    get activeId() { return activeId; },
-    get activeItem() { return items.find(i => i.id === activeId) ?? null; },
+	return {
+		get items() {
+			return items;
+		},
+		get activeId() {
+			return activeId;
+		},
+		get activeItem() {
+			return items.find((i) => i.id === activeId) ?? null;
+		},
 
-    add(item: Item) { items.push(item); },
-    remove(id: string) { /* mutation logic */ },
-    setActive(id: string) { activeId = id; }
-  };
+		add(item: Item) {
+			items.push(item);
+		},
+		remove(id: string) {
+			/* mutation logic */
+		},
+		setActive(id: string) {
+			activeId = id;
+		}
+	};
 }
 
 export const exampleStore = createExampleStore();
@@ -52,13 +65,13 @@ Use `$effect` with a first-run guard to avoid writing back initial values:
 let isFirstRun = true;
 
 if (browser) {
-  $effect(() => {
-    const current = { ...state }; // Access to track dependency
-    if (!isFirstRun) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-    }
-    isFirstRun = false;
-  });
+	$effect(() => {
+		const current = { ...state }; // Access to track dependency
+		if (!isFirstRun) {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+		}
+		isFirstRun = false;
+	});
 }
 ```
 
@@ -71,18 +84,19 @@ if (browser) {
 **Rationale**: No external libraries needed. Modern browsers have full support. Works with touch devices via `pointer-events`.
 
 **Alternatives Considered**:
+
 - `@neodrag/svelte` — External dependency, violates minimal dependency goal
 - Custom pointer-based implementation — More complex, no browser drag feedback
 
 ### Implementation Approach
 
-| Event | Handler Purpose |
-|-------|-----------------|
-| `dragstart` | Set `dataTransfer`, mark dragged tab |
-| `dragover` | `preventDefault()` to allow drop, calculate insert position |
-| `dragleave` | Clear drop indicator |
-| `drop` | Reorder tabs array, clear state |
-| `dragend` | Cleanup regardless of drop success |
+| Event       | Handler Purpose                                             |
+| ----------- | ----------------------------------------------------------- |
+| `dragstart` | Set `dataTransfer`, mark dragged tab                        |
+| `dragover`  | `preventDefault()` to allow drop, calculate insert position |
+| `dragleave` | Clear drop indicator                                        |
+| `drop`      | Reorder tabs array, clear state                             |
+| `dragend`   | Cleanup regardless of drop success                          |
 
 ### Visual Feedback
 
@@ -105,6 +119,7 @@ if (browser) {
 **Rationale**: Pure CSS layout with JavaScript resize handle. No layout thrashing during drag.
 
 **Alternatives Considered**:
+
 - CSS `resize` property — Limited styling, no programmatic control
 - `react-split-pane` style library — External dependency
 
@@ -140,6 +155,7 @@ if (browser) {
 **Rationale**: Global keyboard handling at window level catches all shortcuts. Platform detection enables proper Cmd/Ctrl mapping.
 
 **Alternatives Considered**:
+
 - `@svelte-put/shortcut` — External dependency
 - Tauri global shortcuts — Only for app-global shortcuts (works even when unfocused)
 - Per-component handlers — Scattered logic, hard to maintain
@@ -147,23 +163,23 @@ if (browser) {
 ### Platform Detection
 
 ```typescript
-export const isMac = typeof navigator !== 'undefined' &&
-  navigator.platform.toUpperCase().includes('MAC');
+export const isMac =
+	typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
 export function isModifierPressed(e: KeyboardEvent): boolean {
-  return isMac ? e.metaKey : e.ctrlKey;
+	return isMac ? e.metaKey : e.ctrlKey;
 }
 ```
 
 ### Shortcuts for This Feature
 
-| Shortcut | Action |
-|----------|--------|
-| Cmd/Ctrl+B | Toggle sidebar |
-| Cmd/Ctrl+W | Close current tab |
-| Cmd/Ctrl+T | New tab |
-| Cmd/Ctrl+Tab | Next tab |
-| Cmd/Ctrl+Shift+Tab | Previous tab |
+| Shortcut           | Action            |
+| ------------------ | ----------------- |
+| Cmd/Ctrl+B         | Toggle sidebar    |
+| Cmd/Ctrl+W         | Close current tab |
+| Cmd/Ctrl+T         | New tab           |
+| Cmd/Ctrl+Tab       | Next tab          |
+| Cmd/Ctrl+Shift+Tab | Previous tab      |
 
 ### Input Field Handling
 
@@ -178,6 +194,7 @@ Skip shortcut processing when focus is in text inputs, except for explicitly all
 **Rationale**: Existing `app.css` already configures `@custom-variant dark`. Theme store already exists and follows correct pattern.
 
 **Alternatives Considered**:
+
 - CSS `prefers-color-scheme` only — No manual override possible
 - CSS custom properties only — Tailwind already abstracts this
 
@@ -193,26 +210,25 @@ Add inline script in `app.html` `<head>` to apply `dark` class before Svelte hyd
 
 ```html
 <script>
-  (function() {
-    const stored = localStorage.getItem('theme');
-    // Parse and apply before any rendering
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    }
-  })();
+	(function () {
+		const stored = localStorage.getItem('theme');
+		// Parse and apply before any rendering
+		if (shouldBeDark) {
+			document.documentElement.classList.add('dark');
+		}
+	})();
 </script>
 ```
 
 ### System Preference Tracking
 
 ```typescript
-window.matchMedia('(prefers-color-scheme: dark)')
-  .addEventListener('change', (e) => {
-    if (preferSystem) {
-      mode = e.matches ? 'dark' : 'light';
-      applyTheme();
-    }
-  });
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+	if (preferSystem) {
+		mode = e.matches ? 'dark' : 'light';
+		applyTheme();
+	}
+});
 ```
 
 ---
@@ -225,12 +241,12 @@ window.matchMedia('(prefers-color-scheme: dark)')
 
 ### Connection States
 
-| State | Color | Label Example |
-|-------|-------|---------------|
-| Disconnected | Gray | "No connection" |
-| Connecting | Yellow | "Connecting to localhost:5432..." |
-| Connected | Green | "postgres@localhost:5432" |
-| Error | Red | "Connection failed: timeout" |
+| State        | Color  | Label Example                     |
+| ------------ | ------ | --------------------------------- |
+| Disconnected | Gray   | "No connection"                   |
+| Connecting   | Yellow | "Connecting to localhost:5432..." |
+| Connected    | Green  | "postgres@localhost:5432"         |
+| Error        | Red    | "Connection failed: timeout"      |
 
 ### Status Bar Layout
 
@@ -260,17 +276,17 @@ For this feature, only connection status is implemented. Cursor position and que
 
 ```svelte
 {#if showDialog}
-  <div class="backdrop" onclick={cancel}>
-    <div class="dialog" onclick|stopPropagation role="dialog" aria-modal="true">
-      <h2>Unsaved Changes</h2>
-      <p>Do you want to save changes to "{tabTitle}"?</p>
-      <div class="actions">
-        <Button onclick={save}>Save</Button>
-        <Button onclick={discard} variant="secondary">Discard</Button>
-        <Button onclick={cancel} variant="ghost">Cancel</Button>
-      </div>
-    </div>
-  </div>
+	<div class="backdrop" onclick={cancel}>
+		<div class="dialog" onclick|stopPropagation role="dialog" aria-modal="true">
+			<h2>Unsaved Changes</h2>
+			<p>Do you want to save changes to "{tabTitle}"?</p>
+			<div class="actions">
+				<Button onclick={save}>Save</Button>
+				<Button onclick={discard} variant="secondary">Discard</Button>
+				<Button onclick={cancel} variant="ghost">Cancel</Button>
+			</div>
+		</div>
+	</div>
 {/if}
 ```
 
@@ -290,13 +306,13 @@ No new dependencies required. All implementations use:
 
 ## Performance Considerations
 
-| Operation | Target | Approach |
-|-----------|--------|----------|
-| Sidebar resize | 60fps | `requestAnimationFrame` throttle, CSS transform |
-| Tab drag | 60fps | Native drag API, minimal DOM updates |
-| Theme switch | <100ms | Class toggle on `<html>`, CSS transitions |
-| Store updates | <16ms | Fine-grained Svelte 5 reactivity |
-| Initial render | <1s | Minimal component tree, code splitting ready |
+| Operation      | Target | Approach                                        |
+| -------------- | ------ | ----------------------------------------------- |
+| Sidebar resize | 60fps  | `requestAnimationFrame` throttle, CSS transform |
+| Tab drag       | 60fps  | Native drag API, minimal DOM updates            |
+| Theme switch   | <100ms | Class toggle on `<html>`, CSS transitions       |
+| Store updates  | <16ms  | Fine-grained Svelte 5 reactivity                |
+| Initial render | <1s    | Minimal component tree, code splitting ready    |
 
 ---
 

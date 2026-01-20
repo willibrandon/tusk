@@ -38,7 +38,7 @@ export const actions = {
 
 		await updateEmail(email);
 		throw redirect(303, '/success');
-	},
+	}
 };
 ```
 

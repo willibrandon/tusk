@@ -18,14 +18,7 @@ attribute:
 		{/each}
 		<tr>
 			<td><input form="add-item" name="name" required /></td>
-			<td
-				><input
-					form="add-item"
-					name="price"
-					type="number"
-					required
-				/></td
-			>
+			<td><input form="add-item" name="price" type="number" required /></td>
 			<td><button form="add-item">Add</button></td>
 		</tr>
 	</tbody>
@@ -90,7 +83,7 @@ import { fail } from '@sveltejs/kit';
 
 const ContactSchema = v.object({
 	email: v.pipe(v.string(), v.email()),
-	message: v.pipe(v.string(), v.minLength(10)),
+	message: v.pipe(v.string(), v.minLength(10))
 });
 
 export const actions = {
@@ -103,13 +96,13 @@ export const actions = {
 		if (!result.success) {
 			return fail(400, {
 				data,
-				errors: v.flatten(result.issues),
+				errors: v.flatten(result.issues)
 			});
 		}
 
 		// Process valid data
 		await saveContact(result.output);
-	},
+	}
 };
 ```
 
@@ -122,11 +115,7 @@ export const actions = {
 <form method="POST">
 	<label>
 		Email
-		<input
-			name="email"
-			type="email"
-			value={form?.data?.email ?? ''}
-		/>
+		<input name="email" type="email" value={form?.data?.email ?? ''} />
 		{#if form?.errors?.nested?.email}
 			<span class="error">{form.errors.nested.email[0]}</span>
 		{/if}
@@ -166,6 +155,6 @@ export const actions = {
 	},
 	contact: async ({ request }) => {
 		// Handle contact
-	},
+	}
 };
 ```

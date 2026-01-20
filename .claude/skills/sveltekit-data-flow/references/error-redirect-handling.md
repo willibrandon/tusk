@@ -25,14 +25,14 @@ export const actions = {
 			return fail(400, {
 				email,
 				error: 'Invalid email',
-				missing: !email,
+				missing: !email
 			});
 		}
 
 		// Success - process and maybe redirect
 		await processEmail(email);
 		throw redirect(303, '/success');
-	},
+	}
 };
 ```
 
@@ -86,7 +86,7 @@ export const actions = {
 
 		// Success - redirect to dashboard
 		throw redirect(303, '/dashboard'); // MUST throw
-	},
+	}
 };
 ```
 
@@ -117,7 +117,7 @@ import { error } from '@sveltejs/kit';
 
 export const load = async ({ params, locals }) => {
 	const post = await db.query.posts.findFirst({
-		where: eq(posts.id, params.id),
+		where: eq(posts.id, params.id)
 	});
 
 	if (!post) {
@@ -152,7 +152,7 @@ export const load = async ({ params }) => {
 	if (!post) {
 		throw error(404, {
 			message: 'Post not found',
-			postId: params.id,
+			postId: params.id
 		});
 	}
 
@@ -190,14 +190,14 @@ export const load = async ({ params }) => {
 export const actions = {
 	default: async () => {
 		redirect(303, '/home'); // DOESN'T WORK
-	},
+	}
 };
 
 // RIGHT
 export const actions = {
 	default: async () => {
 		throw redirect(303, '/home'); // MUST throw
-	},
+	}
 };
 ```
 
@@ -222,14 +222,14 @@ export const load = async () => {
 export const actions = {
 	default: async () => {
 		throw fail(400, { error: 'Bad' }); // Don't throw
-	},
+	}
 };
 
 // RIGHT
 export const actions = {
 	default: async () => {
 		return fail(400, { error: 'Bad' }); // Return
-	},
+	}
 };
 ```
 
@@ -246,7 +246,7 @@ export const actions = {
 			console.error(e); // Catches redirect - it won't work!
 			return fail(500, { error: 'Failed' });
 		}
-	},
+	}
 };
 
 // RIGHT
@@ -262,7 +262,7 @@ export const actions = {
 			console.error(e);
 			return fail(500, { error: 'Failed' });
 		}
-	},
+	}
 };
 ```
 
@@ -300,7 +300,7 @@ export const actions = {
 
 		// 3. Redirect
 		throw redirect(303, `/posts/${post.id}`);
-	},
+	}
 };
 ```
 

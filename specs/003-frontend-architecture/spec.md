@@ -134,10 +134,12 @@ As a user with visual preferences, I need to switch between light, dark, and sys
 ### Functional Requirements
 
 **Shell Layout**
+
 - **FR-001**: System MUST display a three-region layout: sidebar (left), main content area (center/right), and status bar (bottom)
 - **FR-002**: System MUST prevent default text selection on UI chrome elements while allowing selection in designated content areas
 
 **Sidebar**
+
 - **FR-003**: Sidebar MUST have a header displaying "Connections" with a "New Connection" button
 - **FR-004**: Sidebar MUST include a search input for filtering connections
 - **FR-005**: Sidebar MUST display a tree view of connections (placeholder for future feature integration)
@@ -146,6 +148,7 @@ As a user with visual preferences, I need to switch between light, dark, and sys
 - **FR-008**: System MUST persist sidebar width and collapsed state to local storage
 
 **Tab Bar**
+
 - **FR-009**: Tab bar MUST display all open tabs with icons indicating tab type (query, table, view, function)
 - **FR-010**: Tabs MUST display a title, type icon, and close button
 - **FR-011**: Tabs MUST show a modification indicator (blue dot) when content has unsaved changes
@@ -158,6 +161,7 @@ As a user with visual preferences, I need to switch between light, dark, and sys
 - **FR-017**: Tabs MUST display a connection color indicator when associated with a connection
 
 **Status Bar**
+
 - **FR-018**: Status bar MUST display current connection status with visual indicator (green=connected, yellow=connecting, red=error, gray=disconnected)
 - **FR-019**: Status bar MUST display connection name, host, and port when connected
 - **FR-020**: Status bar MUST display "No connection" when no connection is active
@@ -165,6 +169,7 @@ As a user with visual preferences, I need to switch between light, dark, and sys
 - **FR-022**: Status bar MUST display cursor position (line, column) for editor tabs
 
 **State Management**
+
 - **FR-023**: System MUST manage connection state including list of connections, active connection, and connection groups
 - **FR-024**: System MUST manage tab state including list of tabs, active tab, and tab content
 - **FR-025**: System MUST manage theme state with options for light, dark, and system-following
@@ -172,12 +177,14 @@ As a user with visual preferences, I need to switch between light, dark, and sys
 - **FR-027**: All UI state MUST persist to local storage and restore on application launch
 
 **Theme Support**
+
 - **FR-028**: System MUST support light, dark, and system-following theme modes
 - **FR-029**: System MUST apply theme class to document root for consistent styling
 - **FR-030**: System MUST listen for system theme changes when in "system" mode
 - **FR-031**: System MUST persist theme preference to local storage
 
 **Accessibility**
+
 - **FR-032**: All interactive elements MUST be keyboard accessible
 - **FR-033**: Tab components MUST include appropriate ARIA attributes (role="tab", aria-selected)
 - **FR-034**: Resizer MUST include role="separator" and aria-orientation attributes

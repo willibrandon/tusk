@@ -64,12 +64,12 @@ import adapter from '@sveltejs/adapter-static';
 export default {
 	kit: {
 		adapter: adapter({
-			fallback: 'index.html',
+			fallback: 'index.html'
 		}),
 		serviceWorker: {
-			register: true,
-		},
-	},
+			register: true
+		}
+	}
 };
 ```
 
@@ -90,16 +90,16 @@ precacheAndRoute(self.__WB_MANIFEST);
 registerRoute(
 	({ url }) => url.pathname.startsWith('/api/'),
 	new NetworkFirst({
-		cacheName: 'api-cache',
-	}),
+		cacheName: 'api-cache'
+	})
 );
 
 // Cache images
 registerRoute(
 	({ request }) => request.destination === 'image',
 	new CacheFirst({
-		cacheName: 'image-cache',
-	}),
+		cacheName: 'image-cache'
+	})
 );
 ```
 

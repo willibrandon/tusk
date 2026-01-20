@@ -40,14 +40,14 @@ Enable in `svelte.config.js`:
 export default {
 	kit: {
 		experimental: {
-			remoteFunctions: true,
-		},
+			remoteFunctions: true
+		}
 	},
 	compilerOptions: {
 		experimental: {
-			async: true, // enables await anywhere in components
-		},
-	},
+			async: true // enables await anywhere in components
+		}
+	}
 };
 ```
 
@@ -110,12 +110,12 @@ import * as v from 'valibot';
 export const create_post = command(
 	v.object({
 		title: v.string(),
-		content: v.string(),
+		content: v.string()
 	}),
 	async ({ title, content }) => {
 		const post = await db.posts.create({ title, content });
 		return { id: post.id };
-	},
+	}
 );
 ```
 
@@ -133,12 +133,9 @@ event handlers.
 import { query } from '$app/server';
 import * as v from 'valibot';
 
-export const get_user = query(
-	v.object({ id: v.string() }),
-	async ({ id }) => {
-		return await db.users.findById(id);
-	},
-);
+export const get_user = query(v.object({ id: v.string() }), async ({ id }) => {
+	return await db.users.findById(id);
+});
 ```
 
 **Client usage - multiple patterns:**
@@ -192,12 +189,12 @@ export const get_weather = query.batch(
 	async (cities) => {
 		// cities is array - one DB call for all
 		const data = await db.weather.findMany({
-			city: { in: cities },
+			city: { in: cities }
 		});
 		// Return a RESOLVER FUNCTION that maps input → output
 		const lookup = new Map(data.map((w) => [w.city, w]));
 		return (city) => lookup.get(city);
-	},
+	}
 );
 ```
 
@@ -229,12 +226,12 @@ export const create_post = form(
 	v.object({
 		title: v.pipe(v.string(), v.minLength(1)),
 		content: v.string(),
-		published: v.optional(v.boolean()), // Use optional() for checkboxes!
+		published: v.optional(v.boolean()) // Use optional() for checkboxes!
 	}),
 	async ({ title, content, published }) => {
 		const post = await db.posts.create({ title, content, published });
 		return { id: post.id };
-	},
+	}
 );
 ```
 
@@ -269,8 +266,7 @@ export const create_post = form(
 
 	<label>
 		Content
-		<textarea {...create_post.fields.content.as('textarea')}
-		></textarea>
+		<textarea {...create_post.fields.content.as('textarea')}></textarea>
 	</label>
 
 	<label>
@@ -339,7 +335,7 @@ import { prerender } from '$app/server';
 export const get_build_stats = prerender(async () => {
 	return {
 		buildTime: new Date().toISOString(),
-		postCount: await db.posts.count(),
+		postCount: await db.posts.count()
 	};
 });
 ```
@@ -353,8 +349,8 @@ export const get_post = prerender(
 		return await db.posts.findBySlug(slug);
 	},
 	{
-		inputs: () => [{ slug: 'hello' }, { slug: 'world' }],
-	},
+		inputs: () => [{ slug: 'hello' }, { slug: 'world' }]
+	}
 );
 ```
 
@@ -404,9 +400,7 @@ await addTodo(item).updates(getTodos());
 await addTodo(item).updates(getTodos(), getStats());
 
 // Optimistic update with .withOverride()
-await addLike(postId).updates(
-	getLikes(postId).withOverride((count) => count + 1),
-);
+await addLike(postId).updates(getLikes(postId).withOverride((count) => count + 1));
 ```
 
 **Server-side refresh:** Inside form/command handlers, call
@@ -447,12 +441,12 @@ import * as v from 'valibot';
 export const update_settings = command(
 	v.object({
 		theme: v.union([v.literal('light'), v.literal('dark')]),
-		notifications: v.boolean(),
+		notifications: v.boolean()
 	}),
 	async (settings) => {
 		// settings is fully typed and validated
 		await db.settings.update(settings);
-	},
+	}
 );
 ```
 
@@ -490,7 +484,7 @@ export const checkout = form(schema, async (data) => {
 		invalid.quantity('Not enough stock available');
 	}
 
-	if (!await validateCoupon(data.coupon)) {
+	if (!(await validateCoupon(data.coupon))) {
 		// Another field error
 		invalid.coupon('Invalid or expired coupon');
 	}
@@ -533,13 +527,13 @@ export const checkout = form(schema, async (data) => {
 return {
 	name: 'Alice',
 	age: 30,
-	created: new Date(),
+	created: new Date()
 };
 
 // ❌ Invalid
 return {
 	user: new User(), // Class instance
-	callback: () => {}, // Function
+	callback: () => {} // Function
 };
 ```
 
@@ -572,16 +566,13 @@ export const get_session = command(async () => {
 Thrown errors are serialized and re-thrown on the client:
 
 ```typescript
-export const risky_action = command(
-	v.object({ id: v.string() }),
-	async ({ id }) => {
-		const item = await db.items.find(id);
-		if (!item) {
-			throw new Error('Item not found');
-		}
-		return item;
-	},
-);
+export const risky_action = command(v.object({ id: v.string() }), async ({ id }) => {
+	const item = await db.items.find(id);
+	if (!item) {
+		throw new Error('Item not found');
+	}
+	return item;
+});
 
 // Client side:
 try {
@@ -740,7 +731,7 @@ export const get_post = query(
 	v.object({ id: v.number() }),
 	async ({ id }): Promise<{ title: string; body: string }> => {
 		return await db.posts.find(id);
-	},
+	}
 );
 
 // Client - fully typed automatically!

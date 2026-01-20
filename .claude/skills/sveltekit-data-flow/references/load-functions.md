@@ -25,11 +25,11 @@ import { db } from '$lib/server/database';
 export const load: PageServerLoad = async ({ locals, params }) => {
 	// Access server-only resources
 	const user = await db.query.users.findFirst({
-		where: eq(users.id, locals.userId),
+		where: eq(users.id, locals.userId)
 	});
 
 	const posts = await db.query.posts.findMany({
-		where: eq(posts.authorId, user.id),
+		where: eq(posts.authorId, user.id)
 	});
 
 	// Must return serializable data
@@ -37,9 +37,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		user: {
 			id: user.id,
 			name: user.name,
-			email: user.email,
+			email: user.email
 		},
-		posts,
+		posts
 	};
 };
 ```
@@ -71,15 +71,12 @@ export const load: PageLoad = async ({ data, fetch }) => {
 	const stats = await response.json();
 
 	// Can access browser APIs (but check if in browser first)
-	const theme =
-		typeof window !== 'undefined'
-			? localStorage.getItem('theme')
-			: null;
+	const theme = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
 
 	return {
 		user,
 		stats,
-		theme,
+		theme
 	};
 };
 ```
@@ -211,8 +208,8 @@ export const load = async () => {
 		user: {
 			id: user.id,
 			name: user.name,
-			email: user.email,
-		},
+			email: user.email
+		}
 	};
 };
 ```
@@ -243,17 +240,13 @@ export const load = async () => {
 ```typescript
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({
-	locals,
-	params,
-	url,
-}) => {
+export const load: PageServerLoad = async ({ locals, params, url }) => {
 	// TypeScript knows return type must be serializable
 	return {
 		user: {
 			id: 1,
-			name: 'Alice',
-		},
+			name: 'Alice'
+		}
 	};
 };
 ```
@@ -265,7 +258,7 @@ export const load: PageLoad = async ({ data, fetch, params }) => {
 	// `data` is typed from +page.server.ts return type
 	return {
 		...data,
-		extra: 'data',
+		extra: 'data'
 	};
 };
 ```
