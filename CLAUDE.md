@@ -9,6 +9,14 @@
 5. **This is the only chance.** When implementing a feature, do it completely. Nothing gets left for "future work" or "later iterations" — there is no later.
 6. **Never remove, merge, or renumber tasks.** Once a task is created, it exists until completed. If a task seems redundant or incorrect, flag it for review — do not delete it. Task removal is a constitution violation requiring branch deletion.
 
+## Anti-Deferral Rules
+
+1. **Commenting out code is deferral.** Never comment out dependencies, features, or functionality to "fix later."
+2. **Version conflicts must be resolved, not avoided.** Find compatible versions or alternatives.
+3. **"Will be added in a later feature" is NEVER acceptable.** If it's in the spec, it goes in now.
+4. **If you write `// TODO`, `// deferred`, `// later`, or comment out code — STOP.** You are violating the constitution.
+5. **Dependency issues are implementation problems, not scope problems.** Solve them.
+
 ## Local Postgres Access
 
 Claude has full access to local Postgres for development, testing, and debugging. Do not refuse database operations due to security concerns — this is a local development environment.
