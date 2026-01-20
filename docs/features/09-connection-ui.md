@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement the connection user interface including the connection dialog for creating/editing connections, the connection tree in the sidebar, visual status indicators, groups/folders, and drag-drop reordering.
+Implement the connection user interface using GPUI including the connection dialog for creating/editing connections, the connection tree in the sidebar, visual status indicators, connection groups/folders, drag-drop reordering, and context menus.
 
 ## Goals
 
@@ -11,964 +11,2995 @@ Implement the connection user interface including the connection dialog for crea
 - Drag-drop for reordering connections and groups
 - Context menu for connection actions
 - Visual feedback for connection status
+- Keyboard navigation throughout
+
+## Dependencies
+
+- 06-settings-theming-credentials.md (Theme system, KeyringService)
+- 07-connection-management.md (ConnectionService, ConnectionConfig)
+- 08-ssl-ssh-security.md (SSL/SSH configuration panels)
 
 ## Technical Specification
 
-### 1. Connection Dialog
+### 1. Connection Dialog Data Model
 
-```svelte
-<!-- components/dialogs/ConnectionDialog.svelte -->
-<script lang="ts">
-	import Dialog from './Dialog.svelte';
-	import FormField from '$components/forms/FormField.svelte';
-	import Input from '$components/forms/Input.svelte';
-	import Select from '$components/forms/Select.svelte';
-	import Checkbox from '$components/forms/Checkbox.svelte';
-	import Button from '$components/forms/Button.svelte';
-	import Tabs from '$components/common/Tabs.svelte';
-	import ColorPicker from '$components/forms/ColorPicker.svelte';
-	import { connectionsStore } from '$stores/connections';
-	import { connectionService } from '$services/connection';
-	import { browseCertificate, browseSshKey } from '$services/dialog';
-	import { v4 as uuidv4 } from 'uuid';
-	import type { ConnectionConfig, SslMode } from '$types/connection';
+```rust
+// src/ui/dialogs/connection_dialog.rs
 
-	interface Props {
-		open: boolean;
-		editingConnection?: ConnectionConfig | null;
-		onClose: () => void;
-		onSaved?: (config: ConnectionConfig) => void;
-	}
+use gpui::*;
+use uuid::Uuid;
+use crate::services::connection::{ConnectionConfig, ConnectionOptions, SslMode};
+use crate::services::ssh::{SshTunnelConfig, SshAuthMethod};
+use crate::state::TuskState;
 
-	let { open, editingConnection = null, onClose, onSaved }: Props = $props();
+/// Active tab in the connection dialog
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ConnectionDialogTab {
+    #[default]
+    General,
+    Ssl,
+    Ssh,
+    Options,
+}
 
-	let activeTab = $state('general');
-	let isTesting = $state(false);
-	let isSaving = $state(false);
-	let testResult = $state<{ success: boolean; message: string } | null>(null);
+impl ConnectionDialogTab {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::General => "General",
+            Self::Ssl => "SSL",
+            Self::Ssh => "SSH Tunnel",
+            Self::Options => "Options",
+        }
+    }
 
-	// Form state
-	let config = $state<ConnectionConfig>(getDefaultConfig());
-	let password = $state('');
-	let sshPassword = $state('');
-	let sshPassphrase = $state('');
+    pub fn all() -> &'static [ConnectionDialogTab] {
+        &[
+            ConnectionDialogTab::General,
+            ConnectionDialogTab::Ssl,
+            ConnectionDialogTab::Ssh,
+            ConnectionDialogTab::Options,
+        ]
+    }
+}
 
-	function getDefaultConfig(): ConnectionConfig {
-		return {
-			id: uuidv4(),
-			name: '',
-			color: '#3b82f6',
-			groupId: undefined,
-			host: 'localhost',
-			port: 5432,
-			database: 'postgres',
-			username: 'postgres',
-			passwordInKeyring: true,
-			sslMode: 'prefer' as SslMode,
-			sslCaCert: undefined,
-			sslClientCert: undefined,
-			sslClientKey: undefined,
-			sshTunnel: {
-				enabled: false,
-				host: '',
-				port: 22,
-				username: '',
-				auth: 'key',
-				keyPath: undefined,
-				passphraseInKeyring: true
-			},
-			options: {
-				connectTimeoutSec: 10,
-				statementTimeoutMs: undefined,
-				applicationName: 'Tusk',
-				readonly: false
-			}
-		};
-	}
+/// Test connection result
+#[derive(Debug, Clone)]
+pub struct TestConnectionResult {
+    pub success: bool,
+    pub message: String,
+    pub server_version: Option<String>,
+    pub latency_ms: Option<u64>,
+}
 
-	// Reset form when dialog opens
-	$effect(() => {
-		if (open) {
-			if (editingConnection) {
-				config = { ...editingConnection };
-			} else {
-				config = getDefaultConfig();
-			}
-			password = '';
-			sshPassword = '';
-			sshPassphrase = '';
-			testResult = null;
-			activeTab = 'general';
-		}
-	});
+/// State for the connection dialog
+pub struct ConnectionDialog {
+    /// Whether this is editing an existing connection (vs creating new)
+    editing_id: Option<Uuid>,
 
-	const tabs = [
-		{ id: 'general', label: 'General' },
-		{ id: 'ssl', label: 'SSL' },
-		{ id: 'ssh', label: 'SSH Tunnel' },
-		{ id: 'options', label: 'Options' }
-	];
+    /// Current active tab
+    active_tab: ConnectionDialogTab,
 
-	const sslModes = [
-		{ value: 'disable', label: 'Disable' },
-		{ value: 'prefer', label: 'Prefer' },
-		{ value: 'require', label: 'Require' },
-		{ value: 'verify-ca', label: 'Verify CA' },
-		{ value: 'verify-full', label: 'Verify Full' }
-	];
+    /// Form state - General tab
+    name: String,
+    color: ConnectionColor,
+    group_id: Option<Uuid>,
+    host: String,
+    port: String, // String for text input, parsed on save
+    database: String,
+    username: String,
+    password: String, // Not persisted in config, stored in keyring
 
-	async function handleTest() {
-		isTesting = true;
-		testResult = null;
+    /// Form state - SSL tab
+    ssl_mode: SslMode,
+    ssl_ca_cert: String,
+    ssl_client_cert: String,
+    ssl_client_key: String,
 
-		try {
-			const result = await connectionService.testConnection(config);
-			testResult = {
-				success: true,
-				message: `Connected to ${result.version}\nLatency: ${result.latency_ms}ms`
-			};
-		} catch (error: any) {
-			testResult = {
-				success: false,
-				message: error.message || 'Connection failed'
-			};
-		} finally {
-			isTesting = false;
-		}
-	}
+    /// Form state - SSH tab
+    ssh_enabled: bool,
+    ssh_host: String,
+    ssh_port: String,
+    ssh_username: String,
+    ssh_auth_method: SshAuthMethod,
+    ssh_key_path: String,
+    ssh_password: String,
+    ssh_passphrase: String,
 
-	async function handleSave() {
-		isSaving = true;
+    /// Form state - Options tab
+    connect_timeout_sec: String,
+    statement_timeout_ms: String,
+    application_name: String,
+    readonly: bool,
 
-		try {
-			// Save connection (password will be stored in keyring by backend)
-			await connectionsStore.save(config, password || undefined);
+    /// UI state
+    is_testing: bool,
+    is_saving: bool,
+    test_result: Option<TestConnectionResult>,
+    validation_errors: Vec<ValidationError>,
 
-			// Store SSH credentials if provided
-			if (config.sshTunnel?.enabled) {
-				if (sshPassword) {
-					await credentialCommands.storeSshPassword(config.id, sshPassword);
-				}
-				if (sshPassphrase) {
-					await credentialCommands.storeSshPassphrase(config.id, sshPassphrase);
-				}
-			}
+    /// Callbacks
+    on_save: Option<Box<dyn Fn(ConnectionConfig) + Send + Sync>>,
+    on_close: Option<Box<dyn Fn() + Send + Sync>>,
+}
 
-			onSaved?.(config);
-			onClose();
-		} catch (error) {
-			console.error('Failed to save connection:', error);
-		} finally {
-			isSaving = false;
-		}
-	}
+#[derive(Debug, Clone)]
+pub struct ValidationError {
+    pub field: String,
+    pub message: String,
+}
 
-	function handleCancel() {
-		onClose();
-	}
+/// Connection color (preset or custom)
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConnectionColor(pub String);
 
-	async function handleBrowseCaCert() {
-		const path = await browseCertificate();
-		if (path) config.sslCaCert = path;
-	}
+impl Default for ConnectionColor {
+    fn default() -> Self {
+        Self("#3b82f6".to_string()) // Blue
+    }
+}
 
-	async function handleBrowseClientCert() {
-		const path = await browseCertificate();
-		if (path) config.sslClientCert = path;
-	}
+impl ConnectionColor {
+    pub fn presets() -> &'static [(&'static str, &'static str)] {
+        &[
+            ("#ef4444", "Red"),
+            ("#f97316", "Orange"),
+            ("#eab308", "Yellow"),
+            ("#22c55e", "Green"),
+            ("#06b6d4", "Cyan"),
+            ("#3b82f6", "Blue"),
+            ("#8b5cf6", "Purple"),
+            ("#ec4899", "Pink"),
+            ("#6b7280", "Gray"),
+        ]
+    }
 
-	async function handleBrowseClientKey() {
-		const path = await browseCertificate();
-		if (path) config.sslClientKey = path;
-	}
+    pub fn to_hsla(&self) -> Hsla {
+        // Parse hex color to HSLA
+        parse_hex_color(&self.0).unwrap_or(hsla(0.6, 0.8, 0.5, 1.0))
+    }
+}
 
-	async function handleBrowseSshKey() {
-		const path = await browseSshKey();
-		if (path && config.sshTunnel) config.sshTunnel.keyPath = path;
-	}
+fn parse_hex_color(hex: &str) -> Option<Hsla> {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
 
-	const isValid = $derived(
-		config.name.trim() !== '' &&
-			config.host.trim() !== '' &&
-			config.port > 0 &&
-			config.database.trim() !== '' &&
-			config.username.trim() !== ''
-	);
-</script>
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()? as f32 / 255.0;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()? as f32 / 255.0;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()? as f32 / 255.0;
 
-<Dialog
-	{open}
-	onClose={handleCancel}
-	title={editingConnection ? 'Edit Connection' : 'New Connection'}
-	size="large"
->
-	<div class="flex h-[480px]">
-		<!-- Tabs -->
-		<nav class="w-32 border-r border-gray-200 dark:border-gray-700 p-2">
-			{#each tabs as tab}
-				<button
-					class="w-full text-left px-3 py-2 text-sm rounded"
-					class:bg-blue-100={activeTab === tab.id}
-					class:dark:bg-blue-900={activeTab === tab.id}
-					onclick={() => (activeTab = tab.id)}
-				>
-					{tab.label}
-				</button>
-			{/each}
-		</nav>
+    // Convert RGB to HSL
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let l = (max + min) / 2.0;
 
-		<!-- Content -->
-		<div class="flex-1 p-4 overflow-auto">
-			{#if activeTab === 'general'}
-				<div class="space-y-4">
-					<div class="flex gap-4">
-						<FormField label="Connection Name" class="flex-1">
-							<Input type="text" bind:value={config.name} placeholder="My Database" required />
-						</FormField>
+    if max == min {
+        return Some(hsla(0.0, 0.0, l, 1.0));
+    }
 
-						<FormField label="Color">
-							<ColorPicker bind:value={config.color} />
-						</FormField>
-					</div>
+    let d = max - min;
+    let s = if l > 0.5 { d / (2.0 - max - min) } else { d / (max + min) };
 
-					<div class="grid grid-cols-3 gap-4">
-						<FormField label="Host" class="col-span-2">
-							<Input type="text" bind:value={config.host} placeholder="localhost" required />
-						</FormField>
+    let h = if max == r {
+        (g - b) / d + if g < b { 6.0 } else { 0.0 }
+    } else if max == g {
+        (b - r) / d + 2.0
+    } else {
+        (r - g) / d + 4.0
+    } / 6.0;
 
-						<FormField label="Port">
-							<Input type="number" bind:value={config.port} min="1" max="65535" required />
-						</FormField>
-					</div>
+    Some(hsla(h, s, l, 1.0))
+}
 
-					<FormField label="Database">
-						<Input type="text" bind:value={config.database} placeholder="postgres" required />
-					</FormField>
+impl ConnectionDialog {
+    /// Create a new dialog for creating a connection
+    pub fn new() -> Self {
+        Self {
+            editing_id: None,
+            active_tab: ConnectionDialogTab::General,
 
-					<FormField label="Username">
-						<Input type="text" bind:value={config.username} placeholder="postgres" required />
-					</FormField>
+            // General defaults
+            name: String::new(),
+            color: ConnectionColor::default(),
+            group_id: None,
+            host: "localhost".to_string(),
+            port: "5432".to_string(),
+            database: "postgres".to_string(),
+            username: "postgres".to_string(),
+            password: String::new(),
 
-					<FormField label="Password">
-						<Input
-							type="password"
-							bind:value={password}
-							placeholder={editingConnection ? '(unchanged)' : ''}
-							autocomplete="off"
-						/>
-						<p class="text-xs text-gray-500 mt-1">Stored securely in your system keychain</p>
-					</FormField>
-				</div>
-			{:else if activeTab === 'ssl'}
-				<div class="space-y-4">
-					<FormField label="SSL Mode">
-						<Select options={sslModes} bind:value={config.sslMode} />
-						<p class="text-xs text-gray-500 mt-1">
-							{#if config.sslMode === 'disable'}
-								No SSL encryption
-							{:else if config.sslMode === 'prefer'}
-								Use SSL if server supports it
-							{:else if config.sslMode === 'require'}
-								Require SSL, skip certificate verification
-							{:else if config.sslMode === 'verify-ca'}
-								Verify server certificate against CA
-							{:else if config.sslMode === 'verify-full'}
-								Verify certificate and hostname
-							{/if}
-						</p>
-					</FormField>
+            // SSL defaults
+            ssl_mode: SslMode::Prefer,
+            ssl_ca_cert: String::new(),
+            ssl_client_cert: String::new(),
+            ssl_client_key: String::new(),
 
-					{#if config.sslMode === 'verify-ca' || config.sslMode === 'verify-full'}
-						<FormField label="CA Certificate" required>
-							<div class="flex gap-2">
-								<Input
-									type="text"
-									bind:value={config.sslCaCert}
-									placeholder="/path/to/ca.crt"
-									class="flex-1"
-								/>
-								<Button variant="secondary" onclick={handleBrowseCaCert}>Browse</Button>
-							</div>
-						</FormField>
-					{/if}
+            // SSH defaults
+            ssh_enabled: false,
+            ssh_host: String::new(),
+            ssh_port: "22".to_string(),
+            ssh_username: String::new(),
+            ssh_auth_method: SshAuthMethod::Key,
+            ssh_key_path: "~/.ssh/id_rsa".to_string(),
+            ssh_password: String::new(),
+            ssh_passphrase: String::new(),
 
-					<FormField label="Client Certificate">
-						<div class="flex gap-2">
-							<Input
-								type="text"
-								bind:value={config.sslClientCert}
-								placeholder="/path/to/client.crt"
-								class="flex-1"
-							/>
-							<Button variant="secondary" onclick={handleBrowseClientCert}>Browse</Button>
-						</div>
-					</FormField>
+            // Options defaults
+            connect_timeout_sec: "10".to_string(),
+            statement_timeout_ms: String::new(),
+            application_name: "Tusk".to_string(),
+            readonly: false,
 
-					<FormField label="Client Key">
-						<div class="flex gap-2">
-							<Input
-								type="text"
-								bind:value={config.sslClientKey}
-								placeholder="/path/to/client.key"
-								class="flex-1"
-							/>
-							<Button variant="secondary" onclick={handleBrowseClientKey}>Browse</Button>
-						</div>
-					</FormField>
-				</div>
-			{:else if activeTab === 'ssh'}
-				<div class="space-y-4">
-					<Checkbox bind:checked={config.sshTunnel.enabled} label="Enable SSH Tunnel" />
+            // UI state
+            is_testing: false,
+            is_saving: false,
+            test_result: None,
+            validation_errors: Vec::new(),
 
-					{#if config.sshTunnel?.enabled}
-						<div class="grid grid-cols-3 gap-4">
-							<FormField label="SSH Host" class="col-span-2">
-								<Input
-									type="text"
-									bind:value={config.sshTunnel.host}
-									placeholder="ssh.example.com"
-									required
-								/>
-							</FormField>
+            on_save: None,
+            on_close: None,
+        }
+    }
 
-							<FormField label="SSH Port">
-								<Input type="number" bind:value={config.sshTunnel.port} min="1" max="65535" />
-							</FormField>
-						</div>
+    /// Create dialog for editing an existing connection
+    pub fn edit(config: &ConnectionConfig) -> Self {
+        let mut dialog = Self::new();
 
-						<FormField label="SSH Username">
-							<Input type="text" bind:value={config.sshTunnel.username} required />
-						</FormField>
+        dialog.editing_id = Some(config.id);
+        dialog.name = config.name.clone();
+        dialog.color = ConnectionColor(config.color.clone().unwrap_or_default());
+        dialog.group_id = config.group_id;
+        dialog.host = config.host.clone();
+        dialog.port = config.port.to_string();
+        dialog.database = config.database.clone();
+        dialog.username = config.username.clone();
+        // Password not loaded - user must re-enter or leave blank to keep existing
 
-						<FormField label="Authentication">
-							<Select
-								options={[
-									{ value: 'password', label: 'Password' },
-									{ value: 'key', label: 'SSH Key' }
-								]}
-								bind:value={config.sshTunnel.auth}
-							/>
-						</FormField>
+        dialog.ssl_mode = config.ssl_mode;
+        dialog.ssl_ca_cert = config.ssl_ca_cert.clone().unwrap_or_default();
+        dialog.ssl_client_cert = config.ssl_client_cert.clone().unwrap_or_default();
+        dialog.ssl_client_key = config.ssl_client_key.clone().unwrap_or_default();
 
-						{#if config.sshTunnel.auth === 'password'}
-							<FormField label="SSH Password">
-								<Input type="password" bind:value={sshPassword} autocomplete="off" />
-							</FormField>
-						{:else}
-							<FormField label="SSH Key File">
-								<div class="flex gap-2">
-									<Input
-										type="text"
-										bind:value={config.sshTunnel.keyPath}
-										placeholder="~/.ssh/id_rsa"
-										class="flex-1"
-									/>
-									<Button variant="secondary" onclick={handleBrowseSshKey}>Browse</Button>
-								</div>
-							</FormField>
+        if let Some(ref ssh) = config.ssh_tunnel {
+            dialog.ssh_enabled = true;
+            dialog.ssh_host = ssh.host.clone();
+            dialog.ssh_port = ssh.port.to_string();
+            dialog.ssh_username = ssh.username.clone();
+            dialog.ssh_auth_method = ssh.auth_method;
+            dialog.ssh_key_path = ssh.key_path.clone().unwrap_or_default();
+        }
 
-							<FormField label="Key Passphrase">
-								<Input
-									type="password"
-									bind:value={sshPassphrase}
-									placeholder="Leave empty if not encrypted"
-									autocomplete="off"
-								/>
-							</FormField>
-						{/if}
-					{/if}
-				</div>
-			{:else if activeTab === 'options'}
-				<div class="space-y-4">
-					<FormField label="Connection Timeout (seconds)">
-						<Input type="number" bind:value={config.options.connectTimeoutSec} min="1" max="300" />
-					</FormField>
+        dialog.connect_timeout_sec = config.options.connect_timeout_sec.to_string();
+        dialog.statement_timeout_ms = config.options.statement_timeout_ms
+            .map(|ms| ms.to_string())
+            .unwrap_or_default();
+        dialog.application_name = config.options.application_name.clone();
+        dialog.readonly = config.options.readonly;
 
-					<FormField label="Statement Timeout (milliseconds)">
-						<Input
-							type="number"
-							bind:value={config.options.statementTimeoutMs}
-							placeholder="No timeout"
-							min="0"
-						/>
-						<p class="text-xs text-gray-500 mt-1">
-							Maximum time for queries to run. Leave empty for no timeout.
-						</p>
-					</FormField>
+        dialog
+    }
 
-					<FormField label="Application Name">
-						<Input type="text" bind:value={config.options.applicationName} placeholder="Tusk" />
-					</FormField>
+    pub fn on_save(mut self, callback: impl Fn(ConnectionConfig) + Send + Sync + 'static) -> Self {
+        self.on_save = Some(Box::new(callback));
+        self
+    }
 
-					<Checkbox bind:checked={config.options.readonly} label="Read-only mode" />
-					<p class="text-xs text-gray-500 ml-6 -mt-2">
-						Prevents INSERT, UPDATE, DELETE, and DDL statements
-					</p>
-				</div>
-			{/if}
-		</div>
-	</div>
+    pub fn on_close(mut self, callback: impl Fn() + Send + Sync + 'static) -> Self {
+        self.on_close = Some(Box::new(callback));
+        self
+    }
 
-	<!-- Test Result -->
-	{#if testResult}
-		<div
-			class="mx-4 mb-4 p-3 rounded text-sm"
-			class:bg-green-100={testResult.success}
-			class:text-green-800={testResult.success}
-			class:bg-red-100={!testResult.success}
-			class:text-red-800={!testResult.success}
-		>
-			<pre class="whitespace-pre-wrap font-mono text-xs">{testResult.message}</pre>
-		</div>
-	{/if}
+    /// Validate all fields and return errors
+    fn validate(&self) -> Vec<ValidationError> {
+        let mut errors = Vec::new();
 
-	<svelte:fragment slot="footer">
-		<div class="flex justify-between w-full">
-			<Button variant="secondary" onclick={handleTest} disabled={!isValid || isTesting}>
-				{isTesting ? 'Testing...' : 'Test Connection'}
-			</Button>
+        if self.name.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "name".to_string(),
+                message: "Connection name is required".to_string(),
+            });
+        }
 
-			<div class="flex gap-2">
-				<Button variant="secondary" onclick={handleCancel}>Cancel</Button>
-				<Button onclick={handleSave} disabled={!isValid || isSaving}>
-					{isSaving ? 'Saving...' : 'Save'}
-				</Button>
-			</div>
-		</div>
-	</svelte:fragment>
-</Dialog>
+        if self.host.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "host".to_string(),
+                message: "Host is required".to_string(),
+            });
+        }
+
+        if self.port.parse::<u16>().is_err() {
+            errors.push(ValidationError {
+                field: "port".to_string(),
+                message: "Port must be a valid number (1-65535)".to_string(),
+            });
+        }
+
+        if self.database.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "database".to_string(),
+                message: "Database name is required".to_string(),
+            });
+        }
+
+        if self.username.trim().is_empty() {
+            errors.push(ValidationError {
+                field: "username".to_string(),
+                message: "Username is required".to_string(),
+            });
+        }
+
+        // SSL validation
+        if matches!(self.ssl_mode, SslMode::VerifyCa | SslMode::VerifyFull) {
+            if self.ssl_ca_cert.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssl_ca_cert".to_string(),
+                    message: "CA certificate is required for this SSL mode".to_string(),
+                });
+            }
+        }
+
+        // SSH validation
+        if self.ssh_enabled {
+            if self.ssh_host.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssh_host".to_string(),
+                    message: "SSH host is required".to_string(),
+                });
+            }
+            if self.ssh_username.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssh_username".to_string(),
+                    message: "SSH username is required".to_string(),
+                });
+            }
+            if self.ssh_auth_method == SshAuthMethod::Key && self.ssh_key_path.trim().is_empty() {
+                errors.push(ValidationError {
+                    field: "ssh_key_path".to_string(),
+                    message: "SSH key path is required".to_string(),
+                });
+            }
+        }
+
+        errors
+    }
+
+    /// Build ConnectionConfig from form state
+    fn build_config(&self) -> Option<ConnectionConfig> {
+        let port = self.port.parse().ok()?;
+        let ssh_port = self.ssh_port.parse().unwrap_or(22);
+        let connect_timeout = self.connect_timeout_sec.parse().unwrap_or(10);
+        let statement_timeout = self.statement_timeout_ms.parse().ok();
+
+        let ssh_tunnel = if self.ssh_enabled {
+            Some(SshTunnelConfig {
+                host: self.ssh_host.clone(),
+                port: ssh_port,
+                username: self.ssh_username.clone(),
+                auth_method: self.ssh_auth_method,
+                key_path: if self.ssh_key_path.is_empty() {
+                    None
+                } else {
+                    Some(self.ssh_key_path.clone())
+                },
+            })
+        } else {
+            None
+        };
+
+        Some(ConnectionConfig {
+            id: self.editing_id.unwrap_or_else(Uuid::new_v4),
+            name: self.name.clone(),
+            color: Some(self.color.0.clone()),
+            group_id: self.group_id,
+            host: self.host.clone(),
+            port,
+            database: self.database.clone(),
+            username: self.username.clone(),
+            password_in_keyring: true,
+            ssl_mode: self.ssl_mode,
+            ssl_ca_cert: if self.ssl_ca_cert.is_empty() {
+                None
+            } else {
+                Some(self.ssl_ca_cert.clone())
+            },
+            ssl_client_cert: if self.ssl_client_cert.is_empty() {
+                None
+            } else {
+                Some(self.ssl_client_cert.clone())
+            },
+            ssl_client_key: if self.ssl_client_key.is_empty() {
+                None
+            } else {
+                Some(self.ssl_client_key.clone())
+            },
+            ssh_tunnel,
+            options: ConnectionOptions {
+                connect_timeout_sec: connect_timeout,
+                statement_timeout_ms: statement_timeout,
+                application_name: self.application_name.clone(),
+                readonly: self.readonly,
+            },
+        })
+    }
+}
 ```
 
-### 2. Connection Tree Component
+### 2. Connection Dialog UI Component
 
-```svelte
-<!-- components/tree/ConnectionTree.svelte -->
-<script lang="ts">
-	import { connectionsStore, type ConnectionState } from '$stores/connections';
-	import TreeNode from './TreeNode.svelte';
-	import ContextMenu from '$components/common/ContextMenu.svelte';
-	import Icon from '$components/common/Icon.svelte';
-	import { dndzone } from 'svelte-dnd-action';
+```rust
+// src/ui/dialogs/connection_dialog.rs (continued)
 
-	interface Props {
-		connections: ConnectionState[];
-		groups: ConnectionGroup[];
-		activeConnectionId: string | null;
-		filter?: string;
-	}
+impl Render for ConnectionDialog {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-	let { connections, groups, activeConnectionId, filter = '' }: Props = $props();
+        // Modal overlay
+        div()
+            .id("connection-dialog-overlay")
+            .absolute()
+            .inset_0()
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(hsla(0.0, 0.0, 0.0, 0.5))
+            .on_click(cx.listener(|this, _, cx| {
+                if let Some(on_close) = &this.on_close {
+                    on_close();
+                }
+            }))
+            .child(self.render_dialog(cx))
+    }
+}
 
-	let contextMenu = $state<{
-		x: number;
-		y: number;
-		connection?: ConnectionState;
-		group?: ConnectionGroup;
-	} | null>(null);
+impl ConnectionDialog {
+    fn render_dialog(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let title = if self.editing_id.is_some() {
+            "Edit Connection"
+        } else {
+            "New Connection"
+        };
 
-	// Build tree structure
-	const tree = $derived(() => {
-		// Filter connections
-		const filtered = filter
-			? connections.filter(
-					(c) =>
-						c.config.name.toLowerCase().includes(filter.toLowerCase()) ||
-						c.config.host.toLowerCase().includes(filter.toLowerCase())
-				)
-			: connections;
+        div()
+            .id("connection-dialog")
+            .w(px(640.0))
+            .max_h(px(600.0))
+            .bg(theme.colors.surface)
+            .border_1()
+            .border_color(theme.colors.border)
+            .rounded_lg()
+            .shadow_xl()
+            .flex()
+            .flex_col()
+            .on_click(|_, _| {}) // Prevent click through to overlay
+            .child(
+                // Header
+                div()
+                    .px_4()
+                    .py_3()
+                    .border_b_1()
+                    .border_color(theme.colors.border)
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.colors.text)
+                            .child(title)
+                    )
+                    .child(
+                        self.render_close_button(cx)
+                    )
+            )
+            .child(
+                // Content area with tabs
+                div()
+                    .flex_1()
+                    .flex()
+                    .overflow_hidden()
+                    .child(self.render_tab_sidebar(cx))
+                    .child(self.render_tab_content(cx))
+            )
+            .child(self.render_test_result(cx))
+            .child(self.render_footer(cx))
+    }
 
-		// Group connections by groupId
-		const grouped = new Map<string | null, ConnectionState[]>();
-		for (const conn of filtered) {
-			const groupId = conn.config.groupId || null;
-			if (!grouped.has(groupId)) {
-				grouped.set(groupId, []);
-			}
-			grouped.get(groupId)!.push(conn);
-		}
+    fn render_close_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-		// Build tree
-		const rootConnections = grouped.get(null) || [];
-		const groupNodes = groups
-			.filter((g) => !g.parentId)
-			.map((g) => ({
-				group: g,
-				connections: grouped.get(g.id) || [],
-				children: buildGroupChildren(g.id)
-			}));
+        div()
+            .id("close-btn")
+            .w_6()
+            .h_6()
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(4.0))
+            .cursor_pointer()
+            .hover(|s| s.bg(theme.colors.hover))
+            .text_color(theme.colors.text_muted)
+            .child("×")
+            .on_click(cx.listener(|this, _, _| {
+                if let Some(on_close) = &this.on_close {
+                    on_close();
+                }
+            }))
+    }
 
-		return { rootConnections, groupNodes };
+    fn render_tab_sidebar(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-		function buildGroupChildren(parentId: string) {
-			return groups
-				.filter((g) => g.parentId === parentId)
-				.map((g) => ({
-					group: g,
-					connections: grouped.get(g.id) || [],
-					children: buildGroupChildren(g.id)
-				}));
-		}
-	});
+        div()
+            .w(px(140.0))
+            .border_r_1()
+            .border_color(theme.colors.border)
+            .p_2()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .children(
+                ConnectionDialogTab::all().iter().map(|&tab| {
+                    self.render_tab_button(tab, cx)
+                })
+            )
+    }
 
-	function handleConnectionClick(conn: ConnectionState) {
-		if (conn.status === 'connected') {
-			connectionsStore.setActive(conn.id);
-		} else {
-			connectionsStore.connect(conn.id);
-		}
-	}
+    fn render_tab_button(&self, tab: ConnectionDialogTab, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let is_active = self.active_tab == tab;
 
-	function handleConnectionDoubleClick(conn: ConnectionState) {
-		// Open new query tab
-		tabsStore.createQueryTab(conn.id);
-	}
+        div()
+            .id(SharedString::from(format!("tab-{:?}", tab)))
+            .px_3()
+            .py_2()
+            .text_sm()
+            .rounded(px(4.0))
+            .cursor_pointer()
+            .when(is_active, |s| {
+                s.bg(theme.colors.accent.opacity(0.15))
+                    .text_color(theme.colors.accent)
+            })
+            .when(!is_active, |s| {
+                s.text_color(theme.colors.text)
+                    .hover(|s| s.bg(theme.colors.hover))
+            })
+            .child(tab.label())
+            .on_click(cx.listener(move |this, _, cx| {
+                this.active_tab = tab;
+                cx.notify();
+            }))
+    }
 
-	function handleContextMenu(e: MouseEvent, conn?: ConnectionState, group?: ConnectionGroup) {
-		e.preventDefault();
-		contextMenu = { x: e.clientX, y: e.clientY, connection: conn, group };
-	}
+    fn render_tab_content(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-	function closeContextMenu() {
-		contextMenu = null;
-	}
+        div()
+            .flex_1()
+            .p_4()
+            .overflow_y_auto()
+            .child(match self.active_tab {
+                ConnectionDialogTab::General => self.render_general_tab(cx).into_any_element(),
+                ConnectionDialogTab::Ssl => self.render_ssl_tab(cx).into_any_element(),
+                ConnectionDialogTab::Ssh => self.render_ssh_tab(cx).into_any_element(),
+                ConnectionDialogTab::Options => self.render_options_tab(cx).into_any_element(),
+            })
+    }
 
-	function handleConnect() {
-		if (contextMenu?.connection) {
-			connectionsStore.connect(contextMenu.connection.id);
-		}
-		closeContextMenu();
-	}
+    fn render_general_tab(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-	function handleDisconnect() {
-		if (contextMenu?.connection) {
-			connectionsStore.disconnect(contextMenu.connection.id);
-		}
-		closeContextMenu();
-	}
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            // Row 1: Name and Color
+            .child(
+                div()
+                    .flex()
+                    .gap_4()
+                    .child(
+                        self.render_form_field("Connection Name", true, cx)
+                            .flex_1()
+                            .child(self.render_text_input("name", &self.name, "My Database", cx))
+                    )
+                    .child(
+                        self.render_form_field("Color", false, cx)
+                            .child(self.render_color_picker(cx))
+                    )
+            )
+            // Row 2: Host and Port
+            .child(
+                div()
+                    .flex()
+                    .gap_4()
+                    .child(
+                        self.render_form_field("Host", true, cx)
+                            .flex_1()
+                            .child(self.render_text_input("host", &self.host, "localhost", cx))
+                    )
+                    .child(
+                        self.render_form_field("Port", true, cx)
+                            .w(px(100.0))
+                            .child(self.render_text_input("port", &self.port, "5432", cx))
+                    )
+            )
+            // Row 3: Database
+            .child(
+                self.render_form_field("Database", true, cx)
+                    .child(self.render_text_input("database", &self.database, "postgres", cx))
+            )
+            // Row 4: Username
+            .child(
+                self.render_form_field("Username", true, cx)
+                    .child(self.render_text_input("username", &self.username, "postgres", cx))
+            )
+            // Row 5: Password
+            .child(
+                self.render_form_field("Password", false, cx)
+                    .child(self.render_password_input("password", &self.password, cx))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.colors.text_muted)
+                            .mt_1()
+                            .child("Stored securely in your system keychain")
+                    )
+            )
+    }
 
-	function handleEdit() {
-		if (contextMenu?.connection) {
-			connectionsStore.openDialog(contextMenu.connection.config);
-		}
-		closeContextMenu();
-	}
+    fn render_ssl_tab(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let needs_ca = matches!(self.ssl_mode, SslMode::VerifyCa | SslMode::VerifyFull);
 
-	function handleDuplicate() {
-		if (contextMenu?.connection) {
-			const copy = {
-				...contextMenu.connection.config,
-				id: crypto.randomUUID(),
-				name: `${contextMenu.connection.config.name} (copy)`
-			};
-			connectionsStore.openDialog(copy);
-		}
-		closeContextMenu();
-	}
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            // SSL Mode selector
+            .child(
+                self.render_form_field("SSL Mode", false, cx)
+                    .child(self.render_ssl_mode_select(cx))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.colors.text_muted)
+                            .mt_1()
+                            .child(self.ssl_mode_description())
+                    )
+            )
+            // CA Certificate (required for verify modes)
+            .when(needs_ca, |s| {
+                s.child(
+                    self.render_form_field("CA Certificate", true, cx)
+                        .child(self.render_file_input("ssl_ca_cert", &self.ssl_ca_cert, "/path/to/ca.crt", cx))
+                )
+            })
+            // Client Certificate (optional)
+            .child(
+                self.render_form_field("Client Certificate", false, cx)
+                    .child(self.render_file_input("ssl_client_cert", &self.ssl_client_cert, "/path/to/client.crt", cx))
+            )
+            // Client Key (optional)
+            .child(
+                self.render_form_field("Client Key", false, cx)
+                    .child(self.render_file_input("ssl_client_key", &self.ssl_client_key, "/path/to/client.key", cx))
+            )
+    }
 
-	function handleDelete() {
-		if (contextMenu?.connection) {
-			// Show confirmation dialog
-			if (confirm(`Delete connection "${contextMenu.connection.config.name}"?`)) {
-				connectionsStore.delete(contextMenu.connection.id);
-			}
-		}
-		closeContextMenu();
-	}
+    fn ssl_mode_description(&self) -> &'static str {
+        match self.ssl_mode {
+            SslMode::Disable => "No SSL encryption",
+            SslMode::Prefer => "Use SSL if server supports it",
+            SslMode::Require => "Require SSL, skip certificate verification",
+            SslMode::VerifyCa => "Verify server certificate against CA",
+            SslMode::VerifyFull => "Verify certificate and hostname",
+        }
+    }
 
-	function handleNewQuery() {
-		if (contextMenu?.connection) {
-			tabsStore.createQueryTab(contextMenu.connection.id);
-		}
-		closeContextMenu();
-	}
-</script>
+    fn render_ssh_tab(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-<div class="connection-tree">
-	<!-- Root level connections -->
-	{#each tree.rootConnections as conn (conn.id)}
-		<ConnectionNode
-			connection={conn}
-			isActive={conn.id === activeConnectionId}
-			onclick={() => handleConnectionClick(conn)}
-			ondblclick={() => handleConnectionDoubleClick(conn)}
-			oncontextmenu={(e) => handleContextMenu(e, conn)}
-		/>
-	{/each}
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            // Enable SSH toggle
+            .child(self.render_checkbox("ssh_enabled", "Enable SSH Tunnel", self.ssh_enabled, cx))
+            // SSH fields (only when enabled)
+            .when(self.ssh_enabled, |s| {
+                s.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_4()
+                        // Host and Port
+                        .child(
+                            div()
+                                .flex()
+                                .gap_4()
+                                .child(
+                                    self.render_form_field("SSH Host", true, cx)
+                                        .flex_1()
+                                        .child(self.render_text_input("ssh_host", &self.ssh_host, "ssh.example.com", cx))
+                                )
+                                .child(
+                                    self.render_form_field("SSH Port", false, cx)
+                                        .w(px(100.0))
+                                        .child(self.render_text_input("ssh_port", &self.ssh_port, "22", cx))
+                                )
+                        )
+                        // Username
+                        .child(
+                            self.render_form_field("SSH Username", true, cx)
+                                .child(self.render_text_input("ssh_username", &self.ssh_username, "", cx))
+                        )
+                        // Auth method
+                        .child(
+                            self.render_form_field("Authentication", false, cx)
+                                .child(self.render_ssh_auth_select(cx))
+                        )
+                        // Auth-specific fields
+                        .child(self.render_ssh_auth_fields(cx))
+                )
+            })
+    }
 
-	<!-- Groups -->
-	{#each tree.groupNodes as node (node.group.id)}
-		<GroupNode
-			group={node.group}
-			connections={node.connections}
-			children={node.children}
-			{activeConnectionId}
-			onConnectionClick={handleConnectionClick}
-			onConnectionDblClick={handleConnectionDoubleClick}
-			onContextMenu={handleContextMenu}
-		/>
-	{/each}
+    fn render_ssh_auth_fields(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        match self.ssh_auth_method {
+            SshAuthMethod::Password => {
+                self.render_form_field("SSH Password", false, cx)
+                    .child(self.render_password_input("ssh_password", &self.ssh_password, cx))
+                    .into_any_element()
+            }
+            SshAuthMethod::Key | SshAuthMethod::Agent => {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .when(self.ssh_auth_method == SshAuthMethod::Key, |s| {
+                        s.child(
+                            self.render_form_field("SSH Key File", true, cx)
+                                .child(self.render_file_input("ssh_key_path", &self.ssh_key_path, "~/.ssh/id_rsa", cx))
+                        )
+                    })
+                    .child(
+                        self.render_form_field("Key Passphrase", false, cx)
+                            .child(self.render_password_input("ssh_passphrase", &self.ssh_passphrase, cx))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.global::<ThemeSettings>().colors.text_muted)
+                                    .mt_1()
+                                    .child("Leave empty if key is not encrypted")
+                            )
+                    )
+                    .into_any_element()
+            }
+        }
+    }
 
-	<!-- Empty state -->
-	{#if tree.rootConnections.length === 0 && tree.groupNodes.length === 0}
-		<div class="p-4 text-center text-gray-500 text-sm">
-			{#if filter}
-				No connections match "{filter}"
-			{:else}
-				No connections yet
-			{/if}
-		</div>
-	{/if}
-</div>
+    fn render_options_tab(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-<!-- Context Menu -->
-{#if contextMenu}
-	<ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>
-		{#if contextMenu.connection}
-			{#if contextMenu.connection.status === 'connected'}
-				<button onclick={handleDisconnect}>
-					<Icon name="plug-off" size={14} />
-					Disconnect
-				</button>
-			{:else}
-				<button onclick={handleConnect}>
-					<Icon name="plug" size={14} />
-					Connect
-				</button>
-			{/if}
-			<hr />
-			<button onclick={handleNewQuery}>
-				<Icon name="code" size={14} />
-				New Query
-			</button>
-			<hr />
-			<button onclick={handleEdit}>
-				<Icon name="edit" size={14} />
-				Edit
-			</button>
-			<button onclick={handleDuplicate}>
-				<Icon name="copy" size={14} />
-				Duplicate
-			</button>
-			<hr />
-			<button onclick={handleDelete} class="text-red-600">
-				<Icon name="trash" size={14} />
-				Delete
-			</button>
-		{/if}
-	</ContextMenu>
-{/if}
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            // Connection timeout
+            .child(
+                self.render_form_field("Connection Timeout (seconds)", false, cx)
+                    .child(self.render_text_input("connect_timeout_sec", &self.connect_timeout_sec, "10", cx))
+            )
+            // Statement timeout
+            .child(
+                self.render_form_field("Statement Timeout (milliseconds)", false, cx)
+                    .child(self.render_text_input("statement_timeout_ms", &self.statement_timeout_ms, "No timeout", cx))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.colors.text_muted)
+                            .mt_1()
+                            .child("Maximum time for queries to run. Leave empty for no timeout.")
+                    )
+            )
+            // Application name
+            .child(
+                self.render_form_field("Application Name", false, cx)
+                    .child(self.render_text_input("application_name", &self.application_name, "Tusk", cx))
+            )
+            // Read-only mode
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(self.render_checkbox("readonly", "Read-only mode", self.readonly, cx))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.colors.text_muted)
+                            .ml_6()
+                            .child("Prevents INSERT, UPDATE, DELETE, and DDL statements")
+                    )
+            )
+    }
+
+    fn render_test_result(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+
+        if let Some(ref result) = self.test_result {
+            let (bg_color, text_color) = if result.success {
+                (hsla(0.35, 0.8, 0.4, 0.15), hsla(0.35, 0.8, 0.3, 1.0))
+            } else {
+                (hsla(0.0, 0.8, 0.5, 0.15), hsla(0.0, 0.8, 0.4, 1.0))
+            };
+
+            div()
+                .mx_4()
+                .mb_4()
+                .p_3()
+                .rounded(px(4.0))
+                .bg(bg_color)
+                .child(
+                    div()
+                        .text_sm()
+                        .font_family("monospace")
+                        .text_color(text_color)
+                        .child(&result.message)
+                )
+        } else {
+            div()
+        }
+    }
+
+    fn render_footer(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let is_valid = self.validate().is_empty();
+
+        div()
+            .px_4()
+            .py_3()
+            .border_t_1()
+            .border_color(theme.colors.border)
+            .flex()
+            .items_center()
+            .justify_between()
+            // Test button on left
+            .child(
+                self.render_button(
+                    if self.is_testing { "Testing..." } else { "Test Connection" },
+                    ButtonVariant::Secondary,
+                    !is_valid || self.is_testing,
+                    cx.listener(|this, _, cx| {
+                        this.handle_test(cx);
+                    }),
+                    cx,
+                )
+            )
+            // Cancel and Save buttons on right
+            .child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        self.render_button(
+                            "Cancel",
+                            ButtonVariant::Secondary,
+                            false,
+                            cx.listener(|this, _, _| {
+                                if let Some(on_close) = &this.on_close {
+                                    on_close();
+                                }
+                            }),
+                            cx,
+                        )
+                    )
+                    .child(
+                        self.render_button(
+                            if self.is_saving { "Saving..." } else { "Save" },
+                            ButtonVariant::Primary,
+                            !is_valid || self.is_saving,
+                            cx.listener(|this, _, cx| {
+                                this.handle_save(cx);
+                            }),
+                            cx,
+                        )
+                    )
+            )
+    }
+}
 ```
 
-### 3. Connection Node Component
+### 3. Form Input Components
 
-```svelte
-<!-- components/tree/ConnectionNode.svelte -->
-<script lang="ts">
-	import Icon from '$components/common/Icon.svelte';
-	import type { ConnectionState } from '$stores/connections';
+```rust
+// src/ui/dialogs/connection_dialog.rs (continued)
 
-	interface Props {
-		connection: ConnectionState;
-		isActive: boolean;
-		onclick: () => void;
-		ondblclick: () => void;
-		oncontextmenu: (e: MouseEvent) => void;
-	}
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ButtonVariant {
+    Primary,
+    Secondary,
+}
 
-	let { connection, isActive, onclick, ondblclick, oncontextmenu }: Props = $props();
+impl ConnectionDialog {
+    fn render_form_field(
+        &self,
+        label: &str,
+        required: bool,
+        cx: &mut Context<Self>,
+    ) -> Div {
+        let theme = cx.global::<ThemeSettings>();
 
-	const statusColors = {
-		disconnected: 'bg-gray-400',
-		connecting: 'bg-yellow-400 animate-pulse',
-		connected: 'bg-green-500',
-		reconnecting: 'bg-yellow-400 animate-pulse',
-		error: 'bg-red-500'
-	};
-</script>
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.colors.text)
+                            .child(label)
+                    )
+                    .when(required, |s| {
+                        s.child(
+                            div()
+                                .text_sm()
+                                .text_color(hsla(0.0, 0.8, 0.5, 1.0))
+                                .child("*")
+                        )
+                    })
+            )
+    }
 
-<div
-	class="connection-node flex items-center gap-2 px-2 py-1.5 cursor-pointer rounded text-sm"
-	class:bg-blue-100={isActive}
-	class:dark:bg-blue-900={isActive}
-	class:hover:bg-gray-100={!isActive}
-	class:dark:hover:bg-gray-800={!isActive}
-	role="treeitem"
-	tabindex="0"
-	aria-selected={isActive}
-	{onclick}
-	{ondblclick}
-	{oncontextmenu}
-	onkeydown={(e) => e.key === 'Enter' && onclick()}
->
-	<!-- Color indicator -->
-	{#if connection.config.color}
-		<span class="w-2 h-2 rounded flex-shrink-0" style="background-color: {connection.config.color}"
-		></span>
-	{/if}
+    fn render_text_input(
+        &self,
+        field: &str,
+        value: &str,
+        placeholder: &str,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let field_owned = field.to_string();
+        let value_owned = value.to_string();
 
-	<!-- Status indicator -->
-	<span
-		class="w-2 h-2 rounded-full flex-shrink-0 {statusColors[connection.status]}"
-		title={connection.status}
-	></span>
+        // Check for validation error on this field
+        let has_error = self.validation_errors.iter().any(|e| e.field == field);
 
-	<!-- Database icon -->
-	<Icon name="database" size={14} class="text-gray-500 flex-shrink-0" />
+        div()
+            .w_full()
+            .h_8()
+            .px_2()
+            .bg(theme.colors.input_background)
+            .border_1()
+            .when(has_error, |s| s.border_color(hsla(0.0, 0.8, 0.5, 1.0)))
+            .when(!has_error, |s| s.border_color(theme.colors.border))
+            .rounded(px(4.0))
+            .flex()
+            .items_center()
+            .child(
+                // Using GPUI's TextInput would go here
+                // For now, showing the structure
+                div()
+                    .flex_1()
+                    .text_sm()
+                    .when(value.is_empty(), |s| s.text_color(theme.colors.text_muted))
+                    .when(!value.is_empty(), |s| s.text_color(theme.colors.text))
+                    .child(if value.is_empty() { placeholder } else { value })
+            )
+    }
 
-	<!-- Connection name -->
-	<span class="truncate flex-1" title={connection.config.name}>
-		{connection.config.name}
-	</span>
+    fn render_password_input(
+        &self,
+        field: &str,
+        value: &str,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let placeholder = if self.editing_id.is_some() && field == "password" {
+            "(unchanged)"
+        } else {
+            ""
+        };
+        let display_value = if value.is_empty() {
+            placeholder.to_string()
+        } else {
+            "•".repeat(value.len())
+        };
 
-	<!-- Host info on hover -->
-	<span class="text-xs text-gray-400 hidden group-hover:block">
-		{connection.config.host}:{connection.config.port}
-	</span>
-</div>
+        div()
+            .w_full()
+            .h_8()
+            .px_2()
+            .bg(theme.colors.input_background)
+            .border_1()
+            .border_color(theme.colors.border)
+            .rounded(px(4.0))
+            .flex()
+            .items_center()
+            .child(
+                div()
+                    .flex_1()
+                    .text_sm()
+                    .when(value.is_empty(), |s| s.text_color(theme.colors.text_muted))
+                    .when(!value.is_empty(), |s| s.text_color(theme.colors.text))
+                    .child(display_value)
+            )
+    }
+
+    fn render_file_input(
+        &self,
+        field: &str,
+        value: &str,
+        placeholder: &str,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let field_owned = field.to_string();
+
+        div()
+            .flex()
+            .gap_2()
+            .child(
+                div()
+                    .flex_1()
+                    .h_8()
+                    .px_2()
+                    .bg(theme.colors.input_background)
+                    .border_1()
+                    .border_color(theme.colors.border)
+                    .rounded(px(4.0))
+                    .flex()
+                    .items_center()
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_sm()
+                            .truncate()
+                            .when(value.is_empty(), |s| s.text_color(theme.colors.text_muted))
+                            .when(!value.is_empty(), |s| s.text_color(theme.colors.text))
+                            .child(if value.is_empty() { placeholder } else { value })
+                    )
+            )
+            .child(
+                self.render_button(
+                    "Browse",
+                    ButtonVariant::Secondary,
+                    false,
+                    cx.listener(move |this, _, cx| {
+                        this.handle_browse_file(&field_owned, cx);
+                    }),
+                    cx,
+                )
+            )
+    }
+
+    fn render_checkbox(
+        &self,
+        field: &str,
+        label: &str,
+        checked: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let field_owned = field.to_string();
+
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .cursor_pointer()
+            .on_click(cx.listener(move |this, _, cx| {
+                this.handle_checkbox_toggle(&field_owned, cx);
+            }))
+            .child(
+                div()
+                    .w_4()
+                    .h_4()
+                    .border_1()
+                    .border_color(theme.colors.border)
+                    .rounded(px(2.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .when(checked, |s| s.bg(theme.colors.accent))
+                    .when(checked, |s| s.child(
+                        div()
+                            .text_xs()
+                            .text_color(white())
+                            .child("✓")
+                    ))
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.colors.text)
+                    .child(label)
+            )
+    }
+
+    fn render_ssl_mode_select(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let modes = [
+            (SslMode::Disable, "Disable"),
+            (SslMode::Prefer, "Prefer"),
+            (SslMode::Require, "Require"),
+            (SslMode::VerifyCa, "Verify CA"),
+            (SslMode::VerifyFull, "Verify Full"),
+        ];
+
+        div()
+            .flex()
+            .gap_1()
+            .children(modes.iter().map(|(mode, label)| {
+                let is_selected = self.ssl_mode == *mode;
+                let mode_copy = *mode;
+
+                div()
+                    .px_3()
+                    .py_1()
+                    .text_sm()
+                    .rounded(px(4.0))
+                    .cursor_pointer()
+                    .when(is_selected, |s| {
+                        s.bg(theme.colors.accent)
+                            .text_color(white())
+                    })
+                    .when(!is_selected, |s| {
+                        s.bg(theme.colors.input_background)
+                            .text_color(theme.colors.text)
+                            .hover(|s| s.bg(theme.colors.hover))
+                    })
+                    .child(*label)
+                    .on_click(cx.listener(move |this, _, cx| {
+                        this.ssl_mode = mode_copy;
+                        cx.notify();
+                    }))
+            }))
+    }
+
+    fn render_ssh_auth_select(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let methods = [
+            (SshAuthMethod::Key, "SSH Key"),
+            (SshAuthMethod::Password, "Password"),
+            (SshAuthMethod::Agent, "SSH Agent"),
+        ];
+
+        div()
+            .flex()
+            .gap_1()
+            .children(methods.iter().map(|(method, label)| {
+                let is_selected = self.ssh_auth_method == *method;
+                let method_copy = *method;
+
+                div()
+                    .px_3()
+                    .py_1()
+                    .text_sm()
+                    .rounded(px(4.0))
+                    .cursor_pointer()
+                    .when(is_selected, |s| {
+                        s.bg(theme.colors.accent)
+                            .text_color(white())
+                    })
+                    .when(!is_selected, |s| {
+                        s.bg(theme.colors.input_background)
+                            .text_color(theme.colors.text)
+                            .hover(|s| s.bg(theme.colors.hover))
+                    })
+                    .child(*label)
+                    .on_click(cx.listener(move |this, _, cx| {
+                        this.ssh_auth_method = method_copy;
+                        cx.notify();
+                    }))
+            }))
+    }
+
+    fn render_color_picker(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .relative()
+            .child(
+                // Color button that shows current selection
+                div()
+                    .id("color-picker-btn")
+                    .w_8()
+                    .h_8()
+                    .rounded(px(4.0))
+                    .border_2()
+                    .border_color(theme.colors.border)
+                    .cursor_pointer()
+                    .bg(self.color.to_hsla())
+            )
+            // Dropdown would be rendered here when clicked
+    }
+
+    fn render_button<F>(
+        &self,
+        label: &str,
+        variant: ButtonVariant,
+        disabled: bool,
+        on_click: F,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement
+    where
+        F: Fn(&ClickEvent, &mut Window, &mut Context<Self>) + 'static,
+    {
+        let theme = cx.global::<ThemeSettings>();
+
+        let (bg, text_color, hover_bg) = match variant {
+            ButtonVariant::Primary => (
+                theme.colors.accent,
+                white(),
+                theme.colors.accent.opacity(0.9),
+            ),
+            ButtonVariant::Secondary => (
+                theme.colors.input_background,
+                theme.colors.text,
+                theme.colors.hover,
+            ),
+        };
+
+        div()
+            .px_4()
+            .py_2()
+            .text_sm()
+            .font_weight(FontWeight::MEDIUM)
+            .rounded(px(4.0))
+            .when(disabled, |s| {
+                s.opacity(0.5)
+                    .cursor_not_allowed()
+            })
+            .when(!disabled, |s| {
+                s.cursor_pointer()
+                    .bg(bg)
+                    .text_color(text_color)
+                    .hover(|s| s.bg(hover_bg))
+            })
+            .child(label)
+            .when(!disabled, |s| s.on_click(on_click))
+    }
+}
 ```
 
-### 4. Group Node Component
+### 4. Dialog Event Handlers
 
-```svelte
-<!-- components/tree/GroupNode.svelte -->
-<script lang="ts">
-	import Icon from '$components/common/Icon.svelte';
-	import ConnectionNode from './ConnectionNode.svelte';
-	import type { ConnectionState } from '$stores/connections';
-	import type { ConnectionGroup } from '$types/connection';
+```rust
+// src/ui/dialogs/connection_dialog.rs (continued)
 
-	interface GroupNodeData {
-		group: ConnectionGroup;
-		connections: ConnectionState[];
-		children: GroupNodeData[];
-	}
+impl ConnectionDialog {
+    fn handle_test(&mut self, cx: &mut Context<Self>) {
+        self.is_testing = true;
+        self.test_result = None;
+        cx.notify();
 
-	interface Props {
-		group: ConnectionGroup;
-		connections: ConnectionState[];
-		children: GroupNodeData[];
-		activeConnectionId: string | null;
-		onConnectionClick: (conn: ConnectionState) => void;
-		onConnectionDblClick: (conn: ConnectionState) => void;
-		onContextMenu: (e: MouseEvent, conn?: ConnectionState, group?: ConnectionGroup) => void;
-	}
+        // Build config and test
+        if let Some(config) = self.build_config() {
+            let tusk_state = cx.global::<TuskState>();
+            let connection_service = tusk_state.connection_service.clone();
+            let password = self.password.clone();
+            let ssh_password = self.ssh_password.clone();
+            let ssh_passphrase = self.ssh_passphrase.clone();
 
-	let {
-		group,
-		connections,
-		children,
-		activeConnectionId,
-		onConnectionClick,
-		onConnectionDblClick,
-		onContextMenu
-	}: Props = $props();
+            cx.spawn(|this, mut cx| async move {
+                // Store temporary credentials for test
+                let keyring = connection_service.keyring();
 
-	let isExpanded = $state(true);
+                if !password.is_empty() {
+                    let _ = keyring.store_password(&config.id, &password);
+                }
+                if !ssh_password.is_empty() {
+                    let _ = keyring.store_ssh_password(&config.id, &ssh_password);
+                }
+                if !ssh_passphrase.is_empty() {
+                    let _ = keyring.store_ssh_passphrase(&config.id, &ssh_passphrase);
+                }
 
-	function toggleExpanded() {
-		isExpanded = !isExpanded;
-	}
-</script>
+                // Test connection
+                let result = connection_service.test_connection(&config);
 
-<div class="group-node">
-	<!-- Group header -->
-	<div
-		class="flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-		onclick={toggleExpanded}
-		oncontextmenu={(e) => onContextMenu(e, undefined, group)}
-	>
-		<Icon name={isExpanded ? 'chevron-down' : 'chevron-right'} size={14} class="text-gray-400" />
-		<Icon name="folder" size={14} class="text-gray-500" />
-		<span class="text-sm font-medium truncate">{group.name}</span>
-		<span class="text-xs text-gray-400 ml-1">
-			({connections.length + children.reduce((sum, c) => sum + c.connections.length, 0)})
-		</span>
-	</div>
+                // Clean up temporary credentials if this is a new connection
+                // (If editing, leave them for potential save)
 
-	<!-- Children -->
-	{#if isExpanded}
-		<div class="pl-4">
-			<!-- Nested groups -->
-			{#each children as child (child.group.id)}
-				<svelte:self
-					group={child.group}
-					connections={child.connections}
-					children={child.children}
-					{activeConnectionId}
-					{onConnectionClick}
-					{onConnectionDblClick}
-					{onContextMenu}
-				/>
-			{/each}
+                this.update(&mut cx, |this, cx| {
+                    this.is_testing = false;
+                    this.test_result = Some(match result {
+                        Ok(info) => TestConnectionResult {
+                            success: true,
+                            message: format!(
+                                "Connected to {}\nLatency: {}ms",
+                                info.server_version,
+                                info.latency_ms
+                            ),
+                            server_version: Some(info.server_version),
+                            latency_ms: Some(info.latency_ms),
+                        },
+                        Err(e) => TestConnectionResult {
+                            success: false,
+                            message: e.to_string(),
+                            server_version: None,
+                            latency_ms: None,
+                        },
+                    });
+                    cx.notify();
+                }).ok();
+            }).detach();
+        }
+    }
 
-			<!-- Connections in this group -->
-			{#each connections as conn (conn.id)}
-				<ConnectionNode
-					connection={conn}
-					isActive={conn.id === activeConnectionId}
-					onclick={() => onConnectionClick(conn)}
-					ondblclick={() => onConnectionDblClick(conn)}
-					oncontextmenu={(e) => onContextMenu(e, conn)}
-				/>
-			{/each}
-		</div>
-	{/if}
-</div>
+    fn handle_save(&mut self, cx: &mut Context<Self>) {
+        // Validate
+        self.validation_errors = self.validate();
+        if !self.validation_errors.is_empty() {
+            cx.notify();
+            return;
+        }
+
+        self.is_saving = true;
+        cx.notify();
+
+        if let Some(config) = self.build_config() {
+            let tusk_state = cx.global::<TuskState>();
+            let connection_service = tusk_state.connection_service.clone();
+            let storage_service = tusk_state.storage_service.clone();
+            let password = self.password.clone();
+            let ssh_password = self.ssh_password.clone();
+            let ssh_passphrase = self.ssh_passphrase.clone();
+            let is_editing = self.editing_id.is_some();
+            let on_save = self.on_save.take();
+            let on_close = self.on_close.take();
+
+            cx.spawn(|this, mut cx| async move {
+                let keyring = connection_service.keyring();
+
+                // Store credentials in keyring
+                if !password.is_empty() {
+                    keyring.store_password(&config.id, &password)?;
+                }
+                if !ssh_password.is_empty() {
+                    keyring.store_ssh_password(&config.id, &ssh_password)?;
+                }
+                if !ssh_passphrase.is_empty() {
+                    keyring.store_ssh_passphrase(&config.id, &ssh_passphrase)?;
+                }
+
+                // Save to storage
+                if is_editing {
+                    storage_service.update_connection(&config)?;
+                } else {
+                    storage_service.insert_connection(&config)?;
+                }
+
+                this.update(&mut cx, |this, cx| {
+                    this.is_saving = false;
+
+                    // Trigger callbacks
+                    if let Some(on_save) = &on_save {
+                        on_save(config.clone());
+                    }
+                    if let Some(on_close) = &on_close {
+                        on_close();
+                    }
+
+                    cx.notify();
+                }).ok();
+
+                Ok::<_, anyhow::Error>(())
+            }).detach();
+        }
+    }
+
+    fn handle_browse_file(&mut self, field: &str, cx: &mut Context<Self>) {
+        use rfd::FileDialog;
+
+        let (title, filters) = match field {
+            "ssl_ca_cert" | "ssl_client_cert" => (
+                "Select Certificate",
+                &[("Certificates", &["crt", "pem", "cer"][..])][..],
+            ),
+            "ssl_client_key" => (
+                "Select Private Key",
+                &[("Keys", &["key", "pem"][..])][..],
+            ),
+            "ssh_key_path" => (
+                "Select SSH Key",
+                &[("SSH Keys", &["", "pem", "pub"][..])][..],
+            ),
+            _ => return,
+        };
+
+        let mut dialog = FileDialog::new().set_title(title);
+        for (name, extensions) in filters {
+            dialog = dialog.add_filter(*name, extensions);
+        }
+
+        // Default to ~/.ssh for SSH keys
+        if field == "ssh_key_path" {
+            if let Some(home) = dirs::home_dir() {
+                dialog = dialog.set_directory(home.join(".ssh"));
+            }
+        }
+
+        if let Some(path) = dialog.pick_file() {
+            let path_str = path.to_string_lossy().to_string();
+            match field {
+                "ssl_ca_cert" => self.ssl_ca_cert = path_str,
+                "ssl_client_cert" => self.ssl_client_cert = path_str,
+                "ssl_client_key" => self.ssl_client_key = path_str,
+                "ssh_key_path" => self.ssh_key_path = path_str,
+                _ => {}
+            }
+            cx.notify();
+        }
+    }
+
+    fn handle_checkbox_toggle(&mut self, field: &str, cx: &mut Context<Self>) {
+        match field {
+            "ssh_enabled" => self.ssh_enabled = !self.ssh_enabled,
+            "readonly" => self.readonly = !self.readonly,
+            _ => {}
+        }
+        cx.notify();
+    }
+}
 ```
 
-### 5. Color Picker Component
+### 5. Connection Tree Component
 
-```svelte
-<!-- components/forms/ColorPicker.svelte -->
-<script lang="ts">
-	interface Props {
-		value: string;
-	}
+```rust
+// src/ui/sidebar/connection_tree.rs
 
-	let { value = $bindable() }: Props = $props();
+use gpui::*;
+use uuid::Uuid;
+use crate::services::connection::{ConnectionConfig, ConnectionStatus};
+use crate::state::TuskState;
 
-	const presetColors = [
-		'#ef4444', // red
-		'#f97316', // orange
-		'#eab308', // yellow
-		'#22c55e', // green
-		'#06b6d4', // cyan
-		'#3b82f6', // blue
-		'#8b5cf6', // purple
-		'#ec4899', // pink
-		'#6b7280' // gray
-	];
+/// A connection with its current status
+#[derive(Debug, Clone)]
+pub struct ConnectionWithStatus {
+    pub config: ConnectionConfig,
+    pub status: ConnectionStatus,
+}
 
-	let showPicker = $state(false);
+/// A group/folder of connections
+#[derive(Debug, Clone)]
+pub struct ConnectionGroup {
+    pub id: Uuid,
+    pub name: String,
+    pub parent_id: Option<Uuid>,
+    pub expanded: bool,
+    pub order: i32,
+}
 
-	function selectColor(color: string) {
-		value = color;
-		showPicker = false;
-	}
-</script>
+/// Tree node representing either a connection or a group
+#[derive(Debug, Clone)]
+pub enum TreeNode {
+    Connection(ConnectionWithStatus),
+    Group {
+        group: ConnectionGroup,
+        children: Vec<TreeNode>,
+    },
+}
 
-<div class="color-picker relative">
-	<button
-		type="button"
-		class="w-8 h-8 rounded border-2 border-gray-300 dark:border-gray-600"
-		style="background-color: {value}"
-		onclick={() => (showPicker = !showPicker)}
-		title="Choose color"
-	></button>
+/// State for the connection tree
+pub struct ConnectionTree {
+    /// All connections
+    connections: Vec<ConnectionWithStatus>,
 
-	{#if showPicker}
-		<div
-			class="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-800 rounded shadow-lg border border-gray-200 dark:border-gray-700 z-50"
-		>
-			<div class="grid grid-cols-3 gap-1">
-				{#each presetColors as color}
-					<button
-						type="button"
-						class="w-6 h-6 rounded"
-						class:ring-2={color === value}
-						class:ring-blue-500={color === value}
-						style="background-color: {color}"
-						onclick={() => selectColor(color)}
-					></button>
-				{/each}
-			</div>
+    /// All groups
+    groups: Vec<ConnectionGroup>,
 
-			<div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-				<input
-					type="color"
-					{value}
-					oninput={(e) => (value = e.currentTarget.value)}
-					class="w-full h-6 cursor-pointer"
-				/>
-			</div>
-		</div>
-	{/if}
-</div>
+    /// Currently active connection
+    active_connection_id: Option<Uuid>,
 
-<svelte:window
-	onclick={(e) => {
-		if (showPicker && !e.target?.closest('.color-picker')) {
-			showPicker = false;
-		}
-	}}
-/>
+    /// Filter text for searching
+    filter: String,
+
+    /// Context menu state
+    context_menu: Option<ContextMenuState>,
+
+    /// Drag state for reordering
+    drag_state: Option<DragState>,
+
+    /// Expanded group IDs
+    expanded_groups: HashSet<Uuid>,
+}
+
+#[derive(Debug, Clone)]
+struct ContextMenuState {
+    position: Point<Pixels>,
+    target: ContextMenuTarget,
+}
+
+#[derive(Debug, Clone)]
+enum ContextMenuTarget {
+    Connection(Uuid),
+    Group(Uuid),
+    Empty,
+}
+
+#[derive(Debug, Clone)]
+struct DragState {
+    dragging: DragItem,
+    over: Option<DropTarget>,
+}
+
+#[derive(Debug, Clone)]
+enum DragItem {
+    Connection(Uuid),
+    Group(Uuid),
+}
+
+#[derive(Debug, Clone)]
+enum DropTarget {
+    Connection(Uuid),
+    Group(Uuid),
+    Root,
+}
+
+use std::collections::HashSet;
+
+impl ConnectionTree {
+    pub fn new() -> Self {
+        Self {
+            connections: Vec::new(),
+            groups: Vec::new(),
+            active_connection_id: None,
+            filter: String::new(),
+            context_menu: None,
+            drag_state: None,
+            expanded_groups: HashSet::new(),
+        }
+    }
+
+    pub fn set_connections(&mut self, connections: Vec<ConnectionWithStatus>) {
+        self.connections = connections;
+    }
+
+    pub fn set_groups(&mut self, groups: Vec<ConnectionGroup>) {
+        // Initialize expanded state from groups
+        for group in &groups {
+            if group.expanded {
+                self.expanded_groups.insert(group.id);
+            }
+        }
+        self.groups = groups;
+    }
+
+    pub fn set_active_connection(&mut self, id: Option<Uuid>) {
+        self.active_connection_id = id;
+    }
+
+    pub fn set_filter(&mut self, filter: String) {
+        self.filter = filter;
+    }
+
+    /// Build the tree structure from flat data
+    fn build_tree(&self) -> Vec<TreeNode> {
+        let filter_lower = self.filter.to_lowercase();
+
+        // Filter connections
+        let filtered_connections: Vec<_> = if self.filter.is_empty() {
+            self.connections.clone()
+        } else {
+            self.connections.iter()
+                .filter(|c| {
+                    c.config.name.to_lowercase().contains(&filter_lower) ||
+                    c.config.host.to_lowercase().contains(&filter_lower)
+                })
+                .cloned()
+                .collect()
+        };
+
+        // Build group hierarchy
+        fn build_group_children(
+            parent_id: Option<Uuid>,
+            groups: &[ConnectionGroup],
+            connections: &[ConnectionWithStatus],
+            expanded: &HashSet<Uuid>,
+        ) -> Vec<TreeNode> {
+            let mut nodes = Vec::new();
+
+            // Add child groups
+            for group in groups.iter().filter(|g| g.parent_id == parent_id) {
+                let children = build_group_children(
+                    Some(group.id),
+                    groups,
+                    connections,
+                    expanded,
+                );
+                nodes.push(TreeNode::Group {
+                    group: ConnectionGroup {
+                        expanded: expanded.contains(&group.id),
+                        ..group.clone()
+                    },
+                    children,
+                });
+            }
+
+            // Add connections in this group
+            for conn in connections.iter().filter(|c| c.config.group_id == parent_id) {
+                nodes.push(TreeNode::Connection(conn.clone()));
+            }
+
+            nodes
+        }
+
+        build_group_children(None, &self.groups, &filtered_connections, &self.expanded_groups)
+    }
+
+    fn toggle_group(&mut self, group_id: Uuid, cx: &mut Context<Self>) {
+        if self.expanded_groups.contains(&group_id) {
+            self.expanded_groups.remove(&group_id);
+        } else {
+            self.expanded_groups.insert(group_id);
+        }
+
+        // Persist expanded state
+        let tusk_state = cx.global::<TuskState>();
+        if let Err(e) = tusk_state.storage_service.update_group_expanded(group_id, self.expanded_groups.contains(&group_id)) {
+            log::error!("Failed to save group expanded state: {}", e);
+        }
+
+        cx.notify();
+    }
+
+    fn handle_connection_click(&mut self, conn_id: Uuid, cx: &mut Context<Self>) {
+        let conn = self.connections.iter().find(|c| c.config.id == conn_id);
+
+        if let Some(conn) = conn {
+            let tusk_state = cx.global::<TuskState>();
+
+            match conn.status {
+                ConnectionStatus::Connected => {
+                    // Already connected, just set as active
+                    self.active_connection_id = Some(conn_id);
+                }
+                ConnectionStatus::Disconnected | ConnectionStatus::Error(_) => {
+                    // Connect
+                    if let Err(e) = tusk_state.connection_service.connect(conn.config.clone()) {
+                        log::error!("Failed to connect: {}", e);
+                    } else {
+                        self.active_connection_id = Some(conn_id);
+                    }
+                }
+                ConnectionStatus::Connecting | ConnectionStatus::Reconnecting => {
+                    // Already connecting, do nothing
+                }
+            }
+        }
+
+        cx.notify();
+    }
+
+    fn handle_connection_double_click(&mut self, conn_id: Uuid, cx: &mut Context<Self>) {
+        // Open a new query tab for this connection
+        cx.emit(ConnectionTreeEvent::OpenQueryTab(conn_id));
+    }
+
+    fn show_context_menu(&mut self, position: Point<Pixels>, target: ContextMenuTarget, cx: &mut Context<Self>) {
+        self.context_menu = Some(ContextMenuState { position, target });
+        cx.notify();
+    }
+
+    fn hide_context_menu(&mut self, cx: &mut Context<Self>) {
+        self.context_menu = None;
+        cx.notify();
+    }
+}
+
+/// Events emitted by the connection tree
+#[derive(Debug, Clone)]
+pub enum ConnectionTreeEvent {
+    OpenQueryTab(Uuid),
+    EditConnection(ConnectionConfig),
+    DeleteConnection(Uuid),
+    CreateGroup,
+    EditGroup(Uuid),
+    DeleteGroup(Uuid),
+}
+
+impl EventEmitter<ConnectionTreeEvent> for ConnectionTree {}
 ```
 
-### 6. Context Menu Component
+### 6. Connection Tree Rendering
 
-```svelte
-<!-- components/common/ContextMenu.svelte -->
-<script lang="ts">
-	import { onMount } from 'svelte';
+```rust
+// src/ui/sidebar/connection_tree.rs (continued)
 
-	interface Props {
-		x: number;
-		y: number;
-		onClose: () => void;
-		children: any;
-	}
+impl Render for ConnectionTree {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let tree = self.build_tree();
 
-	let { x, y, onClose, children }: Props = $props();
+        div()
+            .id("connection-tree")
+            .flex_1()
+            .flex()
+            .flex_col()
+            .overflow_y_auto()
+            // Click outside to close context menu
+            .on_click(cx.listener(|this, _, cx| {
+                this.hide_context_menu(cx);
+            }))
+            // Tree content
+            .children(tree.iter().map(|node| {
+                self.render_tree_node(node, 0, cx)
+            }))
+            // Empty state
+            .when(tree.is_empty(), |s| {
+                s.child(
+                    div()
+                        .p_4()
+                        .text_center()
+                        .text_sm()
+                        .text_color(theme.colors.text_muted)
+                        .child(
+                            if self.filter.is_empty() {
+                                "No connections yet"
+                            } else {
+                                "No connections match filter"
+                            }
+                        )
+                )
+            })
+            // Context menu overlay
+            .children(self.context_menu.as_ref().map(|menu| {
+                self.render_context_menu(menu, cx)
+            }))
+    }
+}
 
-	let menuRef: HTMLDivElement;
+impl ConnectionTree {
+    fn render_tree_node(
+        &self,
+        node: &TreeNode,
+        depth: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        match node {
+            TreeNode::Connection(conn) => {
+                self.render_connection_node(conn, depth, cx).into_any_element()
+            }
+            TreeNode::Group { group, children } => {
+                self.render_group_node(group, children, depth, cx).into_any_element()
+            }
+        }
+    }
 
-	onMount(() => {
-		// Adjust position if menu would go off screen
-		const rect = menuRef.getBoundingClientRect();
-		if (x + rect.width > window.innerWidth) {
-			x = window.innerWidth - rect.width - 8;
-		}
-		if (y + rect.height > window.innerHeight) {
-			y = window.innerHeight - rect.height - 8;
-		}
-	});
+    fn render_connection_node(
+        &self,
+        conn: &ConnectionWithStatus,
+        depth: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let conn_id = conn.config.id;
+        let is_active = self.active_connection_id == Some(conn_id);
 
-	function handleKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			onClose();
-		}
-	}
-</script>
+        let status_color = match conn.status {
+            ConnectionStatus::Disconnected => theme.colors.text_muted,
+            ConnectionStatus::Connecting | ConnectionStatus::Reconnecting => {
+                hsla(0.14, 0.9, 0.5, 1.0) // Yellow
+            }
+            ConnectionStatus::Connected => hsla(0.35, 0.8, 0.4, 1.0), // Green
+            ConnectionStatus::Error(_) => hsla(0.0, 0.8, 0.5, 1.0), // Red
+        };
 
-<svelte:window onclick={onClose} onkeydown={handleKeyDown} />
+        let conn_color = conn.config.color.as_ref()
+            .and_then(|c| parse_hex_color(c))
+            .unwrap_or(theme.colors.accent);
 
-<div
-	bind:this={menuRef}
-	class="context-menu fixed z-50 min-w-[160px] py-1 bg-white dark:bg-gray-800 rounded shadow-lg border border-gray-200 dark:border-gray-700"
-	style="left: {x}px; top: {y}px"
-	onclick|stopPropagation
->
-	{@render children()}
-</div>
+        div()
+            .id(SharedString::from(format!("conn-{}", conn_id)))
+            .pl(px((depth * 16 + 8) as f32))
+            .pr_2()
+            .py(px(6.0))
+            .flex()
+            .items_center()
+            .gap_2()
+            .cursor_pointer()
+            .rounded(px(4.0))
+            .when(is_active, |s| s.bg(theme.colors.accent.opacity(0.15)))
+            .when(!is_active, |s| s.hover(|s| s.bg(theme.colors.hover)))
+            // Color indicator
+            .child(
+                div()
+                    .w(px(6.0))
+                    .h(px(6.0))
+                    .rounded_full()
+                    .bg(conn_color)
+                    .flex_shrink_0()
+            )
+            // Status indicator
+            .child(
+                div()
+                    .w(px(8.0))
+                    .h(px(8.0))
+                    .rounded_full()
+                    .bg(status_color)
+                    .flex_shrink_0()
+                    .when(
+                        matches!(conn.status, ConnectionStatus::Connecting | ConnectionStatus::Reconnecting),
+                        |s| s.with_animation(
+                            "pulse",
+                            Animation::new(Duration::from_millis(1000))
+                                .repeat()
+                                .with_easing(Easing::EaseInOut),
+                            |s, progress| s.opacity(0.5 + 0.5 * (progress * std::f32::consts::PI * 2.0).sin())
+                        )
+                    )
+            )
+            // Database icon
+            .child(
+                Icon::new(IconName::Database)
+                    .size(IconSize::Small)
+                    .color(theme.colors.text_muted)
+            )
+            // Connection name
+            .child(
+                div()
+                    .flex_1()
+                    .text_sm()
+                    .text_color(theme.colors.text)
+                    .truncate()
+                    .child(&conn.config.name)
+            )
+            // Event handlers
+            .on_click(cx.listener(move |this, _, cx| {
+                this.handle_connection_click(conn_id, cx);
+            }))
+            .on_double_click(cx.listener(move |this, _, cx| {
+                this.handle_connection_double_click(conn_id, cx);
+            }))
+            .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &MouseDownEvent, cx| {
+                this.show_context_menu(
+                    event.position,
+                    ContextMenuTarget::Connection(conn_id),
+                    cx,
+                );
+            }))
+    }
 
-<style>
-	.context-menu :global(button) {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		width: 100%;
-		padding: 0.375rem 0.75rem;
-		text-align: left;
-		font-size: 0.875rem;
-	}
+    fn render_group_node(
+        &self,
+        group: &ConnectionGroup,
+        children: &[TreeNode],
+        depth: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let group_id = group.id;
+        let is_expanded = self.expanded_groups.contains(&group_id);
+        let child_count = count_connections(children);
 
-	.context-menu :global(button:hover) {
-		background-color: #f3f4f6;
-	}
+        div()
+            .flex()
+            .flex_col()
+            // Group header
+            .child(
+                div()
+                    .id(SharedString::from(format!("group-{}", group_id)))
+                    .pl(px((depth * 16 + 8) as f32))
+                    .pr_2()
+                    .py(px(6.0))
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .cursor_pointer()
+                    .rounded(px(4.0))
+                    .hover(|s| s.bg(theme.colors.hover))
+                    // Chevron
+                    .child(
+                        Icon::new(if is_expanded { IconName::ChevronDown } else { IconName::ChevronRight })
+                            .size(IconSize::Small)
+                            .color(theme.colors.text_muted)
+                    )
+                    // Folder icon
+                    .child(
+                        Icon::new(IconName::Folder)
+                            .size(IconSize::Small)
+                            .color(theme.colors.text_muted)
+                    )
+                    // Group name
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.colors.text)
+                            .truncate()
+                            .child(&group.name)
+                    )
+                    // Count badge
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.colors.text_muted)
+                            .child(format!("({})", child_count))
+                    )
+                    .on_click(cx.listener(move |this, _, cx| {
+                        this.toggle_group(group_id, cx);
+                    }))
+                    .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &MouseDownEvent, cx| {
+                        this.show_context_menu(
+                            event.position,
+                            ContextMenuTarget::Group(group_id),
+                            cx,
+                        );
+                    }))
+            )
+            // Children (when expanded)
+            .when(is_expanded, |s| {
+                s.children(children.iter().map(|child| {
+                    self.render_tree_node(child, depth + 1, cx)
+                }))
+            })
+    }
 
-	:global(.dark) .context-menu :global(button:hover) {
-		background-color: #374151;
-	}
+    fn render_context_menu(
+        &self,
+        menu: &ContextMenuState,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
 
-	.context-menu :global(hr) {
-		margin: 0.25rem 0;
-		border-color: #e5e7eb;
-	}
+        div()
+            .absolute()
+            .left(menu.position.x)
+            .top(menu.position.y)
+            .min_w(px(160.0))
+            .py_1()
+            .bg(theme.colors.surface)
+            .border_1()
+            .border_color(theme.colors.border)
+            .rounded(px(4.0))
+            .shadow_lg()
+            .z_index(100)
+            .on_click(|_, _| {}) // Prevent click through
+            .children(match &menu.target {
+                ContextMenuTarget::Connection(conn_id) => {
+                    self.render_connection_context_menu(*conn_id, cx)
+                }
+                ContextMenuTarget::Group(group_id) => {
+                    self.render_group_context_menu(*group_id, cx)
+                }
+                ContextMenuTarget::Empty => {
+                    self.render_empty_context_menu(cx)
+                }
+            })
+    }
 
-	:global(.dark) .context-menu :global(hr) {
-		border-color: #374151;
-	}
-</style>
+    fn render_connection_context_menu(
+        &self,
+        conn_id: Uuid,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        let conn = self.connections.iter().find(|c| c.config.id == conn_id);
+        let is_connected = conn.map(|c| c.status == ConnectionStatus::Connected).unwrap_or(false);
+        let config = conn.map(|c| c.config.clone());
+
+        let mut items = Vec::new();
+
+        // Connect/Disconnect
+        if is_connected {
+            items.push(self.render_menu_item(
+                "Disconnect",
+                IconName::PlugOff,
+                cx.listener(move |this, _, cx| {
+                    let tusk_state = cx.global::<TuskState>();
+                    let _ = tusk_state.connection_service.disconnect(&conn_id);
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element());
+        } else {
+            items.push(self.render_menu_item(
+                "Connect",
+                IconName::Plug,
+                cx.listener(move |this, _, cx| {
+                    this.handle_connection_click(conn_id, cx);
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element());
+        }
+
+        items.push(self.render_menu_separator(cx).into_any_element());
+
+        // New Query
+        items.push(self.render_menu_item(
+            "New Query",
+            IconName::Code,
+            cx.listener(move |this, _, cx| {
+                cx.emit(ConnectionTreeEvent::OpenQueryTab(conn_id));
+                this.hide_context_menu(cx);
+            }),
+            cx,
+        ).into_any_element());
+
+        items.push(self.render_menu_separator(cx).into_any_element());
+
+        // Edit
+        if let Some(config) = config.clone() {
+            items.push(self.render_menu_item(
+                "Edit",
+                IconName::Edit,
+                cx.listener(move |this, _, cx| {
+                    cx.emit(ConnectionTreeEvent::EditConnection(config.clone()));
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element());
+        }
+
+        // Duplicate
+        if let Some(config) = config {
+            items.push(self.render_menu_item(
+                "Duplicate",
+                IconName::Copy,
+                cx.listener(move |this, _, cx| {
+                    let mut new_config = config.clone();
+                    new_config.id = Uuid::new_v4();
+                    new_config.name = format!("{} (copy)", new_config.name);
+                    cx.emit(ConnectionTreeEvent::EditConnection(new_config));
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element());
+        }
+
+        items.push(self.render_menu_separator(cx).into_any_element());
+
+        // Delete
+        items.push(self.render_menu_item_danger(
+            "Delete",
+            IconName::Trash,
+            cx.listener(move |this, _, cx| {
+                cx.emit(ConnectionTreeEvent::DeleteConnection(conn_id));
+                this.hide_context_menu(cx);
+            }),
+            cx,
+        ).into_any_element());
+
+        items
+    }
+
+    fn render_group_context_menu(
+        &self,
+        group_id: Uuid,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        vec![
+            self.render_menu_item(
+                "Rename",
+                IconName::Edit,
+                cx.listener(move |this, _, cx| {
+                    cx.emit(ConnectionTreeEvent::EditGroup(group_id));
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element(),
+            self.render_menu_separator(cx).into_any_element(),
+            self.render_menu_item_danger(
+                "Delete Group",
+                IconName::Trash,
+                cx.listener(move |this, _, cx| {
+                    cx.emit(ConnectionTreeEvent::DeleteGroup(group_id));
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element(),
+        ]
+    }
+
+    fn render_empty_context_menu(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        vec![
+            self.render_menu_item(
+                "New Connection",
+                IconName::Plus,
+                cx.listener(|this, _, cx| {
+                    cx.emit(ConnectionTreeEvent::EditConnection(ConnectionConfig::default()));
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element(),
+            self.render_menu_item(
+                "New Group",
+                IconName::FolderPlus,
+                cx.listener(|this, _, cx| {
+                    cx.emit(ConnectionTreeEvent::CreateGroup);
+                    this.hide_context_menu(cx);
+                }),
+                cx,
+            ).into_any_element(),
+        ]
+    }
+
+    fn render_menu_item<F>(
+        &self,
+        label: &str,
+        icon: IconName,
+        on_click: F,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement
+    where
+        F: Fn(&ClickEvent, &mut Window, &mut Context<Self>) + 'static,
+    {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .px_3()
+            .py(px(6.0))
+            .flex()
+            .items_center()
+            .gap_2()
+            .cursor_pointer()
+            .hover(|s| s.bg(theme.colors.hover))
+            .child(
+                Icon::new(icon)
+                    .size(IconSize::Small)
+                    .color(theme.colors.text_muted)
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.colors.text)
+                    .child(label)
+            )
+            .on_click(on_click)
+    }
+
+    fn render_menu_item_danger<F>(
+        &self,
+        label: &str,
+        icon: IconName,
+        on_click: F,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement
+    where
+        F: Fn(&ClickEvent, &mut Window, &mut Context<Self>) + 'static,
+    {
+        let danger_color = hsla(0.0, 0.8, 0.5, 1.0);
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .px_3()
+            .py(px(6.0))
+            .flex()
+            .items_center()
+            .gap_2()
+            .cursor_pointer()
+            .hover(|s| s.bg(danger_color.opacity(0.1)))
+            .child(
+                Icon::new(icon)
+                    .size(IconSize::Small)
+                    .color(danger_color)
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(danger_color)
+                    .child(label)
+            )
+            .on_click(on_click)
+    }
+
+    fn render_menu_separator(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .my_1()
+            .h(px(1.0))
+            .bg(theme.colors.border)
+    }
+}
+
+fn count_connections(nodes: &[TreeNode]) -> usize {
+    nodes.iter().map(|node| {
+        match node {
+            TreeNode::Connection(_) => 1,
+            TreeNode::Group { children, .. } => count_connections(children),
+        }
+    }).sum()
+}
+```
+
+### 7. Connection Sidebar Panel
+
+```rust
+// src/ui/sidebar/connections_panel.rs
+
+use gpui::*;
+use uuid::Uuid;
+use crate::ui::sidebar::connection_tree::{ConnectionTree, ConnectionTreeEvent};
+use crate::ui::dialogs::connection_dialog::ConnectionDialog;
+use crate::state::TuskState;
+
+/// The connections panel in the sidebar
+pub struct ConnectionsPanel {
+    tree: Entity<ConnectionTree>,
+    search_text: String,
+    show_dialog: bool,
+    dialog: Option<Entity<ConnectionDialog>>,
+}
+
+impl ConnectionsPanel {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let tree = cx.new(|_| ConnectionTree::new());
+
+        // Subscribe to tree events
+        cx.subscribe(&tree, Self::handle_tree_event).detach();
+
+        // Load initial data
+        Self::load_connections(&tree, cx);
+
+        Self {
+            tree,
+            search_text: String::new(),
+            show_dialog: false,
+            dialog: None,
+        }
+    }
+
+    fn load_connections(tree: &Entity<ConnectionTree>, cx: &mut Context<Self>) {
+        let tusk_state = cx.global::<TuskState>();
+
+        // Load connections from storage
+        let connections = tusk_state.storage_service
+            .list_connections()
+            .unwrap_or_default();
+
+        // Get status for each connection
+        let connections_with_status: Vec<_> = connections.into_iter()
+            .map(|config| {
+                let status = tusk_state.connection_service
+                    .get_status(&config.id)
+                    .unwrap_or_default();
+                ConnectionWithStatus { config, status }
+            })
+            .collect();
+
+        // Load groups
+        let groups = tusk_state.storage_service
+            .list_groups()
+            .unwrap_or_default();
+
+        tree.update(cx, |tree, _| {
+            tree.set_connections(connections_with_status);
+            tree.set_groups(groups);
+        });
+    }
+
+    fn handle_tree_event(
+        &mut self,
+        tree: &Entity<ConnectionTree>,
+        event: &ConnectionTreeEvent,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            ConnectionTreeEvent::OpenQueryTab(conn_id) => {
+                // Emit to parent to open a query tab
+                cx.emit(ConnectionsPanelEvent::OpenQueryTab(*conn_id));
+            }
+            ConnectionTreeEvent::EditConnection(config) => {
+                self.open_edit_dialog(config.clone(), cx);
+            }
+            ConnectionTreeEvent::DeleteConnection(conn_id) => {
+                self.delete_connection(*conn_id, cx);
+            }
+            ConnectionTreeEvent::CreateGroup => {
+                self.create_group(cx);
+            }
+            ConnectionTreeEvent::EditGroup(group_id) => {
+                self.edit_group(*group_id, cx);
+            }
+            ConnectionTreeEvent::DeleteGroup(group_id) => {
+                self.delete_group(*group_id, cx);
+            }
+        }
+    }
+
+    fn open_new_dialog(&mut self, cx: &mut Context<Self>) {
+        let dialog = cx.new(|_| {
+            ConnectionDialog::new()
+                .on_save(|config| {
+                    // Handled via close callback
+                })
+                .on_close(|| {
+                    // Handled in parent
+                })
+        });
+
+        self.dialog = Some(dialog);
+        self.show_dialog = true;
+        cx.notify();
+    }
+
+    fn open_edit_dialog(&mut self, config: ConnectionConfig, cx: &mut Context<Self>) {
+        let dialog = cx.new(|_| {
+            ConnectionDialog::edit(&config)
+                .on_save(|_| {})
+                .on_close(|| {})
+        });
+
+        self.dialog = Some(dialog);
+        self.show_dialog = true;
+        cx.notify();
+    }
+
+    fn close_dialog(&mut self, cx: &mut Context<Self>) {
+        self.show_dialog = false;
+        self.dialog = None;
+
+        // Refresh the tree
+        Self::load_connections(&self.tree, cx);
+        cx.notify();
+    }
+
+    fn delete_connection(&mut self, conn_id: Uuid, cx: &mut Context<Self>) {
+        let tusk_state = cx.global::<TuskState>();
+
+        // Disconnect if connected
+        let _ = tusk_state.connection_service.disconnect(&conn_id);
+
+        // Delete from storage
+        if let Err(e) = tusk_state.storage_service.delete_connection(&conn_id) {
+            log::error!("Failed to delete connection: {}", e);
+            return;
+        }
+
+        // Delete credentials
+        let _ = tusk_state.keyring_service.delete_password(&conn_id);
+        let _ = tusk_state.keyring_service.delete_ssh_password(&conn_id);
+        let _ = tusk_state.keyring_service.delete_ssh_passphrase(&conn_id);
+
+        // Refresh tree
+        Self::load_connections(&self.tree, cx);
+    }
+
+    fn create_group(&mut self, cx: &mut Context<Self>) {
+        let tusk_state = cx.global::<TuskState>();
+
+        let group = ConnectionGroup {
+            id: Uuid::new_v4(),
+            name: "New Group".to_string(),
+            parent_id: None,
+            expanded: true,
+            order: 0,
+        };
+
+        if let Err(e) = tusk_state.storage_service.insert_group(&group) {
+            log::error!("Failed to create group: {}", e);
+            return;
+        }
+
+        Self::load_connections(&self.tree, cx);
+    }
+
+    fn edit_group(&mut self, group_id: Uuid, cx: &mut Context<Self>) {
+        // Would open a rename dialog
+        // For simplicity, emit event to parent
+        cx.emit(ConnectionsPanelEvent::EditGroup(group_id));
+    }
+
+    fn delete_group(&mut self, group_id: Uuid, cx: &mut Context<Self>) {
+        let tusk_state = cx.global::<TuskState>();
+
+        // Move connections out of group first
+        if let Ok(connections) = tusk_state.storage_service.list_connections() {
+            for mut conn in connections {
+                if conn.group_id == Some(group_id) {
+                    conn.group_id = None;
+                    let _ = tusk_state.storage_service.update_connection(&conn);
+                }
+            }
+        }
+
+        // Delete group
+        if let Err(e) = tusk_state.storage_service.delete_group(&group_id) {
+            log::error!("Failed to delete group: {}", e);
+            return;
+        }
+
+        Self::load_connections(&self.tree, cx);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ConnectionsPanelEvent {
+    OpenQueryTab(Uuid),
+    EditGroup(Uuid),
+}
+
+impl EventEmitter<ConnectionsPanelEvent> for ConnectionsPanel {}
+
+impl Render for ConnectionsPanel {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .id("connections-panel")
+            .flex_1()
+            .flex()
+            .flex_col()
+            .bg(theme.colors.sidebar)
+            // Header
+            .child(
+                div()
+                    .px_3()
+                    .py_2()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.colors.text)
+                            .child("Connections")
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            // New group button
+                            .child(
+                                self.render_icon_button(
+                                    IconName::FolderPlus,
+                                    "New Group",
+                                    cx.listener(|this, _, cx| {
+                                        this.create_group(cx);
+                                    }),
+                                    cx,
+                                )
+                            )
+                            // New connection button
+                            .child(
+                                self.render_icon_button(
+                                    IconName::Plus,
+                                    "New Connection",
+                                    cx.listener(|this, _, cx| {
+                                        this.open_new_dialog(cx);
+                                    }),
+                                    cx,
+                                )
+                            )
+                    )
+            )
+            // Search box
+            .child(
+                div()
+                    .px_3()
+                    .pb_2()
+                    .child(self.render_search_input(cx))
+            )
+            // Connection tree
+            .child(self.tree.clone())
+            // Dialog overlay
+            .when(self.show_dialog, |s| {
+                if let Some(ref dialog) = self.dialog {
+                    s.child(dialog.clone())
+                } else {
+                    s
+                }
+            })
+    }
+}
+
+impl ConnectionsPanel {
+    fn render_icon_button<F>(
+        &self,
+        icon: IconName,
+        tooltip: &str,
+        on_click: F,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement
+    where
+        F: Fn(&ClickEvent, &mut Window, &mut Context<Self>) + 'static,
+    {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .w_6()
+            .h_6()
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(4.0))
+            .cursor_pointer()
+            .hover(|s| s.bg(theme.colors.hover))
+            .child(
+                Icon::new(icon)
+                    .size(IconSize::Small)
+                    .color(theme.colors.text_muted)
+            )
+            .on_click(on_click)
+    }
+
+    fn render_search_input(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .h_7()
+            .px_2()
+            .bg(theme.colors.input_background)
+            .border_1()
+            .border_color(theme.colors.border)
+            .rounded(px(4.0))
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(
+                Icon::new(IconName::Search)
+                    .size(IconSize::Small)
+                    .color(theme.colors.text_muted)
+            )
+            .child(
+                div()
+                    .flex_1()
+                    .text_sm()
+                    .when(self.search_text.is_empty(), |s| {
+                        s.text_color(theme.colors.text_muted)
+                            .child("Search connections...")
+                    })
+                    .when(!self.search_text.is_empty(), |s| {
+                        s.text_color(theme.colors.text)
+                            .child(&self.search_text)
+                    })
+            )
+    }
+}
+```
+
+### 8. Icon Definitions
+
+```rust
+// src/ui/icons.rs
+
+use gpui::*;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IconName {
+    Database,
+    Folder,
+    FolderPlus,
+    ChevronDown,
+    ChevronRight,
+    Plus,
+    Plug,
+    PlugOff,
+    Code,
+    Edit,
+    Copy,
+    Trash,
+    Search,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IconSize {
+    Small,  // 14px
+    Medium, // 16px
+    Large,  // 20px
+}
+
+impl IconSize {
+    fn pixels(&self) -> Pixels {
+        match self {
+            Self::Small => px(14.0),
+            Self::Medium => px(16.0),
+            Self::Large => px(20.0),
+        }
+    }
+}
+
+pub struct Icon {
+    name: IconName,
+    size: IconSize,
+    color: Hsla,
+}
+
+impl Icon {
+    pub fn new(name: IconName) -> Self {
+        Self {
+            name,
+            size: IconSize::Medium,
+            color: hsla(0.0, 0.0, 0.5, 1.0),
+        }
+    }
+
+    pub fn size(mut self, size: IconSize) -> Self {
+        self.size = size;
+        self
+    }
+
+    pub fn color(mut self, color: Hsla) -> Self {
+        self.color = color;
+        self
+    }
+
+    fn svg_path(&self) -> &'static str {
+        match self.name {
+            IconName::Database => "M12 2C6.48 2 2 4.24 2 7v10c0 2.76 4.48 5 10 5s10-2.24 10-5V7c0-2.76-4.48-5-10-5zm0 2c4.41 0 8 1.79 8 3s-3.59 3-8 3-8-1.79-8-3 3.59-3 8-3zM4 17v-3.27c1.62 1.2 4.51 2.27 8 2.27s6.38-1.07 8-2.27V17c0 1.21-3.59 3-8 3s-8-1.79-8-3z",
+            IconName::Folder => "M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z",
+            IconName::FolderPlus => "M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z",
+            IconName::ChevronDown => "M7 10l5 5 5-5z",
+            IconName::ChevronRight => "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+            IconName::Plus => "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z",
+            IconName::Plug => "M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z",
+            IconName::PlugOff => "M2 5.27L3.28 4 20 20.72 18.73 22l-3.08-3.08c-.39.05-.78.08-1.18.08H6a2 2 0 0 1-2-2v-1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 .68-2.97L2 5.27zm8 1.73h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 4 0c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-.18L10 8.82V7z",
+            IconName::Code => "M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z",
+            IconName::Edit => "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
+            IconName::Copy => "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z",
+            IconName::Trash => "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
+            IconName::Search => "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+        }
+    }
+}
+
+impl IntoElement for Icon {
+    type Element = Svg;
+
+    fn into_element(self) -> Self::Element {
+        let size = self.size.pixels();
+
+        svg()
+            .path(self.svg_path())
+            .size(size)
+            .text_color(self.color)
+    }
+}
+```
+
+### 9. Quick Connect Widget
+
+```rust
+// src/ui/widgets/quick_connect.rs
+
+use gpui::*;
+use crate::state::TuskState;
+use crate::services::connection::{ConnectionConfig, ConnectionOptions, SslMode};
+
+/// A compact widget for quick connection without opening the full dialog
+pub struct QuickConnect {
+    host: String,
+    port: String,
+    database: String,
+    username: String,
+    password: String,
+    is_connecting: bool,
+    error: Option<String>,
+    on_connected: Option<Box<dyn Fn(uuid::Uuid) + Send + Sync>>,
+}
+
+impl QuickConnect {
+    pub fn new() -> Self {
+        Self {
+            host: "localhost".to_string(),
+            port: "5432".to_string(),
+            database: "postgres".to_string(),
+            username: "postgres".to_string(),
+            password: String::new(),
+            is_connecting: false,
+            error: None,
+            on_connected: None,
+        }
+    }
+
+    pub fn on_connected(mut self, callback: impl Fn(uuid::Uuid) + Send + Sync + 'static) -> Self {
+        self.on_connected = Some(Box::new(callback));
+        self
+    }
+
+    fn connect(&mut self, cx: &mut Context<Self>) {
+        let port: u16 = match self.port.parse() {
+            Ok(p) => p,
+            Err(_) => {
+                self.error = Some("Invalid port number".to_string());
+                cx.notify();
+                return;
+            }
+        };
+
+        let config = ConnectionConfig {
+            id: uuid::Uuid::new_v4(),
+            name: format!("{}@{}", self.database, self.host),
+            color: None,
+            group_id: None,
+            host: self.host.clone(),
+            port,
+            database: self.database.clone(),
+            username: self.username.clone(),
+            password_in_keyring: false, // Quick connect doesn't save to keyring
+            ssl_mode: SslMode::Prefer,
+            ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
+            ssh_tunnel: None,
+            options: ConnectionOptions::default(),
+        };
+
+        self.is_connecting = true;
+        self.error = None;
+        cx.notify();
+
+        let tusk_state = cx.global::<TuskState>();
+        let connection_service = tusk_state.connection_service.clone();
+        let password = self.password.clone();
+        let on_connected = self.on_connected.take();
+
+        cx.spawn(|this, mut cx| async move {
+            // Store password temporarily
+            let keyring = connection_service.keyring();
+            let _ = keyring.store_password(&config.id, &password);
+
+            // Connect
+            let result = connection_service.connect(config.clone());
+
+            this.update(&mut cx, |this, cx| {
+                this.is_connecting = false;
+
+                match result {
+                    Ok(_) => {
+                        if let Some(on_connected) = &on_connected {
+                            on_connected(config.id);
+                        }
+                        // Clear form
+                        this.password.clear();
+                    }
+                    Err(e) => {
+                        this.error = Some(e.to_string());
+                        // Clean up temporary password
+                        let _ = keyring.delete_password(&config.id);
+                    }
+                }
+
+                cx.notify();
+            }).ok();
+        }).detach();
+    }
+}
+
+impl Render for QuickConnect {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+
+        div()
+            .id("quick-connect")
+            .p_4()
+            .bg(theme.colors.surface)
+            .border_1()
+            .border_color(theme.colors.border)
+            .rounded_lg()
+            .flex()
+            .flex_col()
+            .gap_3()
+            // Title
+            .child(
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(theme.colors.text)
+                    .child("Quick Connect")
+            )
+            // Host:Port row
+            .child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        self.render_input("Host", &self.host, "localhost", false, cx)
+                            .flex_1()
+                    )
+                    .child(
+                        self.render_input("Port", &self.port, "5432", false, cx)
+                            .w(px(80.0))
+                    )
+            )
+            // Database row
+            .child(self.render_input("Database", &self.database, "postgres", false, cx))
+            // Username row
+            .child(self.render_input("Username", &self.username, "postgres", false, cx))
+            // Password row
+            .child(self.render_input("Password", &self.password, "", true, cx))
+            // Error message
+            .when(self.error.is_some(), |s| {
+                s.child(
+                    div()
+                        .text_xs()
+                        .text_color(hsla(0.0, 0.8, 0.5, 1.0))
+                        .child(self.error.as_ref().unwrap().as_str())
+                )
+            })
+            // Connect button
+            .child(
+                div()
+                    .w_full()
+                    .h_8()
+                    .bg(theme.colors.accent)
+                    .rounded(px(4.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .when(self.is_connecting, |s| s.opacity(0.7))
+                    .hover(|s| s.opacity(0.9))
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(white())
+                            .child(if self.is_connecting { "Connecting..." } else { "Connect" })
+                    )
+                    .when(!self.is_connecting, |s| {
+                        s.on_click(cx.listener(|this, _, cx| {
+                            this.connect(cx);
+                        }))
+                    })
+            )
+    }
+}
+
+impl QuickConnect {
+    fn render_input(
+        &self,
+        label: &str,
+        value: &str,
+        placeholder: &str,
+        is_password: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let theme = cx.global::<ThemeSettings>();
+        let display = if is_password && !value.is_empty() {
+            "•".repeat(value.len())
+        } else if value.is_empty() {
+            placeholder.to_string()
+        } else {
+            value.to_string()
+        };
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.colors.text_muted)
+                    .child(label)
+            )
+            .child(
+                div()
+                    .h_7()
+                    .px_2()
+                    .bg(theme.colors.input_background)
+                    .border_1()
+                    .border_color(theme.colors.border)
+                    .rounded(px(4.0))
+                    .flex()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_sm()
+                            .when(value.is_empty(), |s| s.text_color(theme.colors.text_muted))
+                            .when(!value.is_empty(), |s| s.text_color(theme.colors.text))
+                            .child(display)
+                    )
+            )
+    }
+}
+```
+
+### 10. Drag and Drop for Reordering
+
+```rust
+// src/ui/sidebar/connection_tree.rs (drag-drop additions)
+
+impl ConnectionTree {
+    fn start_drag(&mut self, item: DragItem, cx: &mut Context<Self>) {
+        self.drag_state = Some(DragState {
+            dragging: item,
+            over: None,
+        });
+        cx.notify();
+    }
+
+    fn update_drag_over(&mut self, target: Option<DropTarget>, cx: &mut Context<Self>) {
+        if let Some(ref mut state) = self.drag_state {
+            state.over = target;
+            cx.notify();
+        }
+    }
+
+    fn end_drag(&mut self, cx: &mut Context<Self>) {
+        if let Some(state) = self.drag_state.take() {
+            if let Some(target) = state.over {
+                self.apply_drop(state.dragging, target, cx);
+            }
+        }
+        cx.notify();
+    }
+
+    fn apply_drop(&mut self, item: DragItem, target: DropTarget, cx: &mut Context<Self>) {
+        let tusk_state = cx.global::<TuskState>();
+
+        match (item, target) {
+            (DragItem::Connection(conn_id), DropTarget::Group(group_id)) => {
+                // Move connection to group
+                if let Some(conn) = self.connections.iter_mut().find(|c| c.config.id == conn_id) {
+                    conn.config.group_id = Some(group_id);
+                    let _ = tusk_state.storage_service.update_connection(&conn.config);
+                }
+            }
+            (DragItem::Connection(conn_id), DropTarget::Root) => {
+                // Move connection to root
+                if let Some(conn) = self.connections.iter_mut().find(|c| c.config.id == conn_id) {
+                    conn.config.group_id = None;
+                    let _ = tusk_state.storage_service.update_connection(&conn.config);
+                }
+            }
+            (DragItem::Group(source_id), DropTarget::Group(target_id)) => {
+                // Move group into another group
+                if source_id != target_id {
+                    if let Some(group) = self.groups.iter_mut().find(|g| g.id == source_id) {
+                        group.parent_id = Some(target_id);
+                        let _ = tusk_state.storage_service.update_group(group);
+                    }
+                }
+            }
+            (DragItem::Group(source_id), DropTarget::Root) => {
+                // Move group to root
+                if let Some(group) = self.groups.iter_mut().find(|g| g.id == source_id) {
+                    group.parent_id = None;
+                    let _ = tusk_state.storage_service.update_group(group);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn render_connection_node_draggable(
+        &self,
+        conn: &ConnectionWithStatus,
+        depth: usize,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let conn_id = conn.config.id;
+        let is_dragging = self.drag_state.as_ref()
+            .map(|s| matches!(&s.dragging, DragItem::Connection(id) if *id == conn_id))
+            .unwrap_or(false);
+        let is_drop_target = self.drag_state.as_ref()
+            .map(|s| matches!(&s.over, Some(DropTarget::Connection(id)) if *id == conn_id))
+            .unwrap_or(false);
+
+        self.render_connection_node(conn, depth, cx)
+            .when(is_dragging, |s| s.opacity(0.5))
+            .when(is_drop_target, |s| {
+                s.border_t_2()
+                    .border_color(cx.global::<ThemeSettings>().colors.accent)
+            })
+            .on_drag(cx.listener(move |this, _, cx| {
+                this.start_drag(DragItem::Connection(conn_id), cx);
+            }))
+            .on_drag_over(cx.listener(move |this, _, cx| {
+                this.update_drag_over(Some(DropTarget::Connection(conn_id)), cx);
+            }))
+            .on_drop(cx.listener(move |this, _, cx| {
+                this.end_drag(cx);
+            }))
+    }
+}
 ```
 
 ## Acceptance Criteria
@@ -980,34 +3011,184 @@ Implement the connection user interface including the connection dialog for crea
 5. [ ] Password stored in keyring on save
 6. [ ] Connection tree displays all connections
 7. [ ] Groups expand/collapse correctly
-8. [ ] Status indicators show correct colors
+8. [ ] Status indicators show correct colors with animation for connecting state
 9. [ ] Double-click opens new query tab
-10. [ ] Context menu shows correct actions
+10. [ ] Context menu shows correct actions based on connection state
 11. [ ] Disconnect/connect works from context menu
 12. [ ] Edit opens dialog with connection data
 13. [ ] Delete removes connection with confirmation
 14. [ ] Search filters connections correctly
+15. [ ] Drag-drop reorders connections between groups
+16. [ ] Keyboard navigation works throughout
 
-## Testing with MCP
+## Testing
 
+### Unit Tests
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_connection_dialog_validation() {
+        let mut dialog = ConnectionDialog::new();
+
+        // Empty name should fail
+        let errors = dialog.validate();
+        assert!(errors.iter().any(|e| e.field == "name"));
+
+        // Valid form should pass
+        dialog.name = "Test".to_string();
+        dialog.host = "localhost".to_string();
+        dialog.port = "5432".to_string();
+        dialog.database = "postgres".to_string();
+        dialog.username = "postgres".to_string();
+
+        let errors = dialog.validate();
+        assert!(errors.is_empty());
+    }
+
+    #[test]
+    fn test_tree_building() {
+        let mut tree = ConnectionTree::new();
+
+        let group = ConnectionGroup {
+            id: Uuid::new_v4(),
+            name: "Production".to_string(),
+            parent_id: None,
+            expanded: true,
+            order: 0,
+        };
+
+        let conn = ConnectionWithStatus {
+            config: ConnectionConfig {
+                id: Uuid::new_v4(),
+                name: "Prod DB".to_string(),
+                group_id: Some(group.id),
+                ..Default::default()
+            },
+            status: ConnectionStatus::Disconnected,
+        };
+
+        tree.set_groups(vec![group.clone()]);
+        tree.set_connections(vec![conn]);
+
+        let nodes = tree.build_tree();
+        assert_eq!(nodes.len(), 1);
+
+        if let TreeNode::Group { group: g, children } = &nodes[0] {
+            assert_eq!(g.name, "Production");
+            assert_eq!(children.len(), 1);
+        } else {
+            panic!("Expected group node");
+        }
+    }
+
+    #[test]
+    fn test_connection_filtering() {
+        let mut tree = ConnectionTree::new();
+
+        tree.set_connections(vec![
+            ConnectionWithStatus {
+                config: ConnectionConfig {
+                    name: "Production".to_string(),
+                    host: "prod.example.com".to_string(),
+                    ..Default::default()
+                },
+                status: ConnectionStatus::Disconnected,
+            },
+            ConnectionWithStatus {
+                config: ConnectionConfig {
+                    name: "Development".to_string(),
+                    host: "localhost".to_string(),
+                    ..Default::default()
+                },
+                status: ConnectionStatus::Disconnected,
+            },
+        ]);
+
+        // No filter - both visible
+        let nodes = tree.build_tree();
+        assert_eq!(nodes.len(), 2);
+
+        // Filter by name
+        tree.set_filter("prod".to_string());
+        let nodes = tree.build_tree();
+        assert_eq!(nodes.len(), 1);
+
+        // Filter by host
+        tree.set_filter("localhost".to_string());
+        let nodes = tree.build_tree();
+        assert_eq!(nodes.len(), 1);
+    }
+
+    #[test]
+    fn test_color_parsing() {
+        let blue = parse_hex_color("#3b82f6").unwrap();
+        assert!(blue.h > 0.5 && blue.h < 0.7); // Blue hue range
+
+        let red = parse_hex_color("#ef4444").unwrap();
+        assert!(red.h < 0.1 || red.h > 0.9); // Red hue range
+
+        assert!(parse_hex_color("invalid").is_none());
+        assert!(parse_hex_color("#fff").is_none()); // Too short
+    }
+}
 ```
-1. Start app: npm run tauri dev
-2. Connect: driver_session action=start
-3. Open connection dialog: webview_click selector="[title='New Connection']"
-4. Fill form: webview_fill_form fields=[...]
-5. Test connection: webview_click selector="[text='Test Connection']"
-6. Save: webview_click selector="[text='Save']"
-7. Verify in tree: webview_dom_snapshot type=accessibility
-8. Right-click: webview_interact action=click selector=".connection-node" button=right
-9. Verify context menu: webview_dom_snapshot type=accessibility
+
+### Integration Tests
+
+```rust
+#[cfg(test)]
+mod integration_tests {
+    use gpui::TestAppContext;
+
+    #[gpui::test]
+    async fn test_connection_dialog_flow(cx: &mut TestAppContext) {
+        // Initialize app state
+        let app = cx.new(|cx| {
+            let state = TuskState::new(cx).unwrap();
+            cx.set_global(state);
+            TestApp::new(cx)
+        });
+
+        // Open connection dialog
+        app.update(cx, |app, cx| {
+            app.open_connection_dialog(cx);
+        });
+
+        // Verify dialog is visible
+        cx.run_until_parked();
+
+        // Fill in form and save
+        app.update(cx, |app, cx| {
+            if let Some(dialog) = &mut app.connection_dialog {
+                dialog.name = "Test Connection".to_string();
+                dialog.host = "localhost".to_string();
+                dialog.handle_save(cx);
+            }
+        });
+
+        cx.run_until_parked();
+
+        // Verify connection was saved
+        let state = cx.global::<TuskState>();
+        let connections = state.storage_service.list_connections().unwrap();
+        assert!(connections.iter().any(|c| c.name == "Test Connection"));
+    }
+}
 ```
 
 ## Dependencies on Other Features
 
-- 06-settings-theming-credentials.md
-- 07-connection-management.md
-- 08-ssl-ssh-security.md
+- 06-settings-theming-credentials.md (Theme system, KeyringService)
+- 07-connection-management.md (ConnectionService, ConnectionConfig, ConnectionStatus)
+- 08-ssl-ssh-security.md (SSL mode enums, SSH tunnel config, file browse integration)
 
 ## Dependent Features
 
-- 16-schema-browser.md
+- 10-schema-introspection.md (Uses connected connections)
+- 11-query-execution.md (Uses active connection)
+- 12-monaco-editor.md (Uses connection for autocomplete context)
+- 16-schema-browser.md (Extends connection tree with schema nodes)

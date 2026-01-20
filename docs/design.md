@@ -1,6 +1,6 @@
 # Tusk — Design Document
 
-A fast, free, native Postgres client built with Tauri.
+A fast, free, native Postgres client built with GPUI.
 
 ---
 
@@ -25,88 +25,162 @@ A fast, free, native Postgres client built with Tauri.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (WebView)                        │
-│  TypeScript / Svelte                                            │
+│                     Tusk Application (Rust + GPUI)              │
+│                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Shell                                                    │   │
-│  │  ├── Sidebar (connection tree, schema browser)           │   │
-│  │  ├── Tab Bar (query tabs, table viewers)                 │   │
-│  │  └── Status Bar (connection info, row count, timing)     │   │
+│  │  UI Layer (GPUI Views & Elements)                        │   │
+│  │  ┌────────────────┐ ┌────────────────┐ ┌──────────────┐  │   │
+│  │  │  Workspace     │ │  Panels        │ │  Modals      │  │   │
+│  │  │  ├── Panes     │ │  ├── Schema    │ │  ├── Connect │  │   │
+│  │  │  ├── Tabs      │ │  │   Browser   │ │  ├── Settings│  │   │
+│  │  │  └── StatusBar │ │  ├── History   │ │  └── Dialogs │  │   │
+│  │  └────────────────┘ │  └── Admin     │ └──────────────┘  │   │
+│  │                     └────────────────┘                    │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  Components                                               │   │
-│  │  ├── Monaco Editor (SQL editing)                         │   │
-│  │  ├── Data Grid (results, table data)                     │   │
-│  │  ├── Query Plan Viewer (EXPLAIN visualization)           │   │
-│  │  ├── ER Diagram Canvas (schema visualization)            │   │
-│  │  └── Forms (connection, import, backup wizards)          │   │
+│  │  ├── SqlEditor (native text editor with syntax highlighting)│   │
+│  │  ├── DataGrid (virtualized results using UniformList)     │   │
+│  │  ├── QueryPlanViewer (EXPLAIN visualization)              │   │
+│  │  ├── ErDiagram (schema visualization canvas)              │   │
+│  │  └── Forms (connection, import, backup wizards)           │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  Services Layer (Async Rust)                              │   │
+│  │  ┌────────────────┐ ┌────────────────┐ ┌───────────────┐ │   │
+│  │  │  Connection    │ │  Query Engine  │ │  Schema       │ │   │
+│  │  │  Manager       │ │                │ │  Service      │ │   │
+│  │  │  - Pool mgmt   │ │  - Execution   │ │  - Introspect │ │   │
+│  │  │  - SSH tunnels │ │  - Streaming   │ │  - DDL gen    │ │   │
+│  │  │  - SSL/TLS     │ │  - Cancellation│ │  - Dep graph  │ │   │
+│  │  └────────────────┘ └────────────────┘ └───────────────┘ │   │
+│  │  ┌────────────────┐ ┌────────────────┐ ┌───────────────┐ │   │
+│  │  │  Admin Service │ │  Import/Export │ │  Local Storage│ │   │
+│  │  │                │ │                │ │               │ │   │
+│  │  │  - pg_stat_*   │ │  - CSV/JSON    │ │  - SQLite     │ │   │
+│  │  │  - Vacuum      │ │  - pg_dump     │ │  - Keyring    │ │   │
+│  │  │  - Roles       │ │  - pg_restore  │ │  - Settings   │ │   │
+│  │  └────────────────┘ └────────────────┘ └───────────────┘ │   │
 │  └──────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
-                              │ IPC (Tauri Commands)
-┌─────────────────────────────────────────────────────────────────┐
-│                        Backend (Rust)                            │
-│  ┌────────────────┐ ┌────────────────┐ ┌─────────────────────┐  │
-│  │  Connection    │ │  Query Engine  │ │  Schema Service     │  │
-│  │  Manager       │ │                │ │                     │  │
-│  │  - Pool mgmt   │ │  - Execution   │ │  - Introspection    │  │
-│  │  - SSH tunnels │ │  - Streaming   │ │  - DDL generation   │  │
-│  │  - SSL/TLS     │ │  - Cancellation│ │  - Dependency graph │  │
-│  └────────────────┘ └────────────────┘ └─────────────────────┘  │
-│  ┌────────────────┐ ┌────────────────┐ ┌─────────────────────┐  │
-│  │  Admin Service │ │  Import/Export │ │  Local Storage      │  │
-│  │                │ │                │ │                     │  │
-│  │  - pg_stat_*   │ │  - CSV/JSON    │ │  - SQLite metadata  │  │
-│  │  - Vacuum      │ │  - pg_dump     │ │  - Keyring creds    │  │
-│  │  - Roles       │ │  - pg_restore  │ │  - Settings         │  │
-│  └────────────────┘ └────────────────┘ └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.1 Frontend Stack
+### 2.1 Technology Stack
 
-| Component | Library                                | Rationale                                                           |
-| --------- | -------------------------------------- | ------------------------------------------------------------------- |
-| Framework | Svelte 5                               | Compiled reactivity, minimal runtime, clean syntax                  |
-| Editor    | Monaco                                 | Industry standard, excellent SQL support, familiar to VS Code users |
-| Data Grid | TanStack Table + custom virtualization | MIT licensed, handles millions of rows                              |
-| Diagrams  | @xyflow/svelte                         | Free, performant canvas rendering                                   |
-| Styling   | Tailwind CSS                           | Utility-first, easy theming                                         |
-| State     | Svelte stores + context                | No additional library needed                                        |
+| Component          | Library                  | Rationale                                                  |
+| ------------------ | ------------------------ | ---------------------------------------------------------- |
+| UI Framework       | GPUI (from Zed)          | GPU-accelerated, native performance, Rust-native           |
+| Text Editor        | Custom GPUI Editor       | Native syntax highlighting, Zed-quality editing experience |
+| Data Grid          | UniformList + custom     | Virtualized rendering, handles millions of rows            |
+| Diagrams           | Custom GPUI Canvas       | Native rendering, no web dependencies                      |
+| Postgres driver    | tokio-postgres           | Full async, streaming support, COPY protocol               |
+| Connection pooling | deadpool-postgres        | Async-native pool management                               |
+| SSH tunnels        | russh                    | Pure Rust SSH2 implementation                              |
+| Local storage      | rusqlite                 | Embedded SQLite for metadata                               |
+| Credentials        | keyring                  | OS keychain (macOS Keychain, Windows Credential Manager)   |
+| Serialization      | serde + serde_json       | Standard Rust serialization                                |
+| CLI tools          | std::process::Command    | Wraps pg_dump, pg_restore, psql                            |
 
-### 2.2 Backend Stack
+### 2.2 GPUI Architecture Patterns
 
-| Component          | Library               | Rationale                                                                |
-| ------------------ | --------------------- | ------------------------------------------------------------------------ |
-| Postgres driver    | tokio-postgres        | Full async, streaming support, COPY protocol                             |
-| Connection pooling | deadpool-postgres     | Async-native pool management                                             |
-| SSH tunnels        | russh                 | Pure Rust SSH2 implementation                                            |
-| Local storage      | rusqlite              | Embedded SQLite for metadata                                             |
-| Credentials        | keyring               | OS keychain (macOS Keychain, Windows Credential Manager, Secret Service) |
-| Serialization      | serde + serde_json    | Standard Rust serialization                                              |
-| CLI tools          | std::process::Command | Wraps pg_dump, pg_restore, psql                                          |
+**Entity-Based State Management**
 
-### 2.3 IPC Design
-
-All frontend-backend communication uses Tauri's command system. Commands are async and return `Result<T, Error>`.
+All application state is owned by the `App` context and accessed through `Entity<T>` handles:
 
 ```rust
-// Example command signatures
-#[tauri::command]
-async fn execute_query(conn_id: Uuid, sql: String, params: Vec<Value>) -> Result<QueryResult, Error>;
+// State is created and owned by the App
+let connection_manager = cx.new(|_| ConnectionManager::new());
+let query_service = cx.new(|_| QueryService::new());
 
-#[tauri::command]
-async fn get_schema(conn_id: Uuid) -> Result<Schema, Error>;
-
-#[tauri::command]
-async fn cancel_query(query_id: Uuid) -> Result<(), Error>;
+// Entities are accessed through references
+connection_manager.update(cx, |manager, cx| {
+    manager.connect(config, cx);
+});
 ```
 
-Large result sets use Tauri events for streaming:
+**View Rendering with the Render Trait**
+
+All UI components implement the `Render` trait:
 
 ```rust
-// Stream rows in batches
-app.emit("query:rows", RowBatch { query_id, rows, batch_num });
-app.emit("query:complete", QueryComplete { query_id, total_rows, elapsed_ms });
+impl Render for QueryTab {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .child(self.render_toolbar(window, cx))
+            .child(self.render_editor(window, cx))
+            .child(self.render_results(window, cx))
+    }
+}
+```
+
+**Event-Driven Updates**
+
+Components communicate through subscriptions and events:
+
+```rust
+impl EventEmitter<QueryEvent> for QueryTab {}
+
+// Subscribe to events
+cx.subscribe(&query_tab, |workspace, tab, event: &QueryEvent, cx| {
+    match event {
+        QueryEvent::ExecutionComplete { rows, elapsed } => {
+            workspace.update_status(rows, elapsed, cx);
+        }
+        QueryEvent::Error { message } => {
+            workspace.show_error(message, cx);
+        }
+    }
+}).detach();
+```
+
+### 2.3 Workspace Architecture
+
+The application uses a workspace-based architecture similar to Zed:
+
+```rust
+pub struct Workspace {
+    /// Pane groups for split views
+    center: PaneGroup,
+
+    /// Side panels (schema browser, history)
+    left_dock: Dock,
+    right_dock: Dock,
+    bottom_dock: Dock,
+
+    /// Active connections
+    connections: Entity<ConnectionManager>,
+
+    /// Schema cache per connection
+    schema_cache: Entity<SchemaCache>,
+
+    /// Application settings
+    settings: Entity<Settings>,
+
+    /// Focus management
+    focus_handle: FocusHandle,
+}
+
+pub struct Pane {
+    /// Items (tabs) in this pane
+    items: Vec<Box<dyn Item>>,
+
+    /// Currently active item index
+    active_item_index: usize,
+
+    /// Scroll handle for tab bar
+    tab_bar_scroll_handle: ScrollHandle,
+}
+
+pub trait Item: Render + EventEmitter<ItemEvent> {
+    fn tab_content(&self, cx: &App) -> AnyElement;
+    fn tab_icon(&self, cx: &App) -> Option<Icon>;
+    fn is_dirty(&self, cx: &App) -> bool;
+    fn can_save(&self, cx: &App) -> bool;
+    fn save(&mut self, cx: &mut Context<Self>) -> Task<Result<()>>;
+}
 ```
 
 ---
@@ -115,239 +189,325 @@ app.emit("query:complete", QueryComplete { query_id, total_rows, elapsed_ms });
 
 ### 3.1 Connection
 
-```typescript
-interface Connection {
-	id: string; // UUID
-	name: string;
-	color?: string; // Hex color for visual identification
-	group_id?: string; // Folder grouping
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Connection {
+    pub id: Uuid,
+    pub name: String,
+    pub color: Option<String>,    // Hex color for visual identification
+    pub group_id: Option<Uuid>,   // Folder grouping
 
-	host: string;
-	port: number; // Default 5432
-	database: string;
-	username: string;
-	password_in_keyring: boolean; // If true, fetch from OS keyring
+    pub host: String,
+    pub port: u16,                // Default 5432
+    pub database: String,
+    pub username: String,
+    pub password_in_keyring: bool, // If true, fetch from OS keyring
 
-	ssl_mode: 'disable' | 'prefer' | 'require' | 'verify-ca' | 'verify-full';
-	ssl_ca_cert?: string; // Path to CA certificate
-	ssl_client_cert?: string; // Path to client certificate
-	ssl_client_key?: string; // Path to client key
+    pub ssl_mode: SslMode,
+    pub ssl_ca_cert: Option<PathBuf>,
+    pub ssl_client_cert: Option<PathBuf>,
+    pub ssl_client_key: Option<PathBuf>,
 
-	ssh_tunnel?: {
-		enabled: boolean;
-		host: string;
-		port: number; // Default 22
-		username: string;
-		auth: 'password' | 'key';
-		key_path?: string;
-		passphrase_in_keyring: boolean;
-	};
+    pub ssh_tunnel: Option<SshTunnelConfig>,
+    pub options: ConnectionOptions,
+}
 
-	options: {
-		connect_timeout_sec: number; // Default 10
-		statement_timeout_ms?: number; // Optional query timeout
-		application_name: string; // Default "Tusk"
-		readonly: boolean; // Prevent writes
-	};
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub enum SslMode {
+    Disable,
+    #[default]
+    Prefer,
+    Require,
+    VerifyCa,
+    VerifyFull,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SshTunnelConfig {
+    pub enabled: bool,
+    pub host: String,
+    pub port: u16,                 // Default 22
+    pub username: String,
+    pub auth: SshAuthMethod,
+    pub key_path: Option<PathBuf>,
+    pub passphrase_in_keyring: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SshAuthMethod {
+    Password,
+    Key,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionOptions {
+    pub connect_timeout_sec: u64,     // Default 10
+    pub statement_timeout_ms: Option<u64>,
+    pub application_name: String,      // Default "Tusk"
+    pub readonly: bool,                // Prevent writes
 }
 ```
 
 ### 3.2 Schema Objects
 
-```typescript
-interface Schema {
-	name: string;
-	tables: Table[];
-	views: View[];
-	materialized_views: MaterializedView[];
-	functions: Function[];
-	sequences: Sequence[];
-	types: Type[];
-	extensions: Extension[];
+```rust
+#[derive(Debug, Clone)]
+pub struct Schema {
+    pub name: String,
+    pub tables: Vec<Table>,
+    pub views: Vec<View>,
+    pub materialized_views: Vec<MaterializedView>,
+    pub functions: Vec<Function>,
+    pub sequences: Vec<Sequence>,
+    pub types: Vec<Type>,
+    pub extensions: Vec<Extension>,
 }
 
-interface Table {
-	oid: number;
-	schema: string;
-	name: string;
-	columns: Column[];
-	primary_key?: Constraint;
-	foreign_keys: ForeignKey[];
-	unique_constraints: Constraint[];
-	check_constraints: CheckConstraint[];
-	indexes: Index[];
-	triggers: Trigger[];
-	policies: Policy[]; // RLS policies
-	row_count_estimate: number; // From pg_class.reltuples
-	size_bytes: number; // From pg_total_relation_size
-	comment?: string;
+#[derive(Debug, Clone)]
+pub struct Table {
+    pub oid: u32,
+    pub schema: String,
+    pub name: String,
+    pub columns: Vec<Column>,
+    pub primary_key: Option<Constraint>,
+    pub foreign_keys: Vec<ForeignKey>,
+    pub unique_constraints: Vec<Constraint>,
+    pub check_constraints: Vec<CheckConstraint>,
+    pub indexes: Vec<Index>,
+    pub triggers: Vec<Trigger>,
+    pub policies: Vec<Policy>,        // RLS policies
+    pub row_count_estimate: i64,      // From pg_class.reltuples
+    pub size_bytes: i64,              // From pg_total_relation_size
+    pub comment: Option<String>,
 }
 
-interface Column {
-	ordinal: number;
-	name: string;
-	type: string; // Full type with modifiers (varchar(255))
-	base_type: string; // Base type (varchar)
-	nullable: boolean;
-	default?: string;
-	is_identity: boolean;
-	identity_generation?: 'ALWAYS' | 'BY DEFAULT';
-	is_generated: boolean;
-	generation_expression?: string;
-	comment?: string;
+#[derive(Debug, Clone)]
+pub struct Column {
+    pub ordinal: i16,
+    pub name: String,
+    pub type_name: String,            // Full type with modifiers (varchar(255))
+    pub base_type: String,            // Base type (varchar)
+    pub nullable: bool,
+    pub default: Option<String>,
+    pub is_identity: bool,
+    pub identity_generation: Option<IdentityGeneration>,
+    pub is_generated: bool,
+    pub generation_expression: Option<String>,
+    pub comment: Option<String>,
 }
 
-interface Index {
-	oid: number;
-	name: string;
-	columns: string[];
-	include_columns: string[]; // INCLUDE clause
-	is_unique: boolean;
-	is_primary: boolean;
-	is_partial: boolean;
-	predicate?: string; // WHERE clause for partial
-	method: 'btree' | 'hash' | 'gist' | 'gin' | 'brin';
-	size_bytes: number;
-	definition: string; // Full CREATE INDEX statement
+#[derive(Debug, Clone)]
+pub struct Index {
+    pub oid: u32,
+    pub name: String,
+    pub columns: Vec<String>,
+    pub include_columns: Vec<String>, // INCLUDE clause
+    pub is_unique: bool,
+    pub is_primary: bool,
+    pub is_partial: bool,
+    pub predicate: Option<String>,    // WHERE clause for partial
+    pub method: IndexMethod,
+    pub size_bytes: i64,
+    pub definition: String,           // Full CREATE INDEX statement
 }
 
-interface ForeignKey {
-	name: string;
-	columns: string[];
-	referenced_schema: string;
-	referenced_table: string;
-	referenced_columns: string[];
-	on_delete: 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
-	on_update: 'NO ACTION' | 'RESTRICT' | 'CASCADE' | 'SET NULL' | 'SET DEFAULT';
-	deferrable: boolean;
-	initially_deferred: boolean;
+#[derive(Debug, Clone)]
+pub enum IndexMethod {
+    Btree,
+    Hash,
+    Gist,
+    Gin,
+    Brin,
 }
 
-interface Function {
-	oid: number;
-	schema: string;
-	name: string;
-	arguments: Argument[];
-	return_type: string;
-	language: string; // plpgsql, sql, python, etc.
-	volatility: 'IMMUTABLE' | 'STABLE' | 'VOLATILE';
-	is_strict: boolean;
-	is_security_definer: boolean;
-	source: string;
-	comment?: string;
+#[derive(Debug, Clone)]
+pub struct ForeignKey {
+    pub name: String,
+    pub columns: Vec<String>,
+    pub referenced_schema: String,
+    pub referenced_table: String,
+    pub referenced_columns: Vec<String>,
+    pub on_delete: ForeignKeyAction,
+    pub on_update: ForeignKeyAction,
+    pub deferrable: bool,
+    pub initially_deferred: bool,
+}
+
+#[derive(Debug, Clone)]
+pub enum ForeignKeyAction {
+    NoAction,
+    Restrict,
+    Cascade,
+    SetNull,
+    SetDefault,
+}
+
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub oid: u32,
+    pub schema: String,
+    pub name: String,
+    pub arguments: Vec<Argument>,
+    pub return_type: String,
+    pub language: String,             // plpgsql, sql, python, etc.
+    pub volatility: Volatility,
+    pub is_strict: bool,
+    pub is_security_definer: bool,
+    pub source: String,
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Volatility {
+    Immutable,
+    Stable,
+    Volatile,
 }
 ```
 
 ### 3.3 Query Results
 
-```typescript
-interface QueryResult {
-	query_id: string;
-	status: 'success' | 'error';
-	command: string; // SELECT, INSERT, UPDATE, etc.
+```rust
+#[derive(Debug, Clone)]
+pub struct QueryResult {
+    pub query_id: Uuid,
+    pub status: QueryStatus,
+    pub command: String,              // SELECT, INSERT, UPDATE, etc.
 
-	// For SELECT queries
-	columns?: ColumnMeta[];
-	rows?: Row[];
-	total_rows?: number;
-	truncated?: boolean; // True if row limit hit
+    // For SELECT queries
+    pub columns: Option<Vec<ColumnMeta>>,
+    pub rows: Option<Vec<Row>>,
+    pub total_rows: Option<usize>,
+    pub truncated: bool,              // True if row limit hit
 
-	// For DML queries
-	rows_affected?: number;
+    // For DML queries
+    pub rows_affected: Option<u64>,
 
-	// For EXPLAIN
-	plan?: QueryPlan;
+    // For EXPLAIN
+    pub plan: Option<QueryPlan>,
 
-	// Timing
-	elapsed_ms: number;
+    // Timing
+    pub elapsed_ms: u64,
 
-	// Errors
-	error?: {
-		message: string;
-		detail?: string;
-		hint?: string;
-		position?: number; // Character position in query
-		code: string; // Postgres error code (23505, etc.)
-	};
+    // Errors
+    pub error: Option<QueryError>,
 }
 
-interface ColumnMeta {
-	name: string;
-	type_oid: number;
-	type_name: string;
-	type_modifier: number;
-	table_oid?: number; // Source table if applicable
-	column_ordinal?: number;
+#[derive(Debug, Clone)]
+pub enum QueryStatus {
+    Running,
+    Success,
+    Error,
+    Cancelled,
 }
 
-type Row = Value[];
+#[derive(Debug, Clone)]
+pub struct QueryError {
+    pub message: String,
+    pub detail: Option<String>,
+    pub hint: Option<String>,
+    pub position: Option<u32>,        // Character position in query
+    pub code: String,                 // Postgres error code (23505, etc.)
+}
 
-type Value =
-	| null
-	| boolean
-	| number
-	| string
-	| number[] // Arrays
-	| object // JSON/JSONB
-	| { type: 'bytea'; hex: string }
-	| { type: 'interval'; iso: string }
-	| { type: 'point'; x: number; y: number }
-	| { type: 'unknown'; text: string };
+#[derive(Debug, Clone)]
+pub struct ColumnMeta {
+    pub name: String,
+    pub type_oid: u32,
+    pub type_name: String,
+    pub type_modifier: i32,
+    pub table_oid: Option<u32>,
+    pub column_ordinal: Option<i16>,
+}
+
+pub type Row = Vec<Value>;
+
+#[derive(Debug, Clone)]
+pub enum Value {
+    Null,
+    Bool(bool),
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Float32(f32),
+    Float64(f64),
+    Numeric(String),
+    Text(String),
+    Bytea(Vec<u8>),
+    Timestamp(chrono::NaiveDateTime),
+    TimestampTz(chrono::DateTime<chrono::Utc>),
+    Date(chrono::NaiveDate),
+    Time(chrono::NaiveTime),
+    Interval(String),
+    Uuid(Uuid),
+    Json(serde_json::Value),
+    Array(Vec<Value>),
+    Point { x: f64, y: f64 },
+    Unknown(String),
+}
 ```
 
 ### 3.4 Query Plan
 
-```typescript
-interface QueryPlan {
-	raw: string; // Original EXPLAIN output
-	format: 'text' | 'json';
-	root: PlanNode;
-	planning_time_ms: number;
-	execution_time_ms?: number; // Only with ANALYZE
-	triggers?: TriggerTiming[];
+```rust
+#[derive(Debug, Clone)]
+pub struct QueryPlan {
+    pub raw: String,                  // Original EXPLAIN output
+    pub format: PlanFormat,
+    pub root: PlanNode,
+    pub planning_time_ms: f64,
+    pub execution_time_ms: Option<f64>, // Only with ANALYZE
+    pub triggers: Vec<TriggerTiming>,
 }
 
-interface PlanNode {
-	node_type: string; // Seq Scan, Index Scan, Nested Loop, etc.
-	relation_name?: string;
-	alias?: string;
-	index_name?: string;
-	join_type?: string;
+#[derive(Debug, Clone)]
+pub enum PlanFormat {
+    Text,
+    Json,
+}
 
-	// Estimates
-	startup_cost: number;
-	total_cost: number;
-	plan_rows: number;
-	plan_width: number;
+#[derive(Debug, Clone)]
+pub struct PlanNode {
+    pub node_type: String,            // Seq Scan, Index Scan, Nested Loop, etc.
+    pub relation_name: Option<String>,
+    pub alias: Option<String>,
+    pub index_name: Option<String>,
+    pub join_type: Option<String>,
 
-	// Actuals (ANALYZE only)
-	actual_startup_time?: number;
-	actual_total_time?: number;
-	actual_rows?: number;
-	actual_loops?: number;
+    // Estimates
+    pub startup_cost: f64,
+    pub total_cost: f64,
+    pub plan_rows: f64,
+    pub plan_width: i32,
 
-	// Details
-	filter?: string;
-	index_cond?: string;
-	recheck_cond?: string;
-	sort_key?: string[];
-	hash_cond?: string;
+    // Actuals (ANALYZE only)
+    pub actual_startup_time: Option<f64>,
+    pub actual_total_time: Option<f64>,
+    pub actual_rows: Option<u64>,
+    pub actual_loops: Option<u64>,
 
-	// Buffers (BUFFERS option)
-	shared_hit_blocks?: number;
-	shared_read_blocks?: number;
-	shared_written_blocks?: number;
+    // Details
+    pub filter: Option<String>,
+    pub index_cond: Option<String>,
+    pub recheck_cond: Option<String>,
+    pub sort_key: Option<Vec<String>>,
+    pub hash_cond: Option<String>,
 
-	// I/O timing (timing option)
-	io_read_time_ms?: number;
-	io_write_time_ms?: number;
+    // Buffers (BUFFERS option)
+    pub shared_hit_blocks: Option<u64>,
+    pub shared_read_blocks: Option<u64>,
+    pub shared_written_blocks: Option<u64>,
 
-	// Children
-	children: PlanNode[];
+    // I/O timing (timing option)
+    pub io_read_time_ms: Option<f64>,
+    pub io_write_time_ms: Option<f64>,
 
-	// Computed for visualization
-	percent_of_total: number;
-	is_slowest: boolean;
+    // Children
+    pub children: Vec<PlanNode>,
+
+    // Computed for visualization
+    pub percent_of_total: f64,
+    pub is_slowest: bool,
 }
 ```
 
@@ -420,6 +580,13 @@ CREATE TABLE editor_state (
 CREATE TABLE settings (
   key TEXT PRIMARY KEY,
   value_json TEXT NOT NULL
+);
+
+-- Workspace state for session restore
+CREATE TABLE workspace_state (
+  id TEXT PRIMARY KEY,
+  state_json TEXT NOT NULL,         -- Serialized workspace layout
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -518,7 +685,7 @@ For any object, generate:
 
 **Editor Features**
 
-- Monaco editor with SQL language mode
+- Native GPUI text editor with SQL language mode
 - Schema-aware autocomplete:
   - Table names (schema.table or just table if in search_path)
   - Column names (after table alias or in FROM context)
@@ -534,7 +701,7 @@ For any object, generate:
 
 1. On connection: fetch full schema metadata
 2. Cache in memory, refresh on schema change events (LISTEN/NOTIFY) or manual refresh
-3. Monaco completion provider queries cached schema
+3. Completion provider queries cached schema
 4. Rank completions: columns from tables in query > other columns > tables > functions > keywords
 
 **Tab Management**
@@ -582,7 +749,7 @@ For any object, generate:
 
 **Grid Features**
 
-- Virtual scrolling: renders only visible rows, handles 10M+ rows
+- Virtual scrolling via UniformList: renders only visible rows, handles 10M+ rows
 - Column resizing by drag
 - Column reordering by drag
 - Click header to sort (client-side for loaded data)
@@ -591,7 +758,7 @@ For any object, generate:
 
 **Cell Rendering by Type**
 | Type | Rendering |
-|------|-----------|
+|------|-----------:|
 | NULL | Gray italic "NULL" |
 | boolean | Checkbox icon (read-only unless editing) |
 | integer, numeric | Right-aligned |
@@ -1187,27 +1354,28 @@ Click cell to toggle, batch operations via context menu.
 
 ### 6.1 macOS
 
-- Native menu bar integration
+- Native menu bar integration via GPUI platform API
 - Cmd key bindings
-- Touch Bar support (optional): Run, Stop, Format buttons
+- Native window controls (traffic lights)
 - Notarization for distribution
 - macOS Keychain for credential storage
+- Metal-based GPU rendering
 
 ### 6.2 Windows
 
-- Native window chrome option
+- Native window chrome via GPUI platform API
 - Ctrl key bindings
 - Windows Credential Manager for credentials
 - Installer (MSI or NSIS) and portable ZIP
-- Auto-update via Tauri updater
+- DirectX-based GPU rendering
 
 ### 6.3 Linux
 
 - Follows XDG spec for config/data directories
 - Secret Service API (GNOME Keyring, KWallet) for credentials
 - AppImage, .deb, .rpm packages
-- Flatpak consideration for sandboxed environments
-- Respects GTK/Qt theme where possible
+- Vulkan-based GPU rendering via Blade
+- Wayland and X11 support
 
 ---
 
@@ -1280,7 +1448,7 @@ Click cell to toggle, batch operations via context menu.
 - Stream rows from Postgres in batches (default 1000)
 - Render first batch immediately
 - Continue streaming in background
-- Virtual scrolling only renders visible rows
+- UniformList only renders visible rows
 
 **Schema Caching**
 
@@ -1290,8 +1458,8 @@ Click cell to toggle, batch operations via context menu.
 
 **UI Virtualization**
 
-- Schema tree: virtual list for 1000s of objects
-- Results grid: virtual rows and columns
+- Schema tree: UniformList for 1000s of objects
+- Results grid: UniformList for rows, virtual columns
 - Only render visible + small buffer
 
 ---

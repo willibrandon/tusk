@@ -2,1533 +2,2094 @@
 
 ## Overview
 
-The results grid displays query results in a high-performance, spreadsheet-like interface with virtual scrolling to handle millions of rows. It supports multiple display modes, column operations, cell selection, and type-specific rendering for all PostgreSQL data types.
+The results grid displays query results in a high-performance, GPU-accelerated, spreadsheet-like interface using GPUI's native rendering. It implements custom virtual scrolling to handle millions of rows efficiently, with type-specific rendering for all PostgreSQL data types, column operations, and cell selection.
 
 ## Goals
 
-- Display query results in a performant virtualized grid
-- Handle 10M+ rows through virtual scrolling
+- Display query results in a performant GPU-accelerated virtualized grid
+- Handle 10M+ rows through custom virtual scrolling
 - Render all PostgreSQL types with appropriate formatting
 - Support column resizing, reordering, sorting, and hiding
 - Enable cell and range selection with keyboard navigation
 - Provide multiple display modes (grid, transposed, JSON)
+- Native Rust implementation with no JavaScript dependencies
 
 ## Dependencies
 
-- Feature 03: Frontend Architecture (Svelte component structure)
+- Feature 03: Frontend Architecture (GPUI component structure)
 - Feature 11: Query Execution (result streaming and column metadata)
-- Feature 04: IPC Layer (event streaming for large results)
 
 ## Technical Specification
 
 ### 14.1 Virtual Scrolling Core
 
-```typescript
-// src/lib/components/grid/virtualScroll.ts
+```rust
+// src/ui/components/grid/virtual_scroll.rs
 
-export interface VirtualScrollState {
-	visibleStartIndex: number;
-	visibleEndIndex: number;
-	offsetY: number;
-	totalHeight: number;
+use std::ops::Range;
+
+/// State for vertical virtual scrolling
+#[derive(Clone, Debug)]
+pub struct VerticalScrollState {
+    /// Index of first visible row
+    pub visible_start: usize,
+    /// Index of last visible row (exclusive)
+    pub visible_end: usize,
+    /// Y offset for positioning
+    pub offset_y: f32,
+    /// Total scrollable height
+    pub total_height: f32,
 }
 
-export interface VirtualScrollConfig {
-	rowHeight: number;
-	overscan: number; // Extra rows to render outside viewport
-	containerHeight: number;
+/// State for horizontal virtual scrolling
+#[derive(Clone, Debug)]
+pub struct HorizontalScrollState {
+    /// Index of first visible column
+    pub visible_start: usize,
+    /// Index of last visible column (exclusive)
+    pub visible_end: usize,
+    /// X offset for positioning
+    pub offset_x: f32,
+    /// Total scrollable width
+    pub total_width: f32,
 }
 
-export function calculateVirtualScroll(
-	scrollTop: number,
-	totalRows: number,
-	config: VirtualScrollConfig
-): VirtualScrollState {
-	const { rowHeight, overscan, containerHeight } = config;
-
-	const visibleCount = Math.ceil(containerHeight / rowHeight);
-	const startIndex = Math.floor(scrollTop / rowHeight);
-
-	const visibleStartIndex = Math.max(0, startIndex - overscan);
-	const visibleEndIndex = Math.min(totalRows, startIndex + visibleCount + overscan);
-
-	const offsetY = visibleStartIndex * rowHeight;
-	const totalHeight = totalRows * rowHeight;
-
-	return {
-		visibleStartIndex,
-		visibleEndIndex,
-		offsetY,
-		totalHeight
-	};
+/// Configuration for virtual scrolling
+#[derive(Clone, Debug)]
+pub struct VirtualScrollConfig {
+    /// Height of each row in pixels
+    pub row_height: f32,
+    /// Number of extra rows to render outside viewport
+    pub overscan_rows: usize,
+    /// Number of extra columns to render outside viewport
+    pub overscan_columns: usize,
 }
 
-export interface HorizontalVirtualState {
-	visibleStartIndex: number;
-	visibleEndIndex: number;
-	offsetX: number;
-	totalWidth: number;
+impl Default for VirtualScrollConfig {
+    fn default() -> Self {
+        Self {
+            row_height: 28.0,
+            overscan_rows: 5,
+            overscan_columns: 2,
+        }
+    }
 }
 
-export function calculateHorizontalVirtual(
-	scrollLeft: number,
-	columns: { width: number }[],
-	containerWidth: number,
-	overscan: number = 2
-): HorizontalVirtualState {
-	let accumulatedWidth = 0;
-	let visibleStartIndex = 0;
-	let offsetX = 0;
+/// Calculate vertical scroll state
+pub fn calculate_vertical_scroll(
+    scroll_top: f32,
+    total_rows: usize,
+    viewport_height: f32,
+    config: &VirtualScrollConfig,
+) -> VerticalScrollState {
+    let row_height = config.row_height;
+    let overscan = config.overscan_rows;
 
-	// Find start index
-	for (let i = 0; i < columns.length; i++) {
-		if (accumulatedWidth + columns[i].width >= scrollLeft) {
-			visibleStartIndex = Math.max(0, i - overscan);
-			offsetX = columns.slice(0, visibleStartIndex).reduce((sum, c) => sum + c.width, 0);
-			break;
-		}
-		accumulatedWidth += columns[i].width;
-	}
+    let visible_count = (viewport_height / row_height).ceil() as usize;
+    let start_index = (scroll_top / row_height).floor() as usize;
 
-	// Find end index
-	accumulatedWidth = offsetX;
-	let visibleEndIndex = visibleStartIndex;
+    let visible_start = start_index.saturating_sub(overscan);
+    let visible_end = (start_index + visible_count + overscan).min(total_rows);
 
-	for (let i = visibleStartIndex; i < columns.length; i++) {
-		accumulatedWidth += columns[i].width;
-		visibleEndIndex = i + 1;
-		if (accumulatedWidth >= scrollLeft + containerWidth + overscan * 100) {
-			break;
-		}
-	}
+    let offset_y = visible_start as f32 * row_height;
+    let total_height = total_rows as f32 * row_height;
 
-	visibleEndIndex = Math.min(columns.length, visibleEndIndex + overscan);
+    VerticalScrollState {
+        visible_start,
+        visible_end,
+        offset_y,
+        total_height,
+    }
+}
 
-	const totalWidth = columns.reduce((sum, c) => sum + c.width, 0);
+/// Calculate horizontal scroll state
+pub fn calculate_horizontal_scroll(
+    scroll_left: f32,
+    column_widths: &[f32],
+    viewport_width: f32,
+    overscan: usize,
+) -> HorizontalScrollState {
+    let total_width: f32 = column_widths.iter().sum();
 
-	return {
-		visibleStartIndex,
-		visibleEndIndex,
-		offsetX,
-		totalWidth
-	};
+    if column_widths.is_empty() {
+        return HorizontalScrollState {
+            visible_start: 0,
+            visible_end: 0,
+            offset_x: 0.0,
+            total_width,
+        };
+    }
+
+    // Find start index
+    let mut accumulated = 0.0;
+    let mut visible_start = 0;
+    let mut offset_x = 0.0;
+
+    for (i, &width) in column_widths.iter().enumerate() {
+        if accumulated + width >= scroll_left {
+            visible_start = i.saturating_sub(overscan);
+            offset_x = column_widths[..visible_start].iter().sum();
+            break;
+        }
+        accumulated += width;
+    }
+
+    // Find end index
+    accumulated = offset_x;
+    let mut visible_end = visible_start;
+
+    for (i, &width) in column_widths.iter().enumerate().skip(visible_start) {
+        accumulated += width;
+        visible_end = i + 1;
+        if accumulated >= scroll_left + viewport_width {
+            visible_end = (visible_end + overscan).min(column_widths.len());
+            break;
+        }
+    }
+
+    HorizontalScrollState {
+        visible_start,
+        visible_end,
+        offset_x,
+        total_width,
+    }
+}
+
+/// Get the visible range of rows
+pub fn visible_row_range(state: &VerticalScrollState) -> Range<usize> {
+    state.visible_start..state.visible_end
+}
+
+/// Get the visible range of columns
+pub fn visible_column_range(state: &HorizontalScrollState) -> Range<usize> {
+    state.visible_start..state.visible_end
 }
 ```
 
-### 14.2 Grid State Management
+### 14.2 Grid Data Models
 
-```typescript
-// src/lib/stores/gridState.svelte.ts
+```rust
+// src/models/grid.rs
 
-import type { ColumnMeta, Value } from '$lib/services/query';
+use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 
-export interface GridColumn {
-	name: string;
-	type: string;
-	typeOid: number;
-	width: number;
-	minWidth: number;
-	hidden: boolean;
-	sortDirection: 'asc' | 'desc' | null;
-	sortOrder: number | null;
+use crate::models::query::{Value, ColumnMeta};
+
+/// State for a grid displaying query results
+#[derive(Clone, Debug)]
+pub struct GridData {
+    /// Unique identifier for this result set
+    pub query_id: Uuid,
+    /// Column metadata
+    pub columns: Vec<GridColumn>,
+    /// Row data
+    pub rows: Vec<Vec<Value>>,
+    /// Total row count (may be larger than loaded rows)
+    pub total_rows: usize,
+    /// Query execution time in milliseconds
+    pub elapsed_ms: u64,
+    /// Whether more rows are available to load
+    pub has_more: bool,
 }
 
-export interface CellSelection {
-	rowIndex: number;
-	colIndex: number;
+impl GridData {
+    /// Create empty grid data
+    pub fn empty() -> Self {
+        Self {
+            query_id: Uuid::nil(),
+            columns: Vec::new(),
+            rows: Vec::new(),
+            total_rows: 0,
+            elapsed_ms: 0,
+            has_more: false,
+        }
+    }
+
+    /// Create from query result
+    pub fn from_result(
+        query_id: Uuid,
+        columns: Vec<ColumnMeta>,
+        rows: Vec<Vec<Value>>,
+        total_rows: usize,
+        elapsed_ms: u64,
+    ) -> Self {
+        let grid_columns = columns.iter().enumerate().map(|(i, col)| {
+            GridColumn::from_meta(col, &rows, i)
+        }).collect();
+
+        Self {
+            query_id,
+            columns: grid_columns,
+            rows,
+            total_rows,
+            elapsed_ms,
+            has_more: false,
+        }
+    }
+
+    /// Append more rows
+    pub fn append_rows(&mut self, new_rows: Vec<Vec<Value>>) {
+        self.rows.extend(new_rows);
+    }
+
+    /// Get a cell value
+    pub fn get_cell(&self, row: usize, col: usize) -> Option<&Value> {
+        self.rows.get(row).and_then(|r| r.get(col))
+    }
+
+    /// Get a row
+    pub fn get_row(&self, row: usize) -> Option<&Vec<Value>> {
+        self.rows.get(row)
+    }
+
+    /// Get column widths as a vector
+    pub fn column_widths(&self) -> Vec<f32> {
+        self.columns.iter().map(|c| c.width).collect()
+    }
 }
 
-export interface RangeSelection {
-	startRow: number;
-	startCol: number;
-	endRow: number;
-	endCol: number;
+/// Column state in the grid
+#[derive(Clone, Debug)]
+pub struct GridColumn {
+    /// Column name
+    pub name: String,
+    /// PostgreSQL type name
+    pub type_name: String,
+    /// PostgreSQL type OID
+    pub type_oid: u32,
+    /// Current width in pixels
+    pub width: f32,
+    /// Minimum width
+    pub min_width: f32,
+    /// Maximum width
+    pub max_width: f32,
+    /// Whether column is hidden
+    pub hidden: bool,
+    /// Sort direction (if sorted)
+    pub sort_direction: Option<SortDirection>,
+    /// Sort priority (for multi-column sort)
+    pub sort_order: Option<usize>,
 }
 
-export type DisplayMode = 'grid' | 'transposed' | 'json';
+impl GridColumn {
+    /// Create from column metadata with auto-sizing
+    pub fn from_meta(meta: &ColumnMeta, rows: &[Vec<Value>], col_index: usize) -> Self {
+        let width = Self::calculate_width(&meta.name, &meta.type_name, rows, col_index);
 
-class GridState {
-	// Data
-	rows = $state<Value[][]>([]);
-	columns = $state<GridColumn[]>([]);
-	totalRows = $state(0);
-	isLoading = $state(false);
-	queryId = $state<string | null>(null);
+        Self {
+            name: meta.name.clone(),
+            type_name: meta.type_name.clone(),
+            type_oid: meta.type_oid,
+            width,
+            min_width: 50.0,
+            max_width: 500.0,
+            hidden: false,
+            sort_direction: None,
+            sort_order: None,
+        }
+    }
 
-	// Display
-	displayMode = $state<DisplayMode>('grid');
-	rowHeight = $state(28);
+    /// Calculate optimal width based on content
+    fn calculate_width(
+        name: &str,
+        type_name: &str,
+        rows: &[Vec<Value>],
+        col_index: usize,
+    ) -> f32 {
+        // Start with header width (approx 8px per char + padding)
+        let header_width = name.len() as f32 * 8.0 + 32.0;
+        let mut max_width = header_width;
 
-	// Selection
-	selectedCell = $state<CellSelection | null>(null);
-	rangeSelection = $state<RangeSelection | null>(null);
-	selectedRows = $state<Set<number>>(new Set());
+        // Sample first 100 rows
+        for row in rows.iter().take(100) {
+            if let Some(value) = row.get(col_index) {
+                let display_len = Self::estimate_display_length(value, type_name);
+                let cell_width = display_len as f32 * 7.0 + 16.0;
+                max_width = max_width.max(cell_width);
+            }
+        }
 
-	// Sorting (client-side for loaded data)
-	sortColumns = $state<{ colIndex: number; direction: 'asc' | 'desc' }[]>([]);
+        // Clamp to reasonable bounds
+        max_width.clamp(60.0, 400.0)
+    }
 
-	// Scroll position
-	scrollTop = $state(0);
-	scrollLeft = $state(0);
-
-	setData(columns: ColumnMeta[], rows: Value[][], totalRows: number, queryId: string) {
-		this.columns = columns.map((col, i) => ({
-			name: col.name,
-			type: col.type_name,
-			typeOid: col.type_oid,
-			width: this.calculateColumnWidth(col, rows, i),
-			minWidth: 50,
-			hidden: false,
-			sortDirection: null,
-			sortOrder: null
-		}));
-		this.rows = rows;
-		this.totalRows = totalRows;
-		this.queryId = queryId;
-		this.clearSelection();
-	}
-
-	appendRows(newRows: Value[][]) {
-		this.rows = [...this.rows, ...newRows];
-	}
-
-	private calculateColumnWidth(col: ColumnMeta, rows: Value[][], colIndex: number): number {
-		// Start with column name width
-		let maxWidth = col.name.length * 8 + 32;
-
-		// Sample first 100 rows for content width
-		const sampleRows = rows.slice(0, 100);
-		for (const row of sampleRows) {
-			const value = row[colIndex];
-			const displayValue = this.formatValueForWidth(value);
-			const width = displayValue.length * 7 + 16;
-			maxWidth = Math.max(maxWidth, width);
-		}
-
-		// Cap at reasonable limits
-		return Math.min(Math.max(maxWidth, 60), 400);
-	}
-
-	private formatValueForWidth(value: Value): string {
-		if (value === null) return 'NULL';
-		if (typeof value === 'boolean') return value.toString();
-		if (typeof value === 'number') return value.toString();
-		if (typeof value === 'string') return value;
-		if (Array.isArray(value)) return `[${value.length} items]`;
-		if (typeof value === 'object') return JSON.stringify(value).slice(0, 50);
-		return String(value);
-	}
-
-	// Selection methods
-	selectCell(rowIndex: number, colIndex: number) {
-		this.selectedCell = { rowIndex, colIndex };
-		this.rangeSelection = null;
-	}
-
-	selectRange(startRow: number, startCol: number, endRow: number, endCol: number) {
-		this.rangeSelection = {
-			startRow: Math.min(startRow, endRow),
-			startCol: Math.min(startCol, endCol),
-			endRow: Math.max(startRow, endRow),
-			endCol: Math.max(startCol, endCol)
-		};
-	}
-
-	extendSelection(toRow: number, toCol: number) {
-		if (!this.selectedCell) return;
-
-		this.rangeSelection = {
-			startRow: Math.min(this.selectedCell.rowIndex, toRow),
-			startCol: Math.min(this.selectedCell.colIndex, toCol),
-			endRow: Math.max(this.selectedCell.rowIndex, toRow),
-			endCol: Math.max(this.selectedCell.colIndex, toCol)
-		};
-	}
-
-	selectAll() {
-		if (this.rows.length === 0 || this.columns.length === 0) return;
-
-		this.rangeSelection = {
-			startRow: 0,
-			startCol: 0,
-			endRow: this.rows.length - 1,
-			endCol: this.columns.length - 1
-		};
-	}
-
-	clearSelection() {
-		this.selectedCell = null;
-		this.rangeSelection = null;
-		this.selectedRows.clear();
-	}
-
-	isCellSelected(rowIndex: number, colIndex: number): boolean {
-		if (this.selectedCell?.rowIndex === rowIndex && this.selectedCell?.colIndex === colIndex) {
-			return true;
-		}
-
-		if (this.rangeSelection) {
-			const { startRow, startCol, endRow, endCol } = this.rangeSelection;
-			return (
-				rowIndex >= startRow && rowIndex <= endRow && colIndex >= startCol && colIndex <= endCol
-			);
-		}
-
-		return false;
-	}
-
-	// Column operations
-	resizeColumn(colIndex: number, width: number) {
-		if (colIndex < 0 || colIndex >= this.columns.length) return;
-		this.columns[colIndex].width = Math.max(width, this.columns[colIndex].minWidth);
-	}
-
-	reorderColumns(fromIndex: number, toIndex: number) {
-		const newColumns = [...this.columns];
-		const [moved] = newColumns.splice(fromIndex, 1);
-		newColumns.splice(toIndex, 0, moved);
-		this.columns = newColumns;
-
-		// Also reorder row data
-		this.rows = this.rows.map((row) => {
-			const newRow = [...row];
-			const [movedValue] = newRow.splice(fromIndex, 1);
-			newRow.splice(toIndex, 0, movedValue);
-			return newRow;
-		});
-	}
-
-	toggleColumnVisibility(colIndex: number) {
-		if (colIndex < 0 || colIndex >= this.columns.length) return;
-		this.columns[colIndex].hidden = !this.columns[colIndex].hidden;
-	}
-
-	autoSizeColumn(colIndex: number) {
-		const col = this.columns[colIndex];
-		if (!col) return;
-
-		let maxWidth = col.name.length * 8 + 32;
-
-		for (const row of this.rows) {
-			const value = row[colIndex];
-			const displayValue = this.formatValueForWidth(value);
-			const width = displayValue.length * 7 + 16;
-			maxWidth = Math.max(maxWidth, width);
-		}
-
-		this.columns[colIndex].width = Math.min(maxWidth, 500);
-	}
-
-	autoSizeAllColumns() {
-		this.columns.forEach((_, i) => this.autoSizeColumn(i));
-	}
-
-	// Sorting (client-side)
-	sortByColumn(colIndex: number, multi: boolean = false) {
-		const col = this.columns[colIndex];
-
-		if (!multi) {
-			// Clear other sorts
-			this.columns.forEach((c, i) => {
-				if (i !== colIndex) {
-					c.sortDirection = null;
-					c.sortOrder = null;
-				}
-			});
-			this.sortColumns = [];
-		}
-
-		// Toggle or set sort direction
-		if (col.sortDirection === 'asc') {
-			col.sortDirection = 'desc';
-		} else if (col.sortDirection === 'desc') {
-			col.sortDirection = null;
-		} else {
-			col.sortDirection = 'asc';
-		}
-
-		// Update sort order
-		if (col.sortDirection) {
-			const existingIndex = this.sortColumns.findIndex((s) => s.colIndex === colIndex);
-			if (existingIndex >= 0) {
-				this.sortColumns[existingIndex].direction = col.sortDirection;
-			} else {
-				this.sortColumns.push({ colIndex, direction: col.sortDirection });
-			}
-		} else {
-			this.sortColumns = this.sortColumns.filter((s) => s.colIndex !== colIndex);
-		}
-
-		// Apply sort
-		this.applySorting();
-	}
-
-	private applySorting() {
-		if (this.sortColumns.length === 0) return;
-
-		this.rows = [...this.rows].sort((a, b) => {
-			for (const { colIndex, direction } of this.sortColumns) {
-				const aVal = a[colIndex];
-				const bVal = b[colIndex];
-				const comparison = this.compareValues(aVal, bVal);
-				if (comparison !== 0) {
-					return direction === 'asc' ? comparison : -comparison;
-				}
-			}
-			return 0;
-		});
-	}
-
-	private compareValues(a: Value, b: Value): number {
-		// Handle nulls
-		if (a === null && b === null) return 0;
-		if (a === null) return -1;
-		if (b === null) return 1;
-
-		// Handle different types
-		if (typeof a === 'number' && typeof b === 'number') {
-			return a - b;
-		}
-
-		if (typeof a === 'string' && typeof b === 'string') {
-			return a.localeCompare(b);
-		}
-
-		if (typeof a === 'boolean' && typeof b === 'boolean') {
-			return a === b ? 0 : a ? 1 : -1;
-		}
-
-		// Convert to strings for comparison
-		return String(a).localeCompare(String(b));
-	}
-
-	// Get selected data for copying
-	getSelectedData(): Value[][] {
-		if (this.rangeSelection) {
-			const { startRow, startCol, endRow, endCol } = this.rangeSelection;
-			return this.rows.slice(startRow, endRow + 1).map((row) => row.slice(startCol, endCol + 1));
-		}
-
-		if (this.selectedCell) {
-			const { rowIndex, colIndex } = this.selectedCell;
-			return [[this.rows[rowIndex]?.[colIndex]]];
-		}
-
-		return [];
-	}
-
-	getSelectedColumns(): GridColumn[] {
-		if (this.rangeSelection) {
-			return this.columns.slice(this.rangeSelection.startCol, this.rangeSelection.endCol + 1);
-		}
-
-		if (this.selectedCell) {
-			return [this.columns[this.selectedCell.colIndex]];
-		}
-
-		return [];
-	}
+    /// Estimate display length of a value
+    fn estimate_display_length(value: &Value, type_name: &str) -> usize {
+        match value {
+            Value::Null => 4, // "NULL"
+            Value::Bool(_) => 1, // ✓ or ✗
+            Value::Int16(n) => n.to_string().len(),
+            Value::Int32(n) => n.to_string().len(),
+            Value::Int64(n) => n.to_string().len(),
+            Value::Float32(n) => format!("{:.2}", n).len(),
+            Value::Float64(n) => format!("{:.2}", n).len(),
+            Value::Numeric(s) => s.len(),
+            Value::Text(s) => s.len().min(50),
+            Value::Bytea(b) => b.len().min(10) * 2 + 2, // hex representation
+            Value::Timestamp(ts) => 19, // "YYYY-MM-DD HH:MM:SS"
+            Value::TimestampTz(ts) => 25, // with timezone
+            Value::Date(d) => 10, // "YYYY-MM-DD"
+            Value::Time(t) => 8, // "HH:MM:SS"
+            Value::TimeTz(t) => 14, // with timezone
+            Value::Interval { .. } => 15,
+            Value::Uuid(u) => 36,
+            Value::Json(j) | Value::Jsonb(j) => j.to_string().len().min(50),
+            Value::Array(arr) => format!("[{} items]", arr.len()).len(),
+            Value::Point { .. } => 15, // "(x, y)"
+            Value::Inet(s) | Value::Cidr(s) | Value::MacAddr(s) => s.len(),
+            Value::Unknown(s) => s.len().min(30),
+        }
+    }
 }
 
-export const gridState = new GridState();
+/// Sort direction
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SortDirection {
+    Ascending,
+    Descending,
+}
+
+impl SortDirection {
+    /// Toggle direction
+    pub fn toggle(&self) -> Self {
+        match self {
+            SortDirection::Ascending => SortDirection::Descending,
+            SortDirection::Descending => SortDirection::Ascending,
+        }
+    }
+}
+
+/// Cell selection state
+#[derive(Clone, Debug, Default)]
+pub struct Selection {
+    /// Currently selected cell (anchor)
+    pub anchor: Option<CellPosition>,
+    /// End of range selection
+    pub cursor: Option<CellPosition>,
+    /// Selected rows (for row selection mode)
+    pub selected_rows: Vec<usize>,
+}
+
+impl Selection {
+    /// Clear all selection
+    pub fn clear(&mut self) {
+        self.anchor = None;
+        self.cursor = None;
+        self.selected_rows.clear();
+    }
+
+    /// Select a single cell
+    pub fn select_cell(&mut self, row: usize, col: usize) {
+        self.anchor = Some(CellPosition { row, col });
+        self.cursor = None;
+        self.selected_rows.clear();
+    }
+
+    /// Extend selection to a cell
+    pub fn extend_to(&mut self, row: usize, col: usize) {
+        if self.anchor.is_some() {
+            self.cursor = Some(CellPosition { row, col });
+        }
+    }
+
+    /// Select all cells
+    pub fn select_all(&mut self, rows: usize, cols: usize) {
+        if rows > 0 && cols > 0 {
+            self.anchor = Some(CellPosition { row: 0, col: 0 });
+            self.cursor = Some(CellPosition { row: rows - 1, col: cols - 1 });
+        }
+    }
+
+    /// Get the selection range (normalized)
+    pub fn range(&self) -> Option<SelectionRange> {
+        let anchor = self.anchor?;
+
+        let cursor = self.cursor.unwrap_or(anchor);
+
+        Some(SelectionRange {
+            start_row: anchor.row.min(cursor.row),
+            end_row: anchor.row.max(cursor.row),
+            start_col: anchor.col.min(cursor.col),
+            end_col: anchor.col.max(cursor.col),
+        })
+    }
+
+    /// Check if a cell is selected
+    pub fn is_selected(&self, row: usize, col: usize) -> bool {
+        if let Some(range) = self.range() {
+            row >= range.start_row && row <= range.end_row &&
+            col >= range.start_col && col <= range.end_col
+        } else {
+            false
+        }
+    }
+
+    /// Check if a cell is the anchor
+    pub fn is_anchor(&self, row: usize, col: usize) -> bool {
+        self.anchor.map(|a| a.row == row && a.col == col).unwrap_or(false)
+    }
+}
+
+/// Position of a cell
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CellPosition {
+    pub row: usize,
+    pub col: usize,
+}
+
+/// Range of selected cells
+#[derive(Clone, Debug)]
+pub struct SelectionRange {
+    pub start_row: usize,
+    pub end_row: usize,
+    pub start_col: usize,
+    pub end_col: usize,
+}
+
+impl SelectionRange {
+    /// Get number of selected rows
+    pub fn row_count(&self) -> usize {
+        self.end_row - self.start_row + 1
+    }
+
+    /// Get number of selected columns
+    pub fn col_count(&self) -> usize {
+        self.end_col - self.start_col + 1
+    }
+}
+
+/// Display mode for the grid
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DisplayMode {
+    #[default]
+    Grid,
+    Transposed,
+    Json,
+}
 ```
 
 ### 14.3 Cell Renderer
 
-```typescript
-// src/lib/components/grid/CellRenderer.svelte
-<script lang="ts">
-  import { settingsStore } from '$lib/stores/settings.svelte';
-  import type { Value } from '$lib/services/query';
+```rust
+// src/ui/components/grid/cell_renderer.rs
 
-  interface Props {
-    value: Value;
-    typeName: string;
-    isSelected?: boolean;
-    onExpand?: () => void;
-  }
+use gpui::*;
 
-  let { value, typeName, isSelected = false, onExpand }: Props = $props();
+use crate::models::query::Value;
+use crate::ui::theme::Theme;
 
-  function formatValue(val: Value, type: string): { display: string; className: string } {
-    if (val === null) {
-      return { display: $settingsStore.nullDisplay || 'NULL', className: 'cell-null' };
+/// Render a cell value with appropriate styling
+pub fn render_cell(
+    value: &Value,
+    type_name: &str,
+    is_selected: bool,
+    theme: &Theme,
+) -> impl IntoElement {
+    let (display, style) = format_value(value, type_name, theme);
+
+    div()
+        .px_2()
+        .h_full()
+        .flex()
+        .items_center()
+        .overflow_hidden()
+        .text_ellipsis()
+        .whitespace_nowrap()
+        .when(is_selected, |el| el.bg(theme.selected))
+        .child(
+            div()
+                .text_sm()
+                .font_family(style.font_family)
+                .text_color(style.color)
+                .when(style.italic, |el| el.italic())
+                .when(style.align_right, |el| el.ml_auto())
+                .child(display)
+        )
+}
+
+/// Style information for cell display
+struct CellStyle {
+    color: Hsla,
+    font_family: &'static str,
+    italic: bool,
+    align_right: bool,
+}
+
+impl Default for CellStyle {
+    fn default() -> Self {
+        Self {
+            color: Hsla::default(),
+            font_family: "system-ui",
+            italic: false,
+            align_right: false,
+        }
+    }
+}
+
+/// Format a value for display
+fn format_value(value: &Value, type_name: &str, theme: &Theme) -> (String, CellStyle) {
+    match value {
+        Value::Null => (
+            "NULL".to_string(),
+            CellStyle {
+                color: theme.text_muted,
+                italic: true,
+                ..Default::default()
+            }
+        ),
+
+        Value::Bool(b) => (
+            if *b { "✓" } else { "✗" }.to_string(),
+            CellStyle {
+                color: if *b {
+                    hsla(0.38, 0.68, 0.42, 1.0) // green
+                } else {
+                    hsla(0.0, 0.72, 0.51, 1.0) // red
+                },
+                ..Default::default()
+            }
+        ),
+
+        Value::Int16(n) => format_number(*n as f64, theme),
+        Value::Int32(n) => format_number(*n as f64, theme),
+        Value::Int64(n) => format_number(*n as f64, theme),
+        Value::Float32(n) => format_number(*n as f64, theme),
+        Value::Float64(n) => format_number(*n, theme),
+
+        Value::Numeric(s) => (
+            s.clone(),
+            CellStyle {
+                font_family: "monospace",
+                align_right: true,
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Text(s) => {
+            let truncated = if s.len() > 500 {
+                format!("{}…", &s[..500])
+            } else {
+                s.clone()
+            };
+            (truncated, CellStyle {
+                color: theme.text,
+                ..Default::default()
+            })
+        },
+
+        Value::Bytea(bytes) => {
+            let hex: String = bytes.iter().take(20).map(|b| format!("{:02x}", b)).collect();
+            let display = if bytes.len() > 20 {
+                format!("\\x{}…", hex)
+            } else {
+                format!("\\x{}", hex)
+            };
+            (display, CellStyle {
+                font_family: "monospace",
+                color: hsla(0.78, 0.73, 0.53, 1.0), // purple
+                ..Default::default()
+            })
+        },
+
+        Value::Timestamp(ts) => (
+            ts.format("%Y-%m-%d %H:%M:%S").to_string(),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::TimestampTz(ts) => (
+            ts.format("%Y-%m-%d %H:%M:%S %Z").to_string(),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Date(d) => (
+            d.format("%Y-%m-%d").to_string(),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Time(t) => (
+            t.format("%H:%M:%S").to_string(),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::TimeTz(t) => (
+            format!("{}", t),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Interval { months, days, microseconds } => {
+            let display = format_interval(*months, *days, *microseconds);
+            (display, CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            })
+        },
+
+        Value::Uuid(u) => (
+            u.to_string(),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Json(j) | Value::Jsonb(j) => {
+            let preview = j.to_string();
+            let truncated = if preview.len() > 100 {
+                format!("{}…", &preview[..100])
+            } else {
+                preview
+            };
+            (truncated, CellStyle {
+                font_family: "monospace",
+                color: theme.primary,
+                ..Default::default()
+            })
+        },
+
+        Value::Array(arr) => (
+            format!("[{} items]", arr.len()),
+            CellStyle {
+                color: theme.primary,
+                italic: true,
+                ..Default::default()
+            }
+        ),
+
+        Value::Point { x, y } => (
+            format!("({:.4}, {:.4})", x, y),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Inet(s) | Value::Cidr(s) | Value::MacAddr(s) => (
+            s.clone(),
+            CellStyle {
+                font_family: "monospace",
+                color: theme.text,
+                ..Default::default()
+            }
+        ),
+
+        Value::Unknown(s) => (
+            s.clone(),
+            CellStyle {
+                color: theme.text_muted,
+                ..Default::default()
+            }
+        ),
+    }
+}
+
+/// Format a number for display
+fn format_number(n: f64, theme: &Theme) -> (String, CellStyle) {
+    let display = if n.fract() == 0.0 && n.abs() < 1e15 {
+        format!("{}", n as i64)
+    } else {
+        format!("{:.6}", n).trim_end_matches('0').trim_end_matches('.').to_string()
+    };
+
+    (display, CellStyle {
+        font_family: "monospace",
+        align_right: true,
+        color: theme.text,
+        ..Default::default()
+    })
+}
+
+/// Format interval for display
+fn format_interval(months: i32, days: i32, microseconds: i64) -> String {
+    let mut parts = Vec::new();
+
+    if months != 0 {
+        let years = months / 12;
+        let remaining_months = months % 12;
+        if years != 0 {
+            parts.push(format!("{} year{}", years, if years.abs() == 1 { "" } else { "s" }));
+        }
+        if remaining_months != 0 {
+            parts.push(format!("{} month{}", remaining_months, if remaining_months.abs() == 1 { "" } else { "s" }));
+        }
     }
 
-    switch (type) {
-      case 'bool':
-        return { display: val ? '✓' : '✗', className: `cell-bool cell-bool-${val}` };
+    if days != 0 {
+        parts.push(format!("{} day{}", days, if days.abs() == 1 { "" } else { "s" }));
+    }
 
-      case 'int2':
-      case 'int4':
-      case 'int8':
-      case 'float4':
-      case 'float8':
-      case 'numeric':
-      case 'money':
-        return {
-          display: formatNumber(val as number, type),
-          className: 'cell-number'
-        };
+    if microseconds != 0 {
+        let total_seconds = microseconds / 1_000_000;
+        let hours = total_seconds / 3600;
+        let minutes = (total_seconds % 3600) / 60;
+        let seconds = total_seconds % 60;
+        let micros = microseconds % 1_000_000;
 
-      case 'text':
-      case 'varchar':
-      case 'bpchar':
-      case 'name':
-        const text = val as string;
-        const truncated = truncateText(text, $settingsStore.maxTextLength || 500);
-        return {
-          display: truncated,
-          className: text.length > ($settingsStore.maxTextLength || 500) ? 'cell-text cell-truncated' : 'cell-text'
-        };
+        if hours != 0 || minutes != 0 || seconds != 0 {
+            if micros != 0 {
+                parts.push(format!("{:02}:{:02}:{:02}.{:06}", hours, minutes, seconds, micros));
+            } else {
+                parts.push(format!("{:02}:{:02}:{:02}", hours, minutes, seconds));
+            }
+        }
+    }
 
-      case 'json':
-      case 'jsonb':
-        return {
-          display: JSON.stringify(val).slice(0, 100),
-          className: 'cell-json'
-        };
+    if parts.is_empty() {
+        "0".to_string()
+    } else {
+        parts.join(" ")
+    }
+}
 
-      case 'bytea':
-        const hex = (val as { hex: string }).hex;
-        return {
-          display: `\\x${hex.slice(0, 20)}${hex.length > 20 ? '...' : ''}`,
-          className: 'cell-bytea'
-        };
+/// Render cell with expandable indicator
+pub fn render_expandable_cell(
+    value: &Value,
+    type_name: &str,
+    is_selected: bool,
+    theme: &Theme,
+    on_expand: impl Fn() + 'static,
+) -> impl IntoElement {
+    let is_expandable = matches!(
+        value,
+        Value::Json(_) | Value::Jsonb(_) | Value::Array(_) | Value::Text(s) if s.len() > 500
+    );
 
-      case 'timestamp':
-      case 'timestamptz':
-        return {
-          display: formatTimestamp(val as string),
-          className: 'cell-timestamp'
-        };
+    div()
+        .w_full()
+        .h_full()
+        .flex()
+        .items_center()
+        .cursor(if is_expandable { CursorStyle::PointingHand } else { CursorStyle::Arrow })
+        .when(is_expandable, |el| {
+            el.on_double_click(move |_event, _cx| {
+                on_expand();
+            })
+        })
+        .child(render_cell(value, type_name, is_selected, theme))
+        .when(is_expandable, |el| {
+            el.child(
+                div()
+                    .ml_auto()
+                    .mr_1()
+                    .text_xs()
+                    .text_color(theme.text_muted)
+                    .child("⋯")
+            )
+        })
+}
+```
 
-      case 'date':
-        return {
-          display: formatDate(val as string),
-          className: 'cell-date'
-        };
+### 14.4 Grid State
 
-      case 'time':
-      case 'timetz':
-        return {
-          display: val as string,
-          className: 'cell-time'
-        };
+```rust
+// src/state/grid_state.rs
 
-      case 'interval':
-        return {
-          display: formatInterval((val as { iso: string }).iso),
-          className: 'cell-interval'
-        };
+use std::sync::Arc;
+use gpui::Global;
+use parking_lot::RwLock;
+use uuid::Uuid;
 
-      case 'uuid':
-        return { display: val as string, className: 'cell-uuid' };
+use crate::models::grid::{GridData, GridColumn, Selection, DisplayMode, SortDirection};
+use crate::models::query::Value;
 
-      case 'inet':
-      case 'cidr':
-      case 'macaddr':
-        return { display: val as string, className: 'cell-network' };
+/// Global grid state for GPUI
+pub struct GridState {
+    /// Current grid data
+    data: RwLock<GridData>,
+    /// Selection state
+    selection: RwLock<Selection>,
+    /// Display mode
+    display_mode: RwLock<DisplayMode>,
+    /// Scroll position
+    scroll: RwLock<ScrollPosition>,
+    /// Sort configuration
+    sort_columns: RwLock<Vec<SortConfig>>,
+}
 
-      case 'point':
-        const point = val as { x: number; y: number };
-        return { display: `(${point.x}, ${point.y})`, className: 'cell-geo' };
+impl Global for GridState {}
 
-      default:
-        // Arrays
-        if (type.startsWith('_') || Array.isArray(val)) {
-          const arr = val as Value[];
-          return {
-            display: `[${arr.length} items]`,
-            className: 'cell-array'
-          };
+#[derive(Clone, Default)]
+struct ScrollPosition {
+    pub top: f32,
+    pub left: f32,
+}
+
+#[derive(Clone)]
+struct SortConfig {
+    pub col_index: usize,
+    pub direction: SortDirection,
+}
+
+impl GridState {
+    /// Create new grid state
+    pub fn new() -> Self {
+        Self {
+            data: RwLock::new(GridData::empty()),
+            selection: RwLock::new(Selection::default()),
+            display_mode: RwLock::new(DisplayMode::Grid),
+            scroll: RwLock::new(ScrollPosition::default()),
+            sort_columns: RwLock::new(Vec::new()),
+        }
+    }
+
+    /// Set grid data from query result
+    pub fn set_data(&self, data: GridData) {
+        *self.data.write() = data;
+        self.selection.write().clear();
+        self.scroll.write().top = 0.0;
+        self.scroll.write().left = 0.0;
+        self.sort_columns.write().clear();
+    }
+
+    /// Append rows to existing data
+    pub fn append_rows(&self, rows: Vec<Vec<Value>>) {
+        self.data.write().append_rows(rows);
+    }
+
+    /// Get grid data
+    pub fn data(&self) -> GridData {
+        self.data.read().clone()
+    }
+
+    /// Get selection
+    pub fn selection(&self) -> Selection {
+        self.selection.read().clone()
+    }
+
+    /// Get display mode
+    pub fn display_mode(&self) -> DisplayMode {
+        *self.display_mode.read()
+    }
+
+    /// Set display mode
+    pub fn set_display_mode(&self, mode: DisplayMode) {
+        *self.display_mode.write() = mode;
+    }
+
+    /// Get scroll position
+    pub fn scroll_position(&self) -> (f32, f32) {
+        let scroll = self.scroll.read();
+        (scroll.top, scroll.left)
+    }
+
+    /// Set scroll position
+    pub fn set_scroll(&self, top: f32, left: f32) {
+        let mut scroll = self.scroll.write();
+        scroll.top = top;
+        scroll.left = left;
+    }
+
+    // === Selection operations ===
+
+    /// Select a cell
+    pub fn select_cell(&self, row: usize, col: usize) {
+        self.selection.write().select_cell(row, col);
+    }
+
+    /// Extend selection
+    pub fn extend_selection(&self, row: usize, col: usize) {
+        self.selection.write().extend_to(row, col);
+    }
+
+    /// Select all cells
+    pub fn select_all(&self) {
+        let data = self.data.read();
+        self.selection.write().select_all(data.rows.len(), data.columns.len());
+    }
+
+    /// Clear selection
+    pub fn clear_selection(&self) {
+        self.selection.write().clear();
+    }
+
+    /// Check if cell is selected
+    pub fn is_selected(&self, row: usize, col: usize) -> bool {
+        self.selection.read().is_selected(row, col)
+    }
+
+    // === Column operations ===
+
+    /// Resize a column
+    pub fn resize_column(&self, col_index: usize, width: f32) {
+        let mut data = self.data.write();
+        if let Some(col) = data.columns.get_mut(col_index) {
+            col.width = width.clamp(col.min_width, col.max_width);
+        }
+    }
+
+    /// Auto-size a column
+    pub fn auto_size_column(&self, col_index: usize) {
+        let mut data = self.data.write();
+        if col_index < data.columns.len() {
+            let col = &data.columns[col_index];
+            let width = GridColumn::calculate_width(
+                &col.name,
+                &col.type_name,
+                &data.rows,
+                col_index,
+            );
+            data.columns[col_index].width = width;
+        }
+    }
+
+    /// Auto-size all columns
+    pub fn auto_size_all_columns(&self) {
+        let mut data = self.data.write();
+        for i in 0..data.columns.len() {
+            let col = &data.columns[i];
+            let width = GridColumn::calculate_width(
+                &col.name,
+                &col.type_name,
+                &data.rows,
+                i,
+            );
+            data.columns[i].width = width;
+        }
+    }
+
+    /// Toggle column visibility
+    pub fn toggle_column_visibility(&self, col_index: usize) {
+        let mut data = self.data.write();
+        if let Some(col) = data.columns.get_mut(col_index) {
+            col.hidden = !col.hidden;
+        }
+    }
+
+    // === Sorting ===
+
+    /// Sort by column
+    pub fn sort_by_column(&self, col_index: usize, multi: bool) {
+        let mut data = self.data.write();
+        let mut sort_columns = self.sort_columns.write();
+
+        if !multi {
+            // Clear other column sorts
+            for (i, col) in data.columns.iter_mut().enumerate() {
+                if i != col_index {
+                    col.sort_direction = None;
+                    col.sort_order = None;
+                }
+            }
+            sort_columns.clear();
         }
 
-        // Unknown
-        if (typeof val === 'object' && 'text' in val) {
-          return { display: (val as { text: string }).text, className: 'cell-unknown' };
+        // Toggle sort direction
+        let col = &mut data.columns[col_index];
+        col.sort_direction = match col.sort_direction {
+            None => Some(SortDirection::Ascending),
+            Some(SortDirection::Ascending) => Some(SortDirection::Descending),
+            Some(SortDirection::Descending) => None,
+        };
+
+        // Update sort columns
+        if let Some(direction) = col.sort_direction {
+            let existing = sort_columns.iter().position(|s| s.col_index == col_index);
+            if let Some(idx) = existing {
+                sort_columns[idx].direction = direction;
+            } else {
+                col.sort_order = Some(sort_columns.len());
+                sort_columns.push(SortConfig { col_index, direction });
+            }
+        } else {
+            col.sort_order = None;
+            sort_columns.retain(|s| s.col_index != col_index);
+            // Reindex
+            for (i, cfg) in sort_columns.iter().enumerate() {
+                data.columns[cfg.col_index].sort_order = Some(i);
+            }
         }
 
-        return { display: String(val), className: 'cell-default' };
-    }
-  }
-
-  function formatNumber(num: number, type: string): string {
-    if (type === 'money') {
-      return new Intl.NumberFormat($settingsStore.locale || 'en-US', {
-        style: 'currency',
-        currency: 'USD',
-      }).format(num);
+        // Apply sort
+        if !sort_columns.is_empty() {
+            Self::apply_sort(&mut data.rows, &sort_columns);
+        }
     }
 
-    if (Number.isInteger(num)) {
-      return num.toLocaleString($settingsStore.locale || 'en-US');
+    fn apply_sort(rows: &mut Vec<Vec<Value>>, sort_columns: &[SortConfig]) {
+        rows.sort_by(|a, b| {
+            for cfg in sort_columns {
+                let cmp = Self::compare_values(
+                    a.get(cfg.col_index),
+                    b.get(cfg.col_index),
+                );
+                if cmp != std::cmp::Ordering::Equal {
+                    return match cfg.direction {
+                        SortDirection::Ascending => cmp,
+                        SortDirection::Descending => cmp.reverse(),
+                    };
+                }
+            }
+            std::cmp::Ordering::Equal
+        });
     }
 
-    return num.toLocaleString($settingsStore.locale || 'en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 6,
-    });
-  }
-
-  function formatTimestamp(ts: string): string {
-    try {
-      const date = new Date(ts);
-      return date.toLocaleString($settingsStore.locale || 'en-US');
-    } catch {
-      return ts;
+    fn compare_values(a: Option<&Value>, b: Option<&Value>) -> std::cmp::Ordering {
+        match (a, b) {
+            (None, None) => std::cmp::Ordering::Equal,
+            (None, Some(_)) => std::cmp::Ordering::Less,
+            (Some(_), None) => std::cmp::Ordering::Greater,
+            (Some(Value::Null), Some(Value::Null)) => std::cmp::Ordering::Equal,
+            (Some(Value::Null), _) => std::cmp::Ordering::Less,
+            (_, Some(Value::Null)) => std::cmp::Ordering::Greater,
+            (Some(a), Some(b)) => Self::compare_non_null(a, b),
+        }
     }
-  }
 
-  function formatDate(d: string): string {
-    try {
-      const date = new Date(d);
-      return date.toLocaleDateString($settingsStore.locale || 'en-US');
-    } catch {
-      return d;
+    fn compare_non_null(a: &Value, b: &Value) -> std::cmp::Ordering {
+        match (a, b) {
+            (Value::Int16(a), Value::Int16(b)) => a.cmp(b),
+            (Value::Int32(a), Value::Int32(b)) => a.cmp(b),
+            (Value::Int64(a), Value::Int64(b)) => a.cmp(b),
+            (Value::Float32(a), Value::Float32(b)) => a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal),
+            (Value::Float64(a), Value::Float64(b)) => a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal),
+            (Value::Text(a), Value::Text(b)) => a.cmp(b),
+            (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+            (Value::Timestamp(a), Value::Timestamp(b)) => a.cmp(b),
+            (Value::TimestampTz(a), Value::TimestampTz(b)) => a.cmp(b),
+            (Value::Date(a), Value::Date(b)) => a.cmp(b),
+            _ => a.to_string().cmp(&b.to_string()),
+        }
     }
-  }
 
-  function formatInterval(iso: string): string {
-    // Parse ISO 8601 interval and format human-readable
-    return iso;
-  }
+    // === Data extraction ===
 
-  function truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
-    return text.slice(0, maxLength) + '…';
-  }
+    /// Get selected data for copying
+    pub fn get_selected_data(&self) -> (Vec<String>, Vec<Vec<Value>>) {
+        let data = self.data.read();
+        let selection = self.selection.read();
 
-  const formatted = $derived(formatValue(value, typeName));
-  const isExpandable = $derived(
-    typeName === 'json' || typeName === 'jsonb' ||
-    typeName.startsWith('_') || Array.isArray(value) ||
-    (typeof value === 'string' && value.length > ($settingsStore.maxTextLength || 500))
-  );
-</script>
+        if let Some(range) = selection.range() {
+            let columns: Vec<String> = data.columns[range.start_col..=range.end_col]
+                .iter()
+                .map(|c| c.name.clone())
+                .collect();
 
-<div
-  class="cell {formatted.className}"
-  class:selected={isSelected}
-  class:expandable={isExpandable}
-  ondblclick={isExpandable ? onExpand : undefined}
-  title={value === null ? 'NULL' : undefined}
->
-  {formatted.display}
-</div>
+            let rows: Vec<Vec<Value>> = data.rows[range.start_row..=range.end_row]
+                .iter()
+                .map(|row| row[range.start_col..=range.end_col].to_vec())
+                .collect();
 
-<style>
-  .cell {
-    padding: 0 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    height: 100%;
-    display: flex;
-    align-items: center;
-  }
+            (columns, rows)
+        } else {
+            (Vec::new(), Vec::new())
+        }
+    }
+}
 
-  .cell.selected {
-    background: var(--selected-color);
-  }
+impl GridColumn {
+    pub fn calculate_width(
+        name: &str,
+        type_name: &str,
+        rows: &[Vec<Value>],
+        col_index: usize,
+    ) -> f32 {
+        let header_width = name.len() as f32 * 8.0 + 32.0;
+        let mut max_width = header_width;
 
-  .cell.expandable {
-    cursor: pointer;
-  }
+        for row in rows.iter().take(100) {
+            if let Some(value) = row.get(col_index) {
+                let display_len = Self::estimate_display_length(value, type_name);
+                let cell_width = display_len as f32 * 7.0 + 16.0;
+                max_width = max_width.max(cell_width);
+            }
+        }
 
-  .cell-null {
-    color: var(--text-muted);
-    font-style: italic;
-  }
-
-  .cell-bool {
-    justify-content: center;
-  }
-
-  .cell-bool-true {
-    color: #16a34a;
-  }
-
-  .cell-bool-false {
-    color: #dc2626;
-  }
-
-  .cell-number {
-    justify-content: flex-end;
-    font-family: var(--font-mono);
-  }
-
-  .cell-text {
-    font-family: var(--font-sans);
-  }
-
-  .cell-truncated {
-    color: var(--text-muted);
-  }
-
-  .cell-json {
-    font-family: var(--font-mono);
-    color: var(--primary-color);
-  }
-
-  .cell-bytea {
-    font-family: var(--font-mono);
-    color: #9333ea;
-  }
-
-  .cell-timestamp,
-  .cell-date,
-  .cell-time {
-    font-family: var(--font-mono);
-  }
-
-  .cell-uuid {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-  }
-
-  .cell-array {
-    color: var(--primary-color);
-    font-style: italic;
-  }
-</style>
+        max_width.clamp(60.0, 400.0)
+    }
+}
 ```
 
-### 14.4 Results Grid Component
+### 14.5 Results Grid Component
 
-```svelte
-<!-- src/lib/components/grid/ResultsGrid.svelte -->
-<script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { gridState, type GridColumn, type CellSelection } from '$lib/stores/gridState.svelte';
-	import { calculateVirtualScroll, calculateHorizontalVirtual } from './virtualScroll';
-	import CellRenderer from './CellRenderer.svelte';
-	import ColumnHeader from './ColumnHeader.svelte';
-	import ContextMenu from '$lib/components/common/ContextMenu.svelte';
-	import { ChevronUp, ChevronDown } from 'lucide-svelte';
+```rust
+// src/ui/components/grid/results_grid.rs
 
-	interface Props {
-		onCellDoubleClick?: (rowIndex: number, colIndex: number) => void;
-	}
+use gpui::*;
+use uuid::Uuid;
 
-	let { onCellDoubleClick }: Props = $props();
+use crate::models::grid::{GridData, Selection, DisplayMode};
+use crate::state::grid_state::GridState;
+use crate::ui::theme::Theme;
+use crate::ui::components::grid::{
+    virtual_scroll::{
+        calculate_vertical_scroll, calculate_horizontal_scroll,
+        VirtualScrollConfig, VerticalScrollState, HorizontalScrollState,
+    },
+    cell_renderer::render_cell,
+};
 
-	let containerRef: HTMLDivElement;
-	let containerWidth = $state(0);
-	let containerHeight = $state(0);
+/// Events emitted by the results grid
+pub enum ResultsGridEvent {
+    CellDoubleClicked { row: usize, col: usize },
+    ColumnResized { col: usize, width: f32 },
+    ColumnSorted { col: usize, multi: bool },
+    SelectionChanged,
+    CopyRequested,
+    ContextMenuRequested { x: f32, y: f32, row: usize, col: usize },
+}
 
-	let contextMenu: { x: number; y: number; rowIndex: number; colIndex: number } | null =
-		$state(null);
+/// Results grid component
+pub struct ResultsGrid {
+    /// Scroll configuration
+    config: VirtualScrollConfig,
+    /// Cached viewport size
+    viewport_size: Size<Pixels>,
+    /// Context menu state
+    context_menu: Option<ContextMenuState>,
+    /// Column being resized
+    resizing_column: Option<ResizeState>,
+}
 
-	// Virtual scroll state
-	const verticalState = $derived(
-		calculateVirtualScroll($gridState.scrollTop, $gridState.rows.length, {
-			rowHeight: $gridState.rowHeight,
-			overscan: 5,
-			containerHeight
-		})
-	);
+struct ContextMenuState {
+    position: Point<Pixels>,
+    row: usize,
+    col: usize,
+}
 
-	const visibleColumns = $derived($gridState.columns.filter((c) => !c.hidden));
+struct ResizeState {
+    col_index: usize,
+    start_x: f32,
+    start_width: f32,
+}
 
-	const horizontalState = $derived(
-		calculateHorizontalVirtual($gridState.scrollLeft, visibleColumns, containerWidth, 2)
-	);
+impl ResultsGrid {
+    pub fn new() -> Self {
+        Self {
+            config: VirtualScrollConfig::default(),
+            viewport_size: Size::default(),
+            context_menu: None,
+            resizing_column: None,
+        }
+    }
 
-	const visibleRows = $derived(
-		$gridState.rows.slice(verticalState.visibleStartIndex, verticalState.visibleEndIndex)
-	);
+    /// Handle scroll event
+    fn handle_scroll(&mut self, scroll_top: f32, scroll_left: f32, cx: &mut Context<Self>) {
+        let grid_state = cx.global::<GridState>();
+        grid_state.set_scroll(scroll_top, scroll_left);
+        cx.notify();
+    }
 
-	const visibleColumnSlice = $derived(
-		visibleColumns.slice(horizontalState.visibleStartIndex, horizontalState.visibleEndIndex)
-	);
+    /// Handle cell click
+    fn handle_cell_click(
+        &mut self,
+        row: usize,
+        col: usize,
+        shift: bool,
+        ctrl: bool,
+        cx: &mut Context<Self>,
+    ) {
+        let grid_state = cx.global::<GridState>();
 
-	// Row number column width
-	const rowNumWidth = $derived(Math.max(50, String($gridState.totalRows).length * 10 + 16));
+        if shift {
+            grid_state.extend_selection(row, col);
+        } else if ctrl {
+            // Toggle row selection
+        } else {
+            grid_state.select_cell(row, col);
+        }
 
-	onMount(() => {
-		const resizeObserver = new ResizeObserver((entries) => {
-			for (const entry of entries) {
-				containerWidth = entry.contentRect.width;
-				containerHeight = entry.contentRect.height;
-			}
-		});
+        cx.emit(ResultsGridEvent::SelectionChanged);
+        cx.notify();
+    }
 
-		resizeObserver.observe(containerRef);
+    /// Handle keyboard navigation
+    fn handle_key(&mut self, key: &KeyDownEvent, cx: &mut Context<Self>) -> bool {
+        let grid_state = cx.global::<GridState>();
+        let data = grid_state.data();
+        let selection = grid_state.selection();
 
-		return () => resizeObserver.disconnect();
-	});
+        let anchor = match selection.anchor {
+            Some(a) => a,
+            None => return false,
+        };
 
-	function handleScroll(e: Event) {
-		const target = e.target as HTMLDivElement;
-		gridState.scrollTop = target.scrollTop;
-		gridState.scrollLeft = target.scrollLeft;
-	}
+        let shift = key.modifiers.shift;
+        let cmd = key.modifiers.command || key.modifiers.control;
 
-	function handleCellClick(rowIndex: number, colIndex: number, e: MouseEvent) {
-		const actualRowIndex = verticalState.visibleStartIndex + rowIndex;
-		const actualColIndex = horizontalState.visibleStartIndex + colIndex;
+        match &key.keystroke.key {
+            key if key == "up" => {
+                let new_row = anchor.row.saturating_sub(1);
+                if shift {
+                    grid_state.extend_selection(new_row, anchor.col);
+                } else {
+                    grid_state.select_cell(new_row, anchor.col);
+                }
+                cx.notify();
+                true
+            }
+            key if key == "down" => {
+                let new_row = (anchor.row + 1).min(data.rows.len().saturating_sub(1));
+                if shift {
+                    grid_state.extend_selection(new_row, anchor.col);
+                } else {
+                    grid_state.select_cell(new_row, anchor.col);
+                }
+                cx.notify();
+                true
+            }
+            key if key == "left" => {
+                let new_col = anchor.col.saturating_sub(1);
+                if shift {
+                    grid_state.extend_selection(anchor.row, new_col);
+                } else {
+                    grid_state.select_cell(anchor.row, new_col);
+                }
+                cx.notify();
+                true
+            }
+            key if key == "right" => {
+                let new_col = (anchor.col + 1).min(data.columns.len().saturating_sub(1));
+                if shift {
+                    grid_state.extend_selection(anchor.row, new_col);
+                } else {
+                    grid_state.select_cell(anchor.row, new_col);
+                }
+                cx.notify();
+                true
+            }
+            key if key == "a" && cmd => {
+                grid_state.select_all();
+                cx.notify();
+                true
+            }
+            key if key == "c" && cmd => {
+                cx.emit(ResultsGridEvent::CopyRequested);
+                true
+            }
+            _ => false,
+        }
+    }
 
-		if (e.shiftKey && $gridState.selectedCell) {
-			gridState.extendSelection(actualRowIndex, actualColIndex);
-		} else if (e.ctrlKey || e.metaKey) {
-			// Toggle selection (for row selection)
-			const newSet = new Set($gridState.selectedRows);
-			if (newSet.has(actualRowIndex)) {
-				newSet.delete(actualRowIndex);
-			} else {
-				newSet.add(actualRowIndex);
-			}
-			gridState.selectedRows = newSet;
-		} else {
-			gridState.selectCell(actualRowIndex, actualColIndex);
-		}
-	}
+    /// Render column headers
+    fn render_headers(
+        &self,
+        data: &GridData,
+        h_state: &HorizontalScrollState,
+        row_num_width: f32,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .h_8()
+            .bg(theme.surface)
+            .border_b_1()
+            .border_color(theme.border)
+            .sticky()
+            .top_0()
+            .z_index(10)
+            // Row number header
+            .child(
+                div()
+                    .w(px(row_num_width))
+                    .h_full()
+                    .bg(theme.surface_secondary)
+                    .border_r_1()
+                    .border_color(theme.border)
+                    .sticky()
+                    .left_0()
+                    .z_index(5)
+            )
+            // Offset spacer
+            .child(div().w(px(h_state.offset_x)))
+            // Visible column headers
+            .children(
+                (h_state.visible_start..h_state.visible_end).map(|col_idx| {
+                    let col = &data.columns[col_idx];
+                    self.render_column_header(col, col_idx, theme, cx)
+                })
+            )
+    }
 
-	function handleContextMenu(e: MouseEvent, rowIndex: number, colIndex: number) {
-		e.preventDefault();
-		const actualRowIndex = verticalState.visibleStartIndex + rowIndex;
-		const actualColIndex = horizontalState.visibleStartIndex + colIndex;
-		contextMenu = {
-			x: e.clientX,
-			y: e.clientY,
-			rowIndex: actualRowIndex,
-			colIndex: actualColIndex
-		};
-	}
+    /// Render a single column header
+    fn render_column_header(
+        &self,
+        column: &crate::models::grid::GridColumn,
+        col_index: usize,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let width = column.width;
+        let name = column.name.clone();
+        let sort_dir = column.sort_direction;
+        let sort_order = column.sort_order;
 
-	function handleKeydown(e: KeyboardEvent) {
-		if (!$gridState.selectedCell) return;
+        div()
+            .id(ElementId::Name(format!("col-header-{}", col_index).into()))
+            .w(px(width))
+            .h_full()
+            .flex()
+            .items_center()
+            .gap_1()
+            .px_2()
+            .bg(theme.surface)
+            .border_r_1()
+            .border_color(theme.border)
+            .cursor_pointer()
+            .hover(|style| style.bg(theme.hover))
+            .on_click(cx.listener(move |this, event: &ClickEvent, cx| {
+                let multi = event.modifiers.shift;
+                cx.emit(ResultsGridEvent::ColumnSorted { col: col_index, multi });
+            }))
+            // Column name
+            .child(
+                div()
+                    .flex_1()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_ellipsis()
+                    .overflow_hidden()
+                    .child(name)
+            )
+            // Sort indicator
+            .when_some(sort_dir, |el, direction| {
+                el.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .text_color(theme.primary)
+                        .child(
+                            svg()
+                                .path(match direction {
+                                    crate::models::grid::SortDirection::Ascending => "icons/chevron-up.svg",
+                                    crate::models::grid::SortDirection::Descending => "icons/chevron-down.svg",
+                                })
+                                .size_3p5()
+                        )
+                        .when_some(sort_order, |el, order| {
+                            if order > 0 {
+                                el.child(
+                                    div()
+                                        .text_xs()
+                                        .ml_px()
+                                        .child(format!("{}", order + 1))
+                                )
+                            } else {
+                                el
+                            }
+                        })
+                )
+            })
+            // Resize handle
+            .child(
+                div()
+                    .absolute()
+                    .right_0()
+                    .top_0()
+                    .bottom_0()
+                    .w_1()
+                    .cursor(CursorStyle::ResizeLeftRight)
+                    .hover(|style| style.bg(theme.primary))
+                    .on_drag_start(cx.listener(move |this, event: &DragStartEvent, _cx| {
+                        this.resizing_column = Some(ResizeState {
+                            col_index,
+                            start_x: event.position.x.0,
+                            start_width: width,
+                        });
+                    }))
+            )
+    }
 
-		const { rowIndex, colIndex } = $gridState.selectedCell;
+    /// Render a data row
+    fn render_row(
+        &self,
+        data: &GridData,
+        row_index: usize,
+        h_state: &HorizontalScrollState,
+        row_num_width: f32,
+        is_row_selected: bool,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let row = &data.rows[row_index];
 
-		switch (e.key) {
-			case 'ArrowUp':
-				e.preventDefault();
-				if (e.shiftKey) {
-					gridState.extendSelection(Math.max(0, rowIndex - 1), colIndex);
-				} else {
-					gridState.selectCell(Math.max(0, rowIndex - 1), colIndex);
-				}
-				break;
+        div()
+            .flex()
+            .h(px(self.config.row_height))
+            .border_b_1()
+            .border_color(theme.border)
+            .when(is_row_selected, |el| el.bg(theme.selected))
+            .hover(|style| style.bg(theme.hover))
+            // Row number
+            .child(
+                div()
+                    .w(px(row_num_width))
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .justify_end()
+                    .pr_2()
+                    .bg(theme.surface_secondary)
+                    .text_xs()
+                    .text_color(theme.text_muted)
+                    .border_r_1()
+                    .border_color(theme.border)
+                    .sticky()
+                    .left_0()
+                    .z_index(5)
+                    .child(format!("{}", row_index + 1))
+            )
+            // Offset spacer
+            .child(div().w(px(h_state.offset_x)))
+            // Visible cells
+            .children(
+                (h_state.visible_start..h_state.visible_end).map(|col_idx| {
+                    let col = &data.columns[col_idx];
+                    let value = &row[col_idx];
+                    let is_selected = cx.global::<GridState>().is_selected(row_index, col_idx);
 
-			case 'ArrowDown':
-				e.preventDefault();
-				if (e.shiftKey) {
-					gridState.extendSelection(Math.min($gridState.rows.length - 1, rowIndex + 1), colIndex);
-				} else {
-					gridState.selectCell(Math.min($gridState.rows.length - 1, rowIndex + 1), colIndex);
-				}
-				break;
+                    div()
+                        .id(ElementId::Name(format!("cell-{}-{}", row_index, col_idx).into()))
+                        .w(px(col.width))
+                        .h_full()
+                        .border_r_1()
+                        .border_color(theme.border)
+                        .when(is_selected, |el| {
+                            el.bg(theme.selected)
+                                .outline_2()
+                                .outline_color(theme.primary)
+                                .outline_offset(px(-2.0))
+                        })
+                        .on_click(cx.listener(move |this, event: &ClickEvent, cx| {
+                            this.handle_cell_click(
+                                row_index,
+                                col_idx,
+                                event.modifiers.shift,
+                                event.modifiers.command || event.modifiers.control,
+                                cx,
+                            );
+                        }))
+                        .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &MouseDownEvent, cx| {
+                            this.context_menu = Some(ContextMenuState {
+                                position: event.position,
+                                row: row_index,
+                                col: col_idx,
+                            });
+                            cx.emit(ResultsGridEvent::ContextMenuRequested {
+                                x: event.position.x.0,
+                                y: event.position.y.0,
+                                row: row_index,
+                                col: col_idx,
+                            });
+                            cx.notify();
+                        }))
+                        .child(render_cell(value, &col.type_name, is_selected, theme))
+                })
+            )
+    }
 
-			case 'ArrowLeft':
-				e.preventDefault();
-				if (e.shiftKey) {
-					gridState.extendSelection(rowIndex, Math.max(0, colIndex - 1));
-				} else {
-					gridState.selectCell(rowIndex, Math.max(0, colIndex - 1));
-				}
-				break;
+    /// Render empty state
+    fn render_empty(&self, is_loading: bool, theme: &Theme) -> impl IntoElement {
+        div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .h_full()
+            .text_color(theme.text_muted)
+            .child(
+                if is_loading {
+                    "Loading results..."
+                } else {
+                    "No results to display"
+                }
+            )
+    }
+}
 
-			case 'ArrowRight':
-				e.preventDefault();
-				if (e.shiftKey) {
-					gridState.extendSelection(rowIndex, Math.min(visibleColumns.length - 1, colIndex + 1));
-				} else {
-					gridState.selectCell(rowIndex, Math.min(visibleColumns.length - 1, colIndex + 1));
-				}
-				break;
+impl EventEmitter<ResultsGridEvent> for ResultsGrid {}
 
-			case 'a':
-				if (e.ctrlKey || e.metaKey) {
-					e.preventDefault();
-					gridState.selectAll();
-				}
-				break;
+impl Render for ResultsGrid {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>().clone();
+        let grid_state = cx.global::<GridState>();
+        let data = grid_state.data();
+        let (scroll_top, scroll_left) = grid_state.scroll_position();
 
-			case 'c':
-				if (e.ctrlKey || e.metaKey) {
-					e.preventDefault();
-					copySelection();
-				}
-				break;
-		}
-	}
+        if data.rows.is_empty() {
+            return div()
+                .w_full()
+                .h_full()
+                .bg(theme.background)
+                .child(self.render_empty(false, &theme))
+                .into_any_element();
+        }
 
-	async function copySelection() {
-		const data = gridState.getSelectedData();
-		const tsv = data.map((row) => row.map((v) => formatForCopy(v)).join('\t')).join('\n');
+        // Calculate row number column width
+        let row_num_width = (data.total_rows.to_string().len() as f32 * 8.0 + 16.0).max(50.0);
 
-		await navigator.clipboard.writeText(tsv);
-	}
+        // Get column widths (excluding hidden)
+        let column_widths: Vec<f32> = data.columns.iter()
+            .filter(|c| !c.hidden)
+            .map(|c| c.width)
+            .collect();
 
-	function formatForCopy(value: any): string {
-		if (value === null) return '';
-		if (typeof value === 'object') return JSON.stringify(value);
-		return String(value);
-	}
+        // Calculate virtual scroll states
+        let v_state = calculate_vertical_scroll(
+            scroll_top,
+            data.rows.len(),
+            self.viewport_size.height.0,
+            &self.config,
+        );
 
-	function getContextMenuItems() {
-		return [
-			{ label: 'Copy', shortcut: '⌘C', action: copySelection },
-			{ label: 'Copy as INSERT', action: () => copyAsInsert() },
-			{ label: 'Copy as JSON', action: () => copyAsJson() },
-			{ type: 'separator' as const },
-			{ label: 'Copy column name', action: () => copyColumnName() },
-			{ type: 'separator' as const },
-			{ label: 'Filter to this value', action: () => filterToValue() },
-			{ label: 'Filter to NOT this value', action: () => filterNotValue() }
-		];
-	}
+        let h_state = calculate_horizontal_scroll(
+            scroll_left,
+            &column_widths,
+            self.viewport_size.width.0 - row_num_width,
+            self.config.overscan_columns,
+        );
 
-	function copyAsInsert() {
-		// Implementation for INSERT statement generation
-	}
-
-	function copyAsJson() {
-		const data = gridState.getSelectedData();
-		const columns = gridState.getSelectedColumns();
-
-		const json = data.map((row) => {
-			const obj: Record<string, any> = {};
-			row.forEach((val, i) => {
-				obj[columns[i].name] = val;
-			});
-			return obj;
-		});
-
-		navigator.clipboard.writeText(JSON.stringify(json, null, 2));
-	}
-
-	function copyColumnName() {
-		if (contextMenu) {
-			const col = visibleColumns[contextMenu.colIndex];
-			navigator.clipboard.writeText(col.name);
-		}
-		contextMenu = null;
-	}
-
-	function filterToValue() {
-		// Emit filter event
-		contextMenu = null;
-	}
-
-	function filterNotValue() {
-		// Emit filter event
-		contextMenu = null;
-	}
-</script>
-
-<div
-	bind:this={containerRef}
-	class="results-grid"
-	tabindex="0"
-	onkeydown={handleKeydown}
-	role="grid"
->
-	{#if $gridState.rows.length === 0}
-		<div class="empty-state">
-			{$gridState.isLoading ? 'Loading results...' : 'No results to display'}
-		</div>
-	{:else}
-		<div class="grid-scroll" onscroll={handleScroll}>
-			<!-- Header -->
-			<div class="grid-header" style:padding-left="{rowNumWidth}px">
-				<div style:width="{horizontalState.offsetX}px"></div>
-				{#each visibleColumnSlice as column, i}
-					<ColumnHeader
-						{column}
-						index={horizontalState.visibleStartIndex + i}
-						onResize={(width) =>
-							gridState.resizeColumn(horizontalState.visibleStartIndex + i, width)}
-						onSort={(multi) => gridState.sortByColumn(horizontalState.visibleStartIndex + i, multi)}
-					/>
-				{/each}
-			</div>
-
-			<!-- Body -->
-			<div class="grid-body" style:height="{verticalState.totalHeight}px">
-				<div style:height="{verticalState.offsetY}px"></div>
-
-				{#each visibleRows as row, rowIdx}
-					<div
-						class="grid-row"
-						class:selected={$gridState.selectedRows.has(verticalState.visibleStartIndex + rowIdx)}
-						style:height="{$gridState.rowHeight}px"
-					>
-						<!-- Row number -->
-						<div class="row-number" style:width="{rowNumWidth}px">
-							{verticalState.visibleStartIndex + rowIdx + 1}
-						</div>
-
-						<!-- Horizontal offset -->
-						<div style:width="{horizontalState.offsetX}px"></div>
-
-						<!-- Visible cells -->
-						{#each visibleColumnSlice as column, colIdx}
-							{@const actualRowIdx = verticalState.visibleStartIndex + rowIdx}
-							{@const actualColIdx = horizontalState.visibleStartIndex + colIdx}
-							{@const value = $gridState.rows[actualRowIdx]?.[actualColIdx]}
-
-							<div
-								class="grid-cell"
-								class:selected={gridState.isCellSelected(actualRowIdx, actualColIdx)}
-								style:width="{column.width}px"
-								onclick={(e) => handleCellClick(rowIdx, colIdx, e)}
-								oncontextmenu={(e) => handleContextMenu(e, rowIdx, colIdx)}
-								ondblclick={() => onCellDoubleClick?.(actualRowIdx, actualColIdx)}
-								role="gridcell"
-							>
-								<CellRenderer
-									{value}
-									typeName={column.type}
-									isSelected={gridState.isCellSelected(actualRowIdx, actualColIdx)}
-								/>
-							</div>
-						{/each}
-					</div>
-				{/each}
-			</div>
-		</div>
-	{/if}
-</div>
-
-{#if contextMenu}
-	<ContextMenu
-		x={contextMenu.x}
-		y={contextMenu.y}
-		onClose={() => (contextMenu = null)}
-		items={getContextMenuItems()}
-	/>
-{/if}
-
-<style>
-	.results-grid {
-		width: 100%;
-		height: 100%;
-		overflow: hidden;
-		background: var(--background-color);
-		font-size: 0.8125rem;
-		outline: none;
-	}
-
-	.results-grid:focus {
-		outline: 2px solid var(--primary-color);
-		outline-offset: -2px;
-	}
-
-	.empty-state {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: var(--text-muted);
-	}
-
-	.grid-scroll {
-		width: 100%;
-		height: 100%;
-		overflow: auto;
-	}
-
-	.grid-header {
-		display: flex;
-		position: sticky;
-		top: 0;
-		z-index: 10;
-		background: var(--surface-color);
-		border-bottom: 1px solid var(--border-color);
-	}
-
-	.grid-body {
-		position: relative;
-	}
-
-	.grid-row {
-		display: flex;
-		border-bottom: 1px solid var(--border-color);
-	}
-
-	.grid-row:hover {
-		background: var(--hover-color);
-	}
-
-	.grid-row.selected {
-		background: var(--selected-color);
-	}
-
-	.row-number {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		padding-right: 8px;
-		background: var(--surface-secondary);
-		color: var(--text-muted);
-		font-size: 0.75rem;
-		border-right: 1px solid var(--border-color);
-		position: sticky;
-		left: 0;
-		z-index: 5;
-	}
-
-	.grid-cell {
-		border-right: 1px solid var(--border-color);
-		overflow: hidden;
-	}
-
-	.grid-cell.selected {
-		background: var(--selected-color);
-		outline: 2px solid var(--primary-color);
-		outline-offset: -2px;
-	}
-</style>
+        div()
+            .id("results-grid")
+            .w_full()
+            .h_full()
+            .bg(theme.background)
+            .text_sm()
+            .overflow_hidden()
+            .focusable()
+            .on_key_down(cx.listener(|this, event, cx| {
+                this.handle_key(event, cx);
+            }))
+            .child(
+                div()
+                    .id("grid-scroll")
+                    .w_full()
+                    .h_full()
+                    .overflow_auto()
+                    .on_scroll(cx.listener(move |this, event: &ScrollEvent, cx| {
+                        this.handle_scroll(event.scroll_position.y.0, event.scroll_position.x.0, cx);
+                    }))
+                    // Headers
+                    .child(self.render_headers(&data, &h_state, row_num_width, &theme, cx))
+                    // Body with virtual content height
+                    .child(
+                        div()
+                            .relative()
+                            .h(px(v_state.total_height))
+                            // Offset spacer
+                            .child(div().h(px(v_state.offset_y)))
+                            // Visible rows
+                            .children(
+                                (v_state.visible_start..v_state.visible_end).map(|row_idx| {
+                                    self.render_row(
+                                        &data,
+                                        row_idx,
+                                        &h_state,
+                                        row_num_width,
+                                        false, // TODO: row selection
+                                        &theme,
+                                        cx,
+                                    )
+                                })
+                            )
+                    )
+            )
+            .into_any_element()
+    }
+}
 ```
 
-### 14.5 Column Header Component
+### 14.6 Results Toolbar
 
-```svelte
-<!-- src/lib/components/grid/ColumnHeader.svelte -->
-<script lang="ts">
-	import { ChevronUp, ChevronDown, EyeOff, Maximize2 } from 'lucide-svelte';
-	import type { GridColumn } from '$lib/stores/gridState.svelte';
-	import ContextMenu from '$lib/components/common/ContextMenu.svelte';
+```rust
+// src/ui/components/grid/results_toolbar.rs
 
-	interface Props {
-		column: GridColumn;
-		index: number;
-		onResize: (width: number) => void;
-		onSort: (multi: boolean) => void;
-	}
+use gpui::*;
 
-	let { column, index, onResize, onSort }: Props = $props();
+use crate::models::grid::DisplayMode;
+use crate::state::grid_state::GridState;
+use crate::ui::theme::Theme;
 
-	let isResizing = $state(false);
-	let startX = $state(0);
-	let startWidth = $state(0);
-	let contextMenu: { x: number; y: number } | null = $state(null);
+/// Events from results toolbar
+pub enum ResultsToolbarEvent {
+    ExportRequested,
+    DisplayModeChanged(DisplayMode),
+    PageChanged(usize),
+}
 
-	function handleMouseDown(e: MouseEvent) {
-		e.preventDefault();
-		isResizing = true;
-		startX = e.clientX;
-		startWidth = column.width;
+/// Results toolbar component
+pub struct ResultsToolbar {
+    /// Current page (for paginated results)
+    current_page: usize,
+    /// Total pages
+    total_pages: usize,
+    /// Page size
+    page_size: usize,
+}
 
-		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('mouseup', handleMouseUp);
-	}
+impl ResultsToolbar {
+    pub fn new() -> Self {
+        Self {
+            current_page: 1,
+            total_pages: 1,
+            page_size: 1000,
+        }
+    }
 
-	function handleMouseMove(e: MouseEvent) {
-		if (!isResizing) return;
-		const diff = e.clientX - startX;
-		onResize(startWidth + diff);
-	}
+    /// Update pagination
+    pub fn set_pagination(&mut self, total_rows: usize, page_size: usize) {
+        self.page_size = page_size;
+        self.total_pages = (total_rows + page_size - 1) / page_size;
+        self.current_page = self.current_page.min(self.total_pages).max(1);
+    }
 
-	function handleMouseUp() {
-		isResizing = false;
-		window.removeEventListener('mousemove', handleMouseMove);
-		window.removeEventListener('mouseup', handleMouseUp);
-	}
+    /// Format row range display
+    fn format_row_range(&self, total_rows: usize) -> String {
+        let start = (self.current_page - 1) * self.page_size + 1;
+        let end = (self.current_page * self.page_size).min(total_rows);
+        format!("{}-{} of {}", start, end, total_rows)
+    }
 
-	function handleClick(e: MouseEvent) {
-		if (isResizing) return;
-		onSort(e.shiftKey);
-	}
+    /// Render display mode toggle
+    fn render_mode_toggle(
+        &self,
+        current_mode: DisplayMode,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .border_1()
+            .border_color(theme.border)
+            .rounded_md()
+            .overflow_hidden()
+            .child(self.render_mode_button(DisplayMode::Grid, "icons/grid.svg", "Grid view", current_mode, theme, cx))
+            .child(div().w_px().bg(theme.border))
+            .child(self.render_mode_button(DisplayMode::Transposed, "icons/list.svg", "Transposed view", current_mode, theme, cx))
+            .child(div().w_px().bg(theme.border))
+            .child(self.render_mode_button(DisplayMode::Json, "icons/braces.svg", "JSON view", current_mode, theme, cx))
+    }
 
-	function handleContextMenu(e: MouseEvent) {
-		e.preventDefault();
-		contextMenu = { x: e.clientX, y: e.clientY };
-	}
-</script>
+    fn render_mode_button(
+        &self,
+        mode: DisplayMode,
+        icon: &'static str,
+        tooltip: &'static str,
+        current_mode: DisplayMode,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let is_active = mode == current_mode;
 
-<div
-	class="column-header"
-	style:width="{column.width}px"
-	onclick={handleClick}
-	oncontextmenu={handleContextMenu}
-	role="columnheader"
->
-	<span class="column-name" title="{column.name} ({column.type})">
-		{column.name}
-	</span>
+        div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .w_7()
+            .h_6()
+            .cursor_pointer()
+            .bg(if is_active { theme.primary } else { Hsla::transparent_black() })
+            .text_color(if is_active { Hsla::white() } else { theme.text_muted })
+            .hover(|style| {
+                if !is_active {
+                    style.bg(theme.hover).text_color(theme.text)
+                } else {
+                    style
+                }
+            })
+            .on_click(cx.listener(move |_this, _event, cx| {
+                cx.emit(ResultsToolbarEvent::DisplayModeChanged(mode));
+            }))
+            .child(svg().path(icon).size_4())
+    }
 
-	{#if column.sortDirection}
-		<span class="sort-indicator">
-			{#if column.sortDirection === 'asc'}
-				<ChevronUp size={14} />
-			{:else}
-				<ChevronDown size={14} />
-			{/if}
-			{#if column.sortOrder !== null && column.sortOrder > 0}
-				<span class="sort-order">{column.sortOrder + 1}</span>
-			{/if}
-		</span>
-	{/if}
+    /// Render pagination controls
+    fn render_pagination(
+        &self,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let current = self.current_page;
+        let total = self.total_pages;
 
-	<div class="resize-handle" onmousedown={handleMouseDown} role="separator"></div>
-</div>
+        div()
+            .flex()
+            .items_center()
+            .gap_1()
+            // First page
+            .child(self.render_page_button("icons/chevrons-left.svg", current > 1, 1, theme, cx))
+            // Previous page
+            .child(self.render_page_button("icons/chevron-left.svg", current > 1, current.saturating_sub(1), theme, cx))
+            // Page info
+            .child(
+                div()
+                    .text_color(theme.text_muted)
+                    .text_sm()
+                    .min_w_24()
+                    .text_center()
+                    .child(format!("Page {} of {}", current, total))
+            )
+            // Next page
+            .child(self.render_page_button("icons/chevron-right.svg", current < total, current + 1, theme, cx))
+            // Last page
+            .child(self.render_page_button("icons/chevrons-right.svg", current < total, total, theme, cx))
+    }
 
-{#if contextMenu}
-	<ContextMenu
-		x={contextMenu.x}
-		y={contextMenu.y}
-		onClose={() => (contextMenu = null)}
-		items={[
-			{
-				label: 'Sort Ascending',
-				action: () => {
-					column.sortDirection !== 'asc' && onSort(false);
-					contextMenu = null;
-				}
-			},
-			{
-				label: 'Sort Descending',
-				action: () => {
-					column.sortDirection !== 'desc' && onSort(false);
-					contextMenu = null;
-				}
-			},
-			{ type: 'separator' },
-			{
-				label: 'Hide Column',
-				icon: EyeOff,
-				action: () => {
-					/* emit hide */ contextMenu = null;
-				}
-			},
-			{
-				label: 'Size to Fit',
-				icon: Maximize2,
-				action: () => {
-					/* emit autosize */ contextMenu = null;
-				}
-			},
-			{
-				label: 'Size All to Fit',
-				action: () => {
-					/* emit autosize all */ contextMenu = null;
-				}
-			}
-		]}
-	/>
-{/if}
+    fn render_page_button(
+        &self,
+        icon: &'static str,
+        enabled: bool,
+        target_page: usize,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        div()
+            .flex()
+            .items_center()
+            .justify_center()
+            .w_6()
+            .h_6()
+            .rounded_sm()
+            .cursor(if enabled { CursorStyle::PointingHand } else { CursorStyle::Arrow })
+            .text_color(if enabled { theme.text_muted } else { theme.text_muted.opacity(0.5) })
+            .when(enabled, |el| {
+                el.hover(|style| style.bg(theme.hover).text_color(theme.text))
+                    .on_click(cx.listener(move |_this, _event, cx| {
+                        cx.emit(ResultsToolbarEvent::PageChanged(target_page));
+                    }))
+            })
+            .child(svg().path(icon).size_4())
+    }
+}
 
-<style>
-	.column-header {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		padding: 0 8px;
-		height: 32px;
-		background: var(--surface-color);
-		border-right: 1px solid var(--border-color);
-		cursor: pointer;
-		user-select: none;
-		position: relative;
-	}
+impl EventEmitter<ResultsToolbarEvent> for ResultsToolbar {}
 
-	.column-header:hover {
-		background: var(--hover-color);
-	}
+impl Render for ResultsToolbar {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>().clone();
+        let grid_state = cx.global::<GridState>();
+        let data = grid_state.data();
+        let display_mode = grid_state.display_mode();
 
-	.column-name {
-		flex: 1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-weight: 500;
-		font-size: 0.8125rem;
-	}
-
-	.sort-indicator {
-		display: flex;
-		align-items: center;
-		color: var(--primary-color);
-	}
-
-	.sort-order {
-		font-size: 0.625rem;
-		margin-left: 2px;
-	}
-
-	.resize-handle {
-		position: absolute;
-		right: 0;
-		top: 0;
-		bottom: 0;
-		width: 4px;
-		cursor: col-resize;
-		background: transparent;
-	}
-
-	.resize-handle:hover {
-		background: var(--primary-color);
-	}
-</style>
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .px_2()
+            .py_1()
+            .bg(theme.surface)
+            .border_t_1()
+            .border_color(theme.border)
+            .text_sm()
+            // Row count info
+            .child(
+                div()
+                    .text_color(theme.text_muted)
+                    .child(self.format_row_range(data.total_rows))
+                    .child(" rows")
+            )
+            // Elapsed time
+            .when(data.elapsed_ms > 0, |el| {
+                el.child(
+                    div()
+                        .text_color(theme.text_muted)
+                        .child(format!("• {}ms", data.elapsed_ms))
+                )
+            })
+            // Spacer
+            .child(div().flex_1())
+            // Display mode toggle
+            .child(self.render_mode_toggle(display_mode, &theme, cx))
+            // Export button
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .w_7()
+                    .h_7()
+                    .border_1()
+                    .border_color(theme.border)
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_color(theme.text_muted)
+                    .hover(|style| style.bg(theme.hover).text_color(theme.text))
+                    .on_click(cx.listener(|_this, _event, cx| {
+                        cx.emit(ResultsToolbarEvent::ExportRequested);
+                    }))
+                    .child(svg().path("icons/download.svg").size_4())
+            )
+            // Pagination (if multiple pages)
+            .when(self.total_pages > 1, |el| {
+                el.child(div().w_px().h_5().bg(theme.border).mx_1())
+                    .child(self.render_pagination(&theme, cx))
+            })
+    }
+}
 ```
 
-### 14.6 Results Toolbar Component
+### 14.7 Transposed View
 
-```svelte
-<!-- src/lib/components/grid/ResultsToolbar.svelte -->
-<script lang="ts">
-	import {
-		Download,
-		Grid,
-		List,
-		Braces,
-		ChevronLeft,
-		ChevronRight,
-		ChevronsLeft,
-		ChevronsRight
-	} from 'lucide-svelte';
-	import { gridState, type DisplayMode } from '$lib/stores/gridState.svelte';
+```rust
+// src/ui/components/grid/transposed_view.rs
 
-	interface Props {
-		onExport: () => void;
-		pageSize?: number;
-		currentPage?: number;
-		totalPages?: number;
-		onPageChange?: (page: number) => void;
-	}
+use gpui::*;
 
-	let {
-		onExport,
-		pageSize = 1000,
-		currentPage = 1,
-		totalPages = 1,
-		onPageChange
-	}: Props = $props();
+use crate::models::grid::GridData;
+use crate::state::grid_state::GridState;
+use crate::ui::theme::Theme;
+use crate::ui::components::grid::cell_renderer::render_cell;
 
-	function setDisplayMode(mode: DisplayMode) {
-		gridState.displayMode = mode;
-	}
+/// Transposed view - shows one row at a time as key-value pairs
+pub struct TransposedView {
+    /// Current row index
+    current_row: usize,
+}
 
-	function formatRowRange(): string {
-		const start = (currentPage - 1) * pageSize + 1;
-		const end = Math.min(currentPage * pageSize, $gridState.totalRows);
-		return `${start.toLocaleString()}-${end.toLocaleString()} of ${$gridState.totalRows.toLocaleString()}`;
-	}
-</script>
+impl TransposedView {
+    pub fn new() -> Self {
+        Self { current_row: 0 }
+    }
 
-<div class="results-toolbar">
-	<div class="toolbar-group">
-		<span class="results-info">
-			{formatRowRange()} rows
-		</span>
+    /// Set current row
+    pub fn set_row(&mut self, row: usize) {
+        self.current_row = row;
+    }
 
-		{#if $gridState.queryId}
-			<span class="timing">
-				• {$gridState.elapsedMs?.toLocaleString() ?? '–'}ms
-			</span>
-		{/if}
-	</div>
+    /// Navigate to next row
+    pub fn next_row(&mut self, total_rows: usize) {
+        if self.current_row < total_rows.saturating_sub(1) {
+            self.current_row += 1;
+        }
+    }
 
-	<div class="toolbar-spacer"></div>
+    /// Navigate to previous row
+    pub fn prev_row(&mut self) {
+        self.current_row = self.current_row.saturating_sub(1);
+    }
+}
 
-	<div class="toolbar-group">
-		<!-- Display mode toggle -->
-		<div class="mode-toggle">
-			<button
-				class="mode-btn"
-				class:active={$gridState.displayMode === 'grid'}
-				onclick={() => setDisplayMode('grid')}
-				title="Grid view"
-			>
-				<Grid size={16} />
-			</button>
-			<button
-				class="mode-btn"
-				class:active={$gridState.displayMode === 'transposed'}
-				onclick={() => setDisplayMode('transposed')}
-				title="Transposed view"
-			>
-				<List size={16} />
-			</button>
-			<button
-				class="mode-btn"
-				class:active={$gridState.displayMode === 'json'}
-				onclick={() => setDisplayMode('json')}
-				title="JSON view"
-			>
-				<Braces size={16} />
-			</button>
-		</div>
+impl Render for TransposedView {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>().clone();
+        let grid_state = cx.global::<GridState>();
+        let data = grid_state.data();
 
-		<!-- Export -->
-		<button class="toolbar-btn" onclick={onExport} title="Export results">
-			<Download size={16} />
-		</button>
-	</div>
+        if data.rows.is_empty() {
+            return div()
+                .w_full()
+                .h_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .text_color(theme.text_muted)
+                .child("No data")
+                .into_any_element();
+        }
 
-	{#if totalPages > 1}
-		<div class="toolbar-separator"></div>
+        let row = &data.rows[self.current_row.min(data.rows.len() - 1)];
 
-		<div class="pagination">
-			<button
-				class="page-btn"
-				onclick={() => onPageChange?.(1)}
-				disabled={currentPage === 1}
-				title="First page"
-			>
-				<ChevronsLeft size={16} />
-			</button>
-			<button
-				class="page-btn"
-				onclick={() => onPageChange?.(currentPage - 1)}
-				disabled={currentPage === 1}
-				title="Previous page"
-			>
-				<ChevronLeft size={16} />
-			</button>
+        div()
+            .w_full()
+            .h_full()
+            .flex()
+            .flex_col()
+            .bg(theme.background)
+            // Navigation header
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .px_4()
+                    .py_2()
+                    .bg(theme.surface)
+                    .border_b_1()
+                    .border_color(theme.border)
+                    // Previous button
+                    .child(
+                        div()
+                            .cursor(if self.current_row > 0 { CursorStyle::PointingHand } else { CursorStyle::Arrow })
+                            .text_color(if self.current_row > 0 { theme.text } else { theme.text_muted })
+                            .on_click(cx.listener(|this, _event, cx| {
+                                this.prev_row();
+                                cx.notify();
+                            }))
+                            .child("← Previous")
+                    )
+                    // Row indicator
+                    .child(
+                        div()
+                            .text_color(theme.text_muted)
+                            .child(format!("Row {} of {}", self.current_row + 1, data.rows.len()))
+                    )
+                    // Next button
+                    .child(
+                        div()
+                            .cursor(if self.current_row < data.rows.len() - 1 { CursorStyle::PointingHand } else { CursorStyle::Arrow })
+                            .text_color(if self.current_row < data.rows.len() - 1 { theme.text } else { theme.text_muted })
+                            .on_click(cx.listener(move |this, _event, cx| {
+                                this.next_row(data.rows.len());
+                                cx.notify();
+                            }))
+                            .child("Next →")
+                    )
+            )
+            // Key-value pairs
+            .child(
+                div()
+                    .flex_1()
+                    .overflow_y_auto()
+                    .p_4()
+                    .children(
+                        data.columns.iter().enumerate().map(|(i, col)| {
+                            let value = &row[i];
 
-			<span class="page-info">
-				Page {currentPage} of {totalPages}
-			</span>
+                            div()
+                                .flex()
+                                .py_2()
+                                .border_b_1()
+                                .border_color(theme.border)
+                                // Column name
+                                .child(
+                                    div()
+                                        .w_48()
+                                        .pr_4()
+                                        .text_sm()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .text_color(theme.text_muted)
+                                        .child(col.name.clone())
+                                )
+                                // Value
+                                .child(
+                                    div()
+                                        .flex_1()
+                                        .child(render_cell(value, &col.type_name, false, &theme))
+                                )
+                        })
+                    )
+            )
+            .into_any_element()
+    }
+}
+```
 
-			<button
-				class="page-btn"
-				onclick={() => onPageChange?.(currentPage + 1)}
-				disabled={currentPage === totalPages}
-				title="Next page"
-			>
-				<ChevronRight size={16} />
-			</button>
-			<button
-				class="page-btn"
-				onclick={() => onPageChange?.(totalPages)}
-				disabled={currentPage === totalPages}
-				title="Last page"
-			>
-				<ChevronsRight size={16} />
-			</button>
-		</div>
-	{/if}
-</div>
+### 14.8 JSON View
 
-<style>
-	.results-toolbar {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.375rem 0.5rem;
-		background: var(--surface-color);
-		border-top: 1px solid var(--border-color);
-		font-size: 0.8125rem;
-	}
+```rust
+// src/ui/components/grid/json_view.rs
 
-	.toolbar-group {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
+use gpui::*;
+use serde_json::json;
 
-	.toolbar-spacer {
-		flex: 1;
-	}
+use crate::models::query::Value;
+use crate::state::grid_state::GridState;
+use crate::ui::theme::Theme;
 
-	.toolbar-separator {
-		width: 1px;
-		height: 20px;
-		background: var(--border-color);
-	}
+/// JSON view - shows results as formatted JSON
+pub struct JsonView {
+    /// Formatted JSON string
+    formatted_json: String,
+    /// Scroll position
+    scroll_top: f32,
+}
 
-	.results-info {
-		color: var(--text-muted);
-	}
+impl JsonView {
+    pub fn new() -> Self {
+        Self {
+            formatted_json: String::new(),
+            scroll_top: 0.0,
+        }
+    }
 
-	.timing {
-		color: var(--text-muted);
-	}
+    /// Update JSON content from grid data
+    pub fn update_from_grid(&mut self, cx: &mut Context<Self>) {
+        let grid_state = cx.global::<GridState>();
+        let data = grid_state.data();
 
-	.mode-toggle {
-		display: flex;
-		border: 1px solid var(--border-color);
-		border-radius: 0.375rem;
-		overflow: hidden;
-	}
+        let json_array: Vec<serde_json::Value> = data.rows.iter().map(|row| {
+            let mut obj = serde_json::Map::new();
+            for (i, col) in data.columns.iter().enumerate() {
+                let value = &row[i];
+                obj.insert(col.name.clone(), Self::value_to_json(value));
+            }
+            serde_json::Value::Object(obj)
+        }).collect();
 
-	.mode-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 24px;
-		border: none;
-		background: none;
-		color: var(--text-muted);
-		cursor: pointer;
-		transition: all 0.15s;
-	}
+        self.formatted_json = serde_json::to_string_pretty(&json_array)
+            .unwrap_or_else(|_| "Error formatting JSON".to_string());
 
-	.mode-btn:hover {
-		background: var(--hover-color);
-		color: var(--text-color);
-	}
+        cx.notify();
+    }
 
-	.mode-btn.active {
-		background: var(--primary-color);
-		color: white;
-	}
+    /// Convert Value to serde_json::Value
+    fn value_to_json(value: &Value) -> serde_json::Value {
+        match value {
+            Value::Null => serde_json::Value::Null,
+            Value::Bool(b) => json!(b),
+            Value::Int16(n) => json!(n),
+            Value::Int32(n) => json!(n),
+            Value::Int64(n) => json!(n),
+            Value::Float32(n) => json!(n),
+            Value::Float64(n) => json!(n),
+            Value::Numeric(s) => json!(s),
+            Value::Text(s) => json!(s),
+            Value::Bytea(b) => json!(format!("\\x{}", hex::encode(b))),
+            Value::Timestamp(ts) => json!(ts.to_rfc3339()),
+            Value::TimestampTz(ts) => json!(ts.to_rfc3339()),
+            Value::Date(d) => json!(d.to_string()),
+            Value::Time(t) => json!(t.to_string()),
+            Value::TimeTz(t) => json!(t.to_string()),
+            Value::Interval { months, days, microseconds } => json!({
+                "months": months,
+                "days": days,
+                "microseconds": microseconds
+            }),
+            Value::Uuid(u) => json!(u.to_string()),
+            Value::Json(j) | Value::Jsonb(j) => j.clone(),
+            Value::Array(arr) => {
+                serde_json::Value::Array(arr.iter().map(Self::value_to_json).collect())
+            }
+            Value::Point { x, y } => json!({ "x": x, "y": y }),
+            Value::Inet(s) | Value::Cidr(s) | Value::MacAddr(s) => json!(s),
+            Value::Unknown(s) => json!(s),
+        }
+    }
+}
 
-	.mode-btn + .mode-btn {
-		border-left: 1px solid var(--border-color);
-	}
+impl Render for JsonView {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>().clone();
 
-	.toolbar-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border: 1px solid var(--border-color);
-		border-radius: 0.375rem;
-		background: none;
-		color: var(--text-muted);
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.toolbar-btn:hover {
-		background: var(--hover-color);
-		color: var(--text-color);
-	}
-
-	.pagination {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-
-	.page-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		border: none;
-		border-radius: 0.25rem;
-		background: none;
-		color: var(--text-muted);
-		cursor: pointer;
-		transition: all 0.15s;
-	}
-
-	.page-btn:hover:not(:disabled) {
-		background: var(--hover-color);
-		color: var(--text-color);
-	}
-
-	.page-btn:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.page-info {
-		color: var(--text-muted);
-		min-width: 100px;
-		text-align: center;
-	}
-</style>
+        div()
+            .w_full()
+            .h_full()
+            .bg(theme.background)
+            .overflow_auto()
+            .p_4()
+            .child(
+                div()
+                    .font_family("monospace")
+                    .text_sm()
+                    .whitespace_pre()
+                    .text_color(theme.text)
+                    .child(self.formatted_json.clone())
+            )
+    }
+}
 ```
 
 ## Acceptance Criteria
@@ -1536,17 +2097,18 @@ export const gridState = new GridState();
 1. **Virtual Scrolling**
    - Render only visible rows + overscan buffer
    - Handle 10M+ rows without performance degradation
-   - Smooth scrolling in both directions
+   - Smooth GPU-accelerated scrolling in both directions
    - Proper row height calculations
 
 2. **Type Rendering**
    - NULL displayed as styled "NULL" text
-   - Booleans as checkmarks/crosses
+   - Booleans as checkmarks/crosses with color coding
    - Numbers right-aligned with formatting
    - Timestamps in locale format
-   - JSON with syntax highlighting preview
+   - JSON with preview and expand capability
    - Arrays with item count
    - UUIDs in monospace font
+   - Bytea as hex representation
 
 3. **Column Operations**
    - Resize columns by dragging header border
@@ -1563,61 +2125,87 @@ export const gridState = new GridState();
 
 5. **Display Modes**
    - Grid mode (default spreadsheet)
-   - Transposed mode (single row as key-value)
-   - JSON mode (raw JSON output)
+   - Transposed mode (single row as key-value with navigation)
+   - JSON mode (raw formatted JSON output)
 
-6. **Pagination**
-   - First/Previous/Next/Last buttons
-   - Page number display
-   - Row range display
+6. **Performance**
+   - GPU-accelerated rendering via GPUI
+   - Render 1000 visible rows in < 16ms
+   - Memory efficient with virtualization
+   - Smooth 60fps scrolling
 
-## MCP Testing Instructions
+## Testing
 
-### Using Tauri MCP
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-```typescript
-// Execute query and verify grid renders
-await mcp.ipc_execute_command({
-	command: 'execute_query',
-	args: {
-		connId: connectionId,
-		sql: 'SELECT * FROM generate_series(1, 1000000) AS n'
-	}
-});
+    #[test]
+    fn test_vertical_scroll_calculation() {
+        let config = VirtualScrollConfig::default();
+        let state = calculate_vertical_scroll(
+            100.0, // scroll_top
+            1000,  // total_rows
+            500.0, // viewport_height
+            &config,
+        );
 
-// Verify virtual scrolling
-const initialSnapshot = await mcp.webview_dom_snapshot({ type: 'accessibility' });
-const rowCountBefore = (initialSnapshot.match(/gridcell/g) || []).length;
+        // With 28px row height, scrolled 100px = ~3.5 rows
+        assert!(state.visible_start <= 3);
+        assert!(state.visible_end >= 21); // 500/28 + overscan
+        assert_eq!(state.total_height, 1000.0 * 28.0);
+    }
 
-// Scroll down
-await mcp.webview_interact({
-	action: 'scroll',
-	selector: '.results-grid',
-	scrollY: 10000
-});
+    #[test]
+    fn test_selection_range() {
+        let mut selection = Selection::default();
 
-// Verify new rows rendered
-const afterScroll = await mcp.webview_dom_snapshot({ type: 'accessibility' });
-// Row numbers should be different
+        selection.select_cell(5, 3);
+        selection.extend_to(10, 7);
 
-// Test column resize
-await mcp.webview_interact({
-	action: 'click',
-	selector: '.resize-handle'
-});
+        let range = selection.range().unwrap();
+        assert_eq!(range.start_row, 5);
+        assert_eq!(range.end_row, 10);
+        assert_eq!(range.start_col, 3);
+        assert_eq!(range.end_col, 7);
+    }
 
-// Test cell selection
-await mcp.webview_click({
-	selector: '.grid-cell:first-child',
-	element: 'First cell'
-});
+    #[test]
+    fn test_selection_check() {
+        let mut selection = Selection::default();
+        selection.select_cell(2, 2);
+        selection.extend_to(4, 4);
 
-// Copy and verify
-await mcp.browser_press_key({ key: 'c', modifiers: ['Meta'] });
+        assert!(selection.is_selected(3, 3));
+        assert!(!selection.is_selected(1, 1));
+        assert!(!selection.is_selected(5, 5));
+    }
+
+    #[test]
+    fn test_column_auto_width() {
+        let rows: Vec<Vec<Value>> = vec![
+            vec![Value::Text("short".to_string())],
+            vec![Value::Text("much longer text here".to_string())],
+            vec![Value::Text("mid".to_string())],
+        ];
+
+        let width = GridColumn::calculate_width("Column", "text", &rows, 0);
+        assert!(width >= 100.0); // Should accommodate longest text
+        assert!(width <= 400.0); // Should be capped
+    }
+
+    #[test]
+    fn test_sort_direction_toggle() {
+        let dir = SortDirection::Ascending;
+        assert_eq!(dir.toggle(), SortDirection::Descending);
+        assert_eq!(dir.toggle().toggle(), SortDirection::Ascending);
+    }
+}
 ```
 
 ## Dependencies
 
-- TanStack Virtual (optional, for advanced virtualization)
-- Feature 11: Query Execution (result data)
-- Feature 06: Settings (display preferences)
+- Feature 03: Frontend Architecture (GPUI component patterns)
+- Feature 11: Query Execution (result data and streaming)
+- Feature 06: Settings (display preferences like locale, null display)

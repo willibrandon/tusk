@@ -2,65 +2,73 @@
 
 ## Overview
 
-Establish the Rust backend structure with proper module organization, error handling, state management, and foundational services.
+Establish the Rust backend structure for a pure GPUI application with proper module organization, error handling, async patterns, and service layer abstractions. Since GPUI is a pure Rust framework, there is no frontend/backend split—the entire application is Rust code. This document focuses on the service layer, data access patterns, and async execution that power the UI.
 
 ## Goals
 
-- Define clear module boundaries and responsibilities
+- Define clear module boundaries and responsibilities within the Rust codebase
 - Implement robust error handling with thiserror
-- Set up application state management
-- Create service layer abstractions
-- Establish async patterns with Tokio
+- Set up state management using GPUI's Entity and Global patterns
+- Create service layer abstractions for database, storage, and credentials
+- Establish async patterns with GPUI's BackgroundExecutor and Tasks
 
 ## Technical Specification
 
 ### 1. Module Structure
 
 ```
-src-tauri/src/
-├── main.rs                 # Entry point
-├── lib.rs                  # Library root, Tauri setup
-├── error.rs                # Error types
-├── state.rs                # Application state
-├── commands/
-│   ├── mod.rs              # Command registration
-│   ├── connection.rs       # Connection commands
-│   ├── query.rs            # Query execution commands
-│   ├── schema.rs           # Schema introspection commands
-│   ├── admin.rs            # Admin/monitoring commands
-│   ├── storage.rs          # Local storage commands
-│   └── settings.rs         # Settings commands
-├── services/
-│   ├── mod.rs
-│   ├── connection.rs       # Connection pool management
-│   ├── query.rs            # Query execution engine
-│   ├── schema.rs           # Schema introspection
-│   ├── admin.rs            # Admin statistics
-│   ├── storage.rs          # SQLite local storage
-│   ├── keyring.rs          # Credential management
-│   └── ssh.rs              # SSH tunnel management
-└── models/
-    ├── mod.rs
-    ├── connection.rs       # Connection config
-    ├── schema.rs           # Schema objects
-    ├── query.rs            # Query results
-    └── settings.rs         # App settings
+crates/
+├── tusk_core/                      # Shared types and utilities
+│   └── src/
+│       ├── lib.rs
+│       ├── error.rs                # Error types
+│       ├── util.rs                 # Utilities
+│       └── models/
+│           ├── mod.rs
+│           ├── connection.rs       # Connection config
+│           ├── schema.rs           # Schema objects
+│           ├── query.rs            # Query results
+│           └── settings.rs         # App settings
+├── tusk_db/                        # Database connectivity
+│   └── src/
+│       ├── lib.rs
+│       ├── connection.rs           # Connection management
+│       ├── pool.rs                 # Connection pooling
+│       ├── query.rs                # Query execution engine
+│       ├── schema.rs               # Schema introspection
+│       ├── types.rs                # PostgreSQL type mapping
+│       ├── ssh.rs                  # SSH tunnel management
+│       └── ssl.rs                  # SSL/TLS handling
+├── tusk_storage/                   # Local SQLite storage
+│   └── src/
+│       ├── lib.rs
+│       ├── database.rs             # SQLite database
+│       ├── migrations.rs           # Schema migrations
+│       ├── connections.rs          # Saved connections
+│       ├── history.rs              # Query history
+│       └── settings.rs             # User settings
+└── tusk_app/                       # Application logic
+    └── src/
+        ├── lib.rs
+        ├── app.rs                  # TuskApp main struct
+        ├── workspace.rs            # Workspace management
+        ├── actions.rs              # Global actions
+        └── state.rs                # Global state management
 ```
 
-### 2. Error Handling (error.rs)
+### 2. Error Handling (tusk_core/src/error.rs)
 
 ```rust
 use thiserror::Error;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum TuskError {
     // Connection errors
     #[error("Connection failed: {message}")]
     ConnectionFailed {
         message: String,
-        #[source]
-        source: Option<Box<dyn std::error::Error + Send + Sync>>,
+        source_msg: Option<String>,
     },
 
     #[error("Authentication failed: {0}")]
@@ -87,7 +95,7 @@ pub enum TuskError {
         message: String,
         detail: Option<String>,
         hint: Option<String>,
-        position: Option<i32>,
+        position: Option<u32>,
         code: Option<String>,
     },
 
@@ -122,27 +130,39 @@ pub enum TuskError {
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
-    #[error("Not implemented: {0}")]
-    NotImplemented(String),
+    #[error("IO error: {0}")]
+    IoError(String),
 }
 
-// Serializable error for IPC
-#[derive(Debug, Serialize, Clone)]
-pub struct ErrorResponse {
-    pub error_type: String,
+/// Error details for display in UI
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorInfo {
+    pub error_type: ErrorType,
     pub message: String,
     pub detail: Option<String>,
     pub hint: Option<String>,
-    pub position: Option<i32>,
+    pub position: Option<u32>,
     pub code: Option<String>,
 }
 
-impl From<TuskError> for ErrorResponse {
-    fn from(err: TuskError) -> Self {
-        match &err {
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ErrorType {
+    Connection,
+    Authentication,
+    Ssl,
+    Ssh,
+    Query,
+    Storage,
+    Keyring,
+    Internal,
+}
+
+impl From<&TuskError> for ErrorInfo {
+    fn from(err: &TuskError) -> Self {
+        match err {
             TuskError::QueryFailed { message, detail, hint, position, code } => {
-                ErrorResponse {
-                    error_type: "QueryFailed".to_string(),
+                ErrorInfo {
+                    error_type: ErrorType::Query,
                     message: message.clone(),
                     detail: detail.clone(),
                     hint: hint.clone(),
@@ -150,8 +170,48 @@ impl From<TuskError> for ErrorResponse {
                     code: code.clone(),
                 }
             }
-            _ => ErrorResponse {
-                error_type: format!("{:?}", err).split('{').next().unwrap_or("Unknown").trim().to_string(),
+            TuskError::ConnectionFailed { message, source_msg } => {
+                ErrorInfo {
+                    error_type: ErrorType::Connection,
+                    message: message.clone(),
+                    detail: source_msg.clone(),
+                    hint: None,
+                    position: None,
+                    code: None,
+                }
+            }
+            TuskError::AuthenticationFailed(msg) => {
+                ErrorInfo {
+                    error_type: ErrorType::Authentication,
+                    message: msg.clone(),
+                    detail: None,
+                    hint: Some("Check your username and password".into()),
+                    position: None,
+                    code: None,
+                }
+            }
+            TuskError::SslError(msg) => {
+                ErrorInfo {
+                    error_type: ErrorType::Ssl,
+                    message: msg.clone(),
+                    detail: None,
+                    hint: Some("Check SSL certificate configuration".into()),
+                    position: None,
+                    code: None,
+                }
+            }
+            TuskError::SshError(msg) => {
+                ErrorInfo {
+                    error_type: ErrorType::Ssh,
+                    message: msg.clone(),
+                    detail: None,
+                    hint: Some("Check SSH tunnel configuration".into()),
+                    position: None,
+                    code: None,
+                }
+            }
+            _ => ErrorInfo {
+                error_type: ErrorType::Internal,
                 message: err.to_string(),
                 detail: None,
                 hint: None,
@@ -170,15 +230,15 @@ impl From<tokio_postgres::Error> for TuskError {
                 detail: db_err.detail().map(|s| s.to_string()),
                 hint: db_err.hint().map(|s| s.to_string()),
                 position: db_err.position().map(|p| match p {
-                    tokio_postgres::error::ErrorPosition::Original(pos) => *pos as i32,
-                    tokio_postgres::error::ErrorPosition::Internal { position, .. } => *position as i32,
+                    tokio_postgres::error::ErrorPosition::Original(pos) => *pos,
+                    tokio_postgres::error::ErrorPosition::Internal { position, .. } => *position,
                 }),
                 code: Some(db_err.code().code().to_string()),
             }
         } else {
             TuskError::ConnectionFailed {
                 message: err.to_string(),
-                source: Some(Box::new(err)),
+                source_msg: None,
             }
         }
     }
@@ -202,149 +262,135 @@ impl From<keyring::Error> for TuskError {
     }
 }
 
-// Make TuskError serializable for Tauri
-impl serde::Serialize for TuskError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        ErrorResponse::from(self.clone()).serialize(serializer)
-    }
-}
-
-impl Clone for TuskError {
-    fn clone(&self) -> Self {
-        match self {
-            TuskError::ConnectionFailed { message, .. } => {
-                TuskError::ConnectionFailed { message: message.clone(), source: None }
-            }
-            TuskError::AuthenticationFailed(s) => TuskError::AuthenticationFailed(s.clone()),
-            TuskError::SslError(s) => TuskError::SslError(s.clone()),
-            TuskError::SshError(s) => TuskError::SshError(s.clone()),
-            TuskError::ConnectionTimeout { seconds } => TuskError::ConnectionTimeout { seconds: *seconds },
-            TuskError::ConnectionNotFound { id } => TuskError::ConnectionNotFound { id: id.clone() },
-            TuskError::NoActiveConnection => TuskError::NoActiveConnection,
-            TuskError::QueryFailed { message, detail, hint, position, code } => {
-                TuskError::QueryFailed {
-                    message: message.clone(),
-                    detail: detail.clone(),
-                    hint: hint.clone(),
-                    position: *position,
-                    code: code.clone(),
-                }
-            }
-            TuskError::QueryCancelled => TuskError::QueryCancelled,
-            TuskError::QueryTimeout { ms } => TuskError::QueryTimeout { ms: *ms },
-            TuskError::StorageError(s) => TuskError::StorageError(s.clone()),
-            TuskError::MigrationError(s) => TuskError::MigrationError(s.clone()),
-            TuskError::KeyringError(s) => TuskError::KeyringError(s.clone()),
-            TuskError::CredentialNotFound(s) => TuskError::CredentialNotFound(s.clone()),
-            TuskError::SerializationError(s) => TuskError::SerializationError(s.clone()),
-            TuskError::Internal(s) => TuskError::Internal(s.clone()),
-            TuskError::InvalidInput(s) => TuskError::InvalidInput(s.clone()),
-            TuskError::NotImplemented(s) => TuskError::NotImplemented(s.clone()),
-        }
+impl From<std::io::Error> for TuskError {
+    fn from(err: std::io::Error) -> Self {
+        TuskError::IoError(err.to_string())
     }
 }
 
 pub type Result<T> = std::result::Result<T, TuskError>;
 ```
 
-### 3. Application State (state.rs)
+### 3. Global Application State (tusk_app/src/state.rs)
 
 ```rust
+use gpui::*;
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::services::{
-    connection::ConnectionPool,
-    storage::StorageService,
-    schema::SchemaCache,
-};
+use tusk_core::error::Result;
+use tusk_db::{ConnectionPool, SchemaCache};
+use tusk_storage::Database;
 
-/// Global application state managed by Tauri
-pub struct AppState {
-    /// Active connection pools keyed by connection ID
-    pub connections: RwLock<HashMap<Uuid, Arc<ConnectionPool>>>,
+/// Global application state accessible via cx.global::<TuskState>()
+pub struct TuskState {
+    /// Active database connections
+    connections: RwLock<HashMap<Uuid, Arc<ConnectionPool>>>,
 
     /// Schema cache per connection
-    pub schema_caches: RwLock<HashMap<Uuid, Arc<SchemaCache>>>,
+    schema_caches: RwLock<HashMap<Uuid, Arc<SchemaCache>>>,
 
-    /// Active queries that can be cancelled
-    pub active_queries: RwLock<HashMap<Uuid, tokio::sync::watch::Sender<bool>>>,
+    /// Active query handles for cancellation
+    active_queries: RwLock<HashMap<Uuid, Arc<QueryHandle>>>,
 
-    /// Local SQLite storage
-    pub storage: Arc<StorageService>,
+    /// Local SQLite database for settings, history, etc.
+    pub database: Database,
 
     /// Application data directory
     pub data_dir: std::path::PathBuf,
 }
 
-impl AppState {
-    pub async fn new(data_dir: std::path::PathBuf) -> crate::error::Result<Self> {
-        // Ensure data directory exists
-        std::fs::create_dir_all(&data_dir).map_err(|e| {
-            crate::error::TuskError::StorageError(format!(
-                "Failed to create data directory: {}",
-                e
-            ))
-        })?;
+impl Global for TuskState {}
 
-        let storage = StorageService::new(&data_dir).await?;
+/// Handle for cancelling a running query
+pub struct QueryHandle {
+    cancel_token: tokio_util::sync::CancellationToken,
+}
+
+impl QueryHandle {
+    pub fn new() -> Self {
+        Self {
+            cancel_token: tokio_util::sync::CancellationToken::new(),
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.cancel_token.cancel();
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancel_token.is_cancelled()
+    }
+
+    pub fn token(&self) -> tokio_util::sync::CancellationToken {
+        self.cancel_token.clone()
+    }
+}
+
+impl TuskState {
+    pub fn new(data_dir: std::path::PathBuf) -> Result<Self> {
+        // Ensure data directory exists
+        std::fs::create_dir_all(&data_dir)?;
+
+        // Initialize local database
+        let db_path = data_dir.join("tusk.db");
+        let database = Database::new(&db_path)?;
 
         Ok(Self {
             connections: RwLock::new(HashMap::new()),
             schema_caches: RwLock::new(HashMap::new()),
             active_queries: RwLock::new(HashMap::new()),
-            storage: Arc::new(storage),
+            database,
             data_dir,
         })
     }
 
     /// Get a connection pool by ID
-    pub async fn get_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
-        self.connections.read().await.get(id).cloned()
+    pub fn get_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
+        self.connections.read().get(id).cloned()
     }
 
     /// Add a new connection pool
-    pub async fn add_connection(&self, id: Uuid, pool: ConnectionPool) {
-        self.connections.write().await.insert(id, Arc::new(pool));
+    pub fn add_connection(&self, id: Uuid, pool: ConnectionPool) {
+        self.connections.write().insert(id, Arc::new(pool));
     }
 
     /// Remove a connection pool
-    pub async fn remove_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
-        let mut connections = self.connections.write().await;
-        let pool = connections.remove(id);
-
+    pub fn remove_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
+        let pool = self.connections.write().remove(id);
         // Also remove schema cache
-        self.schema_caches.write().await.remove(id);
-
+        self.schema_caches.write().remove(id);
         pool
     }
 
+    /// Get all connection IDs
+    pub fn connection_ids(&self) -> Vec<Uuid> {
+        self.connections.read().keys().copied().collect()
+    }
+
     /// Get schema cache for a connection
-    pub async fn get_schema_cache(&self, conn_id: &Uuid) -> Option<Arc<SchemaCache>> {
-        self.schema_caches.read().await.get(conn_id).cloned()
+    pub fn get_schema_cache(&self, conn_id: &Uuid) -> Option<Arc<SchemaCache>> {
+        self.schema_caches.read().get(conn_id).cloned()
     }
 
     /// Set schema cache for a connection
-    pub async fn set_schema_cache(&self, conn_id: Uuid, cache: SchemaCache) {
-        self.schema_caches.write().await.insert(conn_id, Arc::new(cache));
+    pub fn set_schema_cache(&self, conn_id: Uuid, cache: SchemaCache) {
+        self.schema_caches.write().insert(conn_id, Arc::new(cache));
     }
 
-    /// Register a cancellable query
-    pub async fn register_query(&self, query_id: Uuid) -> tokio::sync::watch::Receiver<bool> {
-        let (tx, rx) = tokio::sync::watch::channel(false);
-        self.active_queries.write().await.insert(query_id, tx);
-        rx
+    /// Register a new query for potential cancellation
+    pub fn register_query(&self, query_id: Uuid) -> Arc<QueryHandle> {
+        let handle = Arc::new(QueryHandle::new());
+        self.active_queries.write().insert(query_id, handle.clone());
+        handle
     }
 
-    /// Cancel a query
-    pub async fn cancel_query(&self, query_id: &Uuid) -> bool {
-        if let Some(tx) = self.active_queries.write().await.remove(query_id) {
-            let _ = tx.send(true);
+    /// Cancel a query by ID
+    pub fn cancel_query(&self, query_id: &Uuid) -> bool {
+        if let Some(handle) = self.active_queries.read().get(query_id) {
+            handle.cancel();
             true
         } else {
             false
@@ -352,40 +398,93 @@ impl AppState {
     }
 
     /// Unregister a completed query
-    pub async fn unregister_query(&self, query_id: &Uuid) {
-        self.active_queries.write().await.remove(query_id);
+    pub fn unregister_query(&self, query_id: &Uuid) {
+        self.active_queries.write().remove(query_id);
+    }
+}
+
+/// Initialize global state in GPUI
+pub fn init_state(cx: &mut AppContext) -> Result<()> {
+    let data_dir = get_data_directory();
+    let state = TuskState::new(data_dir)?;
+    cx.set_global(state);
+    Ok(())
+}
+
+/// Get the appropriate data directory for the platform
+fn get_data_directory() -> std::path::PathBuf {
+    if cfg!(debug_assertions) {
+        // Use local directory in dev
+        std::env::current_dir()
+            .unwrap_or_default()
+            .join(".tusk-dev")
+    } else {
+        // Use OS-appropriate directory in production
+        directories::ProjectDirs::from("com", "tusk", "Tusk")
+            .map(|dirs| dirs.data_dir().to_path_buf())
+            .unwrap_or_else(|| {
+                std::env::current_dir()
+                    .unwrap_or_default()
+                    .join(".tusk")
+            })
+    }
+}
+
+/// Extension trait for easy state access
+pub trait TuskStateExt {
+    fn tusk_state(&self) -> &TuskState;
+}
+
+impl TuskStateExt for AppContext {
+    fn tusk_state(&self) -> &TuskState {
+        self.global::<TuskState>()
+    }
+}
+
+impl<V> TuskStateExt for ViewContext<'_, V> {
+    fn tusk_state(&self) -> &TuskState {
+        self.global::<TuskState>()
+    }
+}
+
+impl<V> TuskStateExt for ModelContext<'_, V> {
+    fn tusk_state(&self) -> &TuskState {
+        self.global::<TuskState>()
     }
 }
 ```
 
 ### 4. Service Layer Pattern
 
-```rust
-// services/mod.rs
-pub mod connection;
-pub mod query;
-pub mod schema;
-pub mod admin;
-pub mod storage;
-pub mod keyring;
-pub mod ssh;
+Services in GPUI are typically implemented as structs that hold state and are accessed via Entity handles or global state. Async operations use GPUI's background executor.
 
-// Re-export main types
-pub use connection::ConnectionPool;
-pub use query::QueryService;
-pub use schema::{SchemaService, SchemaCache};
-pub use admin::AdminService;
-pub use storage::StorageService;
-pub use keyring::KeyringService;
-pub use ssh::SshTunnelService;
+```rust
+// tusk_db/src/lib.rs
+mod connection;
+mod pool;
+mod query;
+mod schema;
+mod ssh;
+mod ssl;
+mod types;
+
+pub use connection::{Connection, ConnectionManager};
+pub use pool::ConnectionPool;
+pub use query::{QueryExecutor, QueryResult, RowBatch};
+pub use schema::{SchemaCache, SchemaIntrospector};
+pub use ssh::SshTunnel;
+pub use ssl::SslConfig;
+pub use types::{PostgresType, TypeRegistry};
 ```
 
 ```rust
-// services/connection.rs (skeleton)
-use deadpool_postgres::{Config, Pool, Runtime};
+// tusk_db/src/pool.rs
+use deadpool_postgres::{Config, Manager, ManagerConfig, Pool, RecyclingMethod};
 use tokio_postgres::NoTls;
-use crate::error::{Result, TuskError};
-use crate::models::connection::ConnectionConfig;
+use std::time::Duration;
+
+use tusk_core::error::{Result, TuskError};
+use tusk_core::models::ConnectionConfig;
 
 pub struct ConnectionPool {
     pool: Pool,
@@ -393,44 +492,183 @@ pub struct ConnectionPool {
 }
 
 impl ConnectionPool {
-    pub async fn new(config: ConnectionConfig) -> Result<Self> {
-        // Implementation in Feature 07
-        todo!()
+    pub async fn new(config: ConnectionConfig, password: Option<String>) -> Result<Self> {
+        let mut pg_config = tokio_postgres::Config::new();
+        pg_config
+            .host(&config.host)
+            .port(config.port)
+            .dbname(&config.database)
+            .user(&config.username)
+            .connect_timeout(Duration::from_secs(config.options.connect_timeout_sec))
+            .application_name(&config.options.application_name);
+
+        if let Some(pwd) = password {
+            pg_config.password(&pwd);
+        }
+
+        if let Some(timeout_ms) = config.options.statement_timeout_ms {
+            pg_config.options(&format!("-c statement_timeout={}", timeout_ms));
+        }
+
+        let mgr_config = ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        };
+
+        let mgr = Manager::from_config(pg_config, NoTls, mgr_config);
+
+        let pool = Pool::builder(mgr)
+            .max_size(5)
+            .build()
+            .map_err(|e| TuskError::ConnectionFailed {
+                message: format!("Failed to create connection pool: {}", e),
+                source_msg: None,
+            })?;
+
+        // Test connection
+        let _client = pool.get().await.map_err(|e| TuskError::ConnectionFailed {
+            message: format!("Failed to connect: {}", e),
+            source_msg: None,
+        })?;
+
+        Ok(Self { pool, config })
     }
 
-    pub async fn get_client(&self) -> Result<deadpool_postgres::Client> {
-        self.pool
-            .get()
-            .await
-            .map_err(|e| TuskError::ConnectionFailed {
-                message: format!("Failed to get connection from pool: {}", e),
-                source: None,
-            })
+    pub async fn get_client(&self) -> Result<deadpool_postgres::Object> {
+        self.pool.get().await.map_err(|e| TuskError::ConnectionFailed {
+            message: format!("Failed to get connection from pool: {}", e),
+            source_msg: None,
+        })
     }
 
     pub fn config(&self) -> &ConnectionConfig {
         &self.config
     }
+
+    pub fn status(&self) -> PoolStatus {
+        let status = self.pool.status();
+        PoolStatus {
+            size: status.size,
+            available: status.available,
+            waiting: status.waiting,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PoolStatus {
+    pub size: usize,
+    pub available: usize,
+    pub waiting: usize,
 }
 ```
 
-### 5. Models Layer
+### 5. Async Execution with GPUI
+
+GPUI provides BackgroundExecutor for running async work off the main thread:
 
 ```rust
-// models/mod.rs
+// tusk_app/src/services.rs
+use gpui::*;
+use std::sync::Arc;
+use uuid::Uuid;
+
+use tusk_core::error::Result;
+use tusk_core::models::ConnectionConfig;
+use tusk_db::{ConnectionPool, QueryResult};
+use crate::state::{TuskState, TuskStateExt};
+
+/// Service for managing database connections
+pub struct ConnectionService;
+
+impl ConnectionService {
+    /// Connect to a database (runs in background)
+    pub fn connect(
+        config: ConnectionConfig,
+        password: Option<String>,
+        cx: &mut AppContext,
+    ) -> Task<Result<Uuid>> {
+        let state = cx.global::<TuskState>();
+        let conn_id = config.id;
+
+        cx.background_executor().spawn(async move {
+            let pool = ConnectionPool::new(config, password).await?;
+
+            // Store in state (need to coordinate with main thread)
+            // This is returned to caller who updates state
+            Ok(conn_id)
+        })
+    }
+
+    /// Disconnect from a database
+    pub fn disconnect(conn_id: Uuid, cx: &mut AppContext) -> Task<Result<()>> {
+        cx.background_executor().spawn(async move {
+            // Connection cleanup happens when Arc is dropped
+            Ok(())
+        })
+    }
+}
+
+/// Service for executing queries
+pub struct QueryService;
+
+impl QueryService {
+    /// Execute a query (runs in background, streams results)
+    pub fn execute(
+        conn_id: Uuid,
+        query: String,
+        cx: &mut AppContext,
+    ) -> (Uuid, Task<Result<QueryResult>>) {
+        let query_id = Uuid::new_v4();
+        let state = cx.global::<TuskState>();
+        let pool = state.get_connection(&conn_id);
+        let handle = state.register_query(query_id);
+
+        let task = cx.background_executor().spawn(async move {
+            let pool = pool.ok_or(TuskError::ConnectionNotFound {
+                id: conn_id.to_string(),
+            })?;
+
+            let client = pool.get_client().await?;
+
+            // Execute with cancellation support
+            tokio::select! {
+                result = client.query(&query, &[]) => {
+                    let rows = result?;
+                    Ok(QueryResult::from_rows(rows))
+                }
+                _ = handle.token().cancelled() => {
+                    Err(TuskError::QueryCancelled)
+                }
+            }
+        });
+
+        (query_id, task)
+    }
+
+    /// Cancel a running query
+    pub fn cancel(query_id: Uuid, cx: &AppContext) -> bool {
+        cx.global::<TuskState>().cancel_query(&query_id)
+    }
+}
+```
+
+### 6. Models (tusk_core/src/models/)
+
+```rust
+// tusk_core/src/models/mod.rs
 pub mod connection;
-pub mod schema;
 pub mod query;
+pub mod schema;
 pub mod settings;
 
 pub use connection::*;
-pub use schema::*;
 pub use query::*;
+pub use schema::*;
 pub use settings::*;
 ```
 
 ```rust
-// models/connection.rs
+// tusk_core/src/models/connection.rs
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -457,7 +695,34 @@ pub struct ConnectionConfig {
     pub options: ConnectionOptions,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+impl ConnectionConfig {
+    pub fn new(name: impl Into<String>, host: impl Into<String>, database: impl Into<String>) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            name: name.into(),
+            color: None,
+            group_id: None,
+            host: host.into(),
+            port: 5432,
+            database: database.into(),
+            username: String::new(),
+            password_in_keyring: false,
+            ssl_mode: SslMode::default(),
+            ssl_ca_cert: None,
+            ssl_client_cert: None,
+            ssl_client_key: None,
+            ssh_tunnel: None,
+            options: ConnectionOptions::default(),
+        }
+    }
+
+    /// Get the keyring key for this connection's password
+    pub fn keyring_key(&self) -> String {
+        format!("tusk:connection:{}", self.id)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SslMode {
     Disable,
@@ -479,7 +744,7 @@ pub struct SshTunnelConfig {
     pub passphrase_in_keyring: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SshAuthMethod {
     Password,
@@ -490,9 +755,12 @@ pub enum SshAuthMethod {
 pub struct ConnectionOptions {
     #[serde(default = "default_connect_timeout")]
     pub connect_timeout_sec: u64,
+
     pub statement_timeout_ms: Option<u64>,
+
     #[serde(default = "default_app_name")]
     pub application_name: String,
+
     #[serde(default)]
     pub readonly: bool,
 }
@@ -520,7 +788,7 @@ pub struct ConnectionGroup {
     pub color: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ConnectionStatus {
     Disconnected,
@@ -528,156 +796,445 @@ pub enum ConnectionStatus {
     Connected,
     Error,
 }
+
+impl Default for ConnectionStatus {
+    fn default() -> Self {
+        Self::Disconnected
+    }
+}
 ```
 
-### 6. Updated lib.rs
-
 ```rust
-// src-tauri/src/lib.rs
-pub mod commands;
-pub mod error;
-pub mod models;
-pub mod services;
-pub mod state;
+// tusk_core/src/models/query.rs
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use state::AppState;
-use tauri::Manager;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use directories::ProjectDirs;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryResult {
+    pub columns: Vec<ColumnInfo>,
+    pub rows: Vec<Row>,
+    pub rows_affected: u64,
+    pub execution_time_ms: u64,
+    pub query_type: QueryType,
+}
 
-pub fn run() {
-    // Initialize tracing
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "tusk=debug,tauri=info".into()),
-        )
-        .init();
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColumnInfo {
+    pub name: String,
+    pub type_name: String,
+    pub type_oid: u32,
+    pub nullable: bool,
+}
 
-    tracing::info!("Starting Tusk");
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Row {
+    pub values: Vec<CellValue>,
+}
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
-        .setup(|app| {
-            // Determine data directory
-            let data_dir = if cfg!(debug_assertions) {
-                // Use local directory in dev
-                std::env::current_dir()?.join(".tusk-dev")
-            } else {
-                // Use OS-appropriate directory in production
-                ProjectDirs::from("com", "tusk", "Tusk")
-                    .map(|dirs| dirs.data_dir().to_path_buf())
-                    .unwrap_or_else(|| {
-                        std::env::current_dir()
-                            .unwrap_or_default()
-                            .join(".tusk")
-                    })
-            };
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CellValue {
+    Null,
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+    String(String),
+    Bytes(Vec<u8>),
+    Timestamp(DateTime<Utc>),
+    Json(serde_json::Value),
+    Array(Vec<CellValue>),
+}
 
-            tracing::info!("Data directory: {:?}", data_dir);
+impl CellValue {
+    pub fn is_null(&self) -> bool {
+        matches!(self, CellValue::Null)
+    }
 
-            // Initialize state asynchronously
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                match AppState::new(data_dir).await {
-                    Ok(state) => {
-                        handle.manage(state);
-                        tracing::info!("Application state initialized");
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to initialize state: {}", e);
-                        // Could emit an error event to frontend here
-                    }
-                }
-            });
-
-            #[cfg(debug_assertions)]
-            {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
+    pub fn display(&self) -> String {
+        match self {
+            CellValue::Null => "NULL".to_string(),
+            CellValue::Bool(b) => b.to_string(),
+            CellValue::Int(i) => i.to_string(),
+            CellValue::Float(f) => f.to_string(),
+            CellValue::String(s) => s.clone(),
+            CellValue::Bytes(b) => format!("\\x{}", hex::encode(b)),
+            CellValue::Timestamp(ts) => ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string(),
+            CellValue::Json(j) => j.to_string(),
+            CellValue::Array(arr) => {
+                let items: Vec<String> = arr.iter().map(|v| v.display()).collect();
+                format!("{{{}}}", items.join(","))
             }
+        }
+    }
+}
 
-            Ok(())
-        })
-        .invoke_handler(tauri::generate_handler![
-            // Commands registered here by feature
-            commands::health_check,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryType {
+    Select,
+    Insert,
+    Update,
+    Delete,
+    Create,
+    Alter,
+    Drop,
+    Other,
+}
+
+impl Default for QueryType {
+    fn default() -> Self {
+        Self::Other
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryHistoryEntry {
+    pub id: Uuid,
+    pub connection_id: Uuid,
+    pub query: String,
+    pub executed_at: DateTime<Utc>,
+    pub execution_time_ms: u64,
+    pub rows_affected: Option<u64>,
+    pub error: Option<String>,
+    pub database: String,
 }
 ```
 
-### 7. Command Registration Pattern
+### 7. Event-Driven Updates
+
+GPUI components communicate through subscriptions and events:
 
 ```rust
-// commands/mod.rs
-pub mod connection;
-pub mod query;
-pub mod schema;
-pub mod admin;
-pub mod storage;
-pub mod settings;
+// tusk_app/src/events.rs
+use gpui::*;
+use uuid::Uuid;
 
-use tauri::command;
+use tusk_core::models::{ConnectionStatus, QueryResult};
+use tusk_core::error::ErrorInfo;
 
-/// Health check command for testing
-#[command]
-pub async fn health_check() -> Result<String, String> {
-    Ok("Tusk is running".to_string())
+/// Events for connection state changes
+#[derive(Clone, Debug)]
+pub enum ConnectionEvent {
+    StatusChanged {
+        connection_id: Uuid,
+        status: ConnectionStatus,
+    },
+    Connected {
+        connection_id: Uuid,
+    },
+    Disconnected {
+        connection_id: Uuid,
+    },
+    Error {
+        connection_id: Uuid,
+        error: ErrorInfo,
+    },
 }
 
-// Re-export all commands for registration
-// Each module will export its commands
+/// Events for query execution
+#[derive(Clone, Debug)]
+pub enum QueryEvent {
+    Started {
+        query_id: Uuid,
+        connection_id: Uuid,
+    },
+    Progress {
+        query_id: Uuid,
+        rows_fetched: usize,
+    },
+    Completed {
+        query_id: Uuid,
+        result: QueryResult,
+    },
+    Failed {
+        query_id: Uuid,
+        error: ErrorInfo,
+    },
+    Cancelled {
+        query_id: Uuid,
+    },
+}
+
+/// Events for schema changes
+#[derive(Clone, Debug)]
+pub enum SchemaEvent {
+    RefreshStarted {
+        connection_id: Uuid,
+    },
+    RefreshCompleted {
+        connection_id: Uuid,
+    },
+    ObjectCreated {
+        connection_id: Uuid,
+        object_type: String,
+        object_name: String,
+    },
+    ObjectDropped {
+        connection_id: Uuid,
+        object_type: String,
+        object_name: String,
+    },
+}
+
+/// Global event bus for application-wide events
+pub struct EventBus {
+    connection_subscribers: Vec<Box<dyn Fn(&ConnectionEvent, &mut AppContext) + Send + Sync>>,
+    query_subscribers: Vec<Box<dyn Fn(&QueryEvent, &mut AppContext) + Send + Sync>>,
+    schema_subscribers: Vec<Box<dyn Fn(&SchemaEvent, &mut AppContext) + Send + Sync>>,
+}
+
+impl Global for EventBus {}
+
+impl EventBus {
+    pub fn new() -> Self {
+        Self {
+            connection_subscribers: Vec::new(),
+            query_subscribers: Vec::new(),
+            schema_subscribers: Vec::new(),
+        }
+    }
+
+    pub fn emit_connection(&self, event: ConnectionEvent, cx: &mut AppContext) {
+        for subscriber in &self.connection_subscribers {
+            subscriber(&event, cx);
+        }
+    }
+
+    pub fn emit_query(&self, event: QueryEvent, cx: &mut AppContext) {
+        for subscriber in &self.query_subscribers {
+            subscriber(&event, cx);
+        }
+    }
+
+    pub fn emit_schema(&self, event: SchemaEvent, cx: &mut AppContext) {
+        for subscriber in &self.schema_subscribers {
+            subscriber(&event, cx);
+        }
+    }
+}
 ```
 
-### 8. Logging Configuration
+### 8. Credential Management
 
 ```rust
-// Optional: Add to lib.rs for file logging in production
+// tusk_storage/src/keyring.rs
+use keyring::Entry;
+use tusk_core::error::{Result, TuskError};
+
+const SERVICE_NAME: &str = "com.tusk.app";
+
+pub struct KeyringService;
+
+impl KeyringService {
+    /// Store a password in the OS keyring
+    pub fn store_password(key: &str, password: &str) -> Result<()> {
+        let entry = Entry::new(SERVICE_NAME, key)
+            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+
+        entry
+            .set_password(password)
+            .map_err(|e| TuskError::KeyringError(e.to_string()))
+    }
+
+    /// Retrieve a password from the OS keyring
+    pub fn get_password(key: &str) -> Result<String> {
+        let entry = Entry::new(SERVICE_NAME, key)
+            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+
+        entry
+            .get_password()
+            .map_err(|e| match e {
+                keyring::Error::NoEntry => TuskError::CredentialNotFound(key.to_string()),
+                _ => TuskError::KeyringError(e.to_string()),
+            })
+    }
+
+    /// Delete a password from the OS keyring
+    pub fn delete_password(key: &str) -> Result<()> {
+        let entry = Entry::new(SERVICE_NAME, key)
+            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+
+        entry
+            .delete_credential()
+            .map_err(|e| TuskError::KeyringError(e.to_string()))
+    }
+
+    /// Check if a password exists
+    pub fn has_password(key: &str) -> bool {
+        Entry::new(SERVICE_NAME, key)
+            .and_then(|e| e.get_password())
+            .is_ok()
+    }
+}
+```
+
+### 9. Logging Configuration
+
+```rust
+// crates/tusk/src/logging.rs
+use tracing_subscriber::{
+    fmt,
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+    EnvFilter,
+};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use std::path::Path;
 
-fn setup_logging(data_dir: &std::path::Path) {
+pub fn init_logging(data_dir: &Path, debug: bool) {
+    let log_dir = data_dir.join("logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+
     let file_appender = RollingFileAppender::new(
         Rotation::DAILY,
-        data_dir.join("logs"),
+        &log_dir,
         "tusk.log",
     );
-
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
+    let filter = if debug {
+        EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "tusk=debug,gpui=info".into())
+    } else {
+        EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "tusk=info,gpui=warn".into())
+    };
+
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer().with_writer(non_blocking))
-        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "tusk=info".into()),
-        )
+        .with(filter)
+        .with(fmt::layer().with_writer(std::io::stdout))
+        .with(fmt::layer().with_writer(non_blocking).with_ansi(false))
         .init();
 }
+```
+
+### 10. Crate Dependencies
+
+```toml
+# crates/tusk_core/Cargo.toml
+[package]
+name = "tusk_core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+tokio-postgres.workspace = true
+rusqlite.workspace = true
+keyring.workspace = true
+hex = "0.4"
+```
+
+```toml
+# crates/tusk_db/Cargo.toml
+[package]
+name = "tusk_db"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tusk_core.path = "../tusk_core"
+tokio.workspace = true
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+postgres-native-tls.workspace = true
+native-tls.workspace = true
+tokio-util = { version = "0.7", features = ["rt"] }
+russh.workspace = true
+russh-keys.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+serde.workspace = true
+parking_lot.workspace = true
+```
+
+```toml
+# crates/tusk_storage/Cargo.toml
+[package]
+name = "tusk_storage"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tusk_core.path = "../tusk_core"
+rusqlite.workspace = true
+keyring.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+```
+
+```toml
+# crates/tusk_app/Cargo.toml
+[package]
+name = "tusk_app"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tusk_core.path = "../tusk_core"
+tusk_db.path = "../tusk_db"
+tusk_storage.path = "../tusk_storage"
+tusk_ui.path = "../tusk_ui"
+gpui.workspace = true
+tokio.workspace = true
+parking_lot.workspace = true
+uuid.workspace = true
+directories.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
 ```
 
 ## Acceptance Criteria
 
-1. [ ] Module structure compiles without errors
+1. [ ] All crates compile without errors
 2. [ ] Error types cover all expected error cases
-3. [ ] Errors serialize correctly for IPC
-4. [ ] AppState initializes with data directory
-5. [ ] Connection pool storage works correctly
-6. [ ] Schema cache storage works correctly
-7. [ ] Query cancellation registration works
-8. [ ] Logging outputs to console in dev mode
-9. [ ] health_check command returns success
+3. [ ] TuskState initializes correctly and is accessible via Global
+4. [ ] Connection pool operations work correctly
+5. [ ] Schema cache operations work correctly
+6. [ ] Query cancellation mechanism works
+7. [ ] Keyring service stores and retrieves passwords
+8. [ ] Logging outputs to console and file
+9. [ ] Background tasks execute correctly via BackgroundExecutor
 
-## Testing with MCP
+## Testing
 
-```
-1. Start app: npm run tauri dev
-2. Connect: driver_session action=start
-3. Execute IPC: ipc_execute_command command="health_check"
-4. Verify response: "Tusk is running"
-5. Check logs: read_logs source=console
+```rust
+// tests/backend_test.rs
+#[cfg(test)]
+mod tests {
+    use tusk_core::error::TuskError;
+    use tusk_core::models::ConnectionConfig;
+
+    #[test]
+    fn test_error_display() {
+        let err = TuskError::QueryFailed {
+            message: "syntax error".into(),
+            detail: Some("near SELECT".into()),
+            hint: None,
+            position: Some(10),
+            code: Some("42601".into()),
+        };
+        assert!(err.to_string().contains("syntax error"));
+    }
+
+    #[test]
+    fn test_connection_config() {
+        let config = ConnectionConfig::new("Local", "localhost", "postgres");
+        assert_eq!(config.port, 5432);
+        assert!(!config.id.is_nil());
+    }
+}
 ```
 
 ## Dependencies on Other Features
@@ -686,7 +1243,7 @@ fn setup_logging(data_dir: &std::path::Path) {
 
 ## Dependent Features
 
-- 04-ipc-layer.md
+- 04-ipc-layer.md (now internal Rust APIs, not IPC)
 - 05-local-storage.md
 - 07-connection-management.md
 - All other backend features

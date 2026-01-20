@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Extension Manager provides a GUI for managing PostgreSQL extensions, including viewing installed extensions, installing new extensions, upgrading to newer versions, and viewing extension details and dependencies.
+The Extension Manager provides a GUI for managing PostgreSQL extensions, including viewing installed extensions, installing new extensions, upgrading to newer versions, and viewing extension details and dependencies. Built with GPUI for native performance and cross-platform support.
 
 ## Goals
 
@@ -22,72 +22,13 @@ The Extension Manager provides a GUI for managing PostgreSQL extensions, includi
 
 ### 23.1 Extension Data Models
 
-```typescript
-// src/lib/types/extensions.ts
-
-export interface Extension {
-	name: string;
-	installedVersion: string | null;
-	defaultVersion: string;
-	availableVersions: string[];
-	schema: string | null;
-	relocatable: boolean;
-	comment: string | null;
-	requires: string[];
-	isInstalled: boolean;
-}
-
-export interface ExtensionDetail {
-	name: string;
-	version: string;
-	schema: string;
-	description: string;
-	requires: string[];
-	objects: ExtensionObject[];
-	config: ExtensionConfig[];
-}
-
-export interface ExtensionObject {
-	type: string; // 'function', 'type', 'operator', 'table', etc.
-	schema: string;
-	name: string;
-	identity: string; // Full qualified name with signature
-}
-
-export interface ExtensionConfig {
-	name: string;
-	value: string;
-	description: string;
-	unit: string | null;
-	vartype: string;
-	enumVals: string[] | null;
-	minVal: string | null;
-	maxVal: string | null;
-}
-
-export interface InstallExtensionOptions {
-	name: string;
-	version?: string;
-	schema?: string;
-	cascade: boolean;
-}
-
-export interface UpgradeExtensionOptions {
-	name: string;
-	targetVersion?: string;
-}
-```
-
-### 23.2 Extension Service (Rust)
-
 ```rust
-// src-tauri/src/services/extension.rs
+// src/models/extension.rs
 
 use serde::{Deserialize, Serialize};
-use tokio_postgres::Client;
 
+/// A PostgreSQL extension (available or installed)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Extension {
     pub name: String,
     pub installed_version: Option<String>,
@@ -100,8 +41,28 @@ pub struct Extension {
     pub is_installed: bool,
 }
 
+impl Extension {
+    /// Check if an upgrade is available
+    pub fn has_upgrade(&self) -> bool {
+        if let Some(ref installed) = self.installed_version {
+            installed != &self.default_version
+        } else {
+            false
+        }
+    }
+
+    /// Get the upgrade target version (if available)
+    pub fn upgrade_version(&self) -> Option<&str> {
+        if self.has_upgrade() {
+            Some(&self.default_version)
+        } else {
+            None
+        }
+    }
+}
+
+/// Detailed information about an installed extension
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ExtensionDetail {
     pub name: String,
     pub version: String,
@@ -112,17 +73,36 @@ pub struct ExtensionDetail {
     pub config: Vec<ExtensionConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExtensionObject {
-    pub object_type: String,
-    pub schema: String,
-    pub name: String,
-    pub identity: String,
+impl ExtensionDetail {
+    /// Get objects grouped by type
+    pub fn objects_by_type(&self) -> std::collections::BTreeMap<String, Vec<&ExtensionObject>> {
+        let mut groups = std::collections::BTreeMap::new();
+        for obj in &self.objects {
+            groups
+                .entry(obj.object_type.clone())
+                .or_insert_with(Vec::new)
+                .push(obj);
+        }
+        groups
+    }
+
+    /// Get total object count
+    pub fn object_count(&self) -> usize {
+        self.objects.len()
+    }
 }
 
+/// An object created by an extension
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+pub struct ExtensionObject {
+    pub object_type: String, // function, type, operator, table, etc.
+    pub schema: String,
+    pub name: String,
+    pub identity: String, // Full qualified name with signature
+}
+
+/// A configuration parameter for an extension
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtensionConfig {
     pub name: String,
     pub value: String,
@@ -134,8 +114,19 @@ pub struct ExtensionConfig {
     pub max_val: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+impl ExtensionConfig {
+    /// Format the value with unit for display
+    pub fn display_value(&self) -> String {
+        if let Some(ref unit) = self.unit {
+            format!("{} {}", self.value, unit)
+        } else {
+            self.value.clone()
+        }
+    }
+}
+
+/// Options for installing an extension
+#[derive(Debug, Clone, Default)]
 pub struct InstallExtensionOptions {
     pub name: String,
     pub version: Option<String>,
@@ -143,18 +134,93 @@ pub struct InstallExtensionOptions {
     pub cascade: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+impl InstallExtensionOptions {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            cascade: true, // Default to cascade for convenience
+            ..Default::default()
+        }
+    }
+
+    pub fn with_version(mut self, version: impl Into<String>) -> Self {
+        self.version = Some(version.into());
+        self
+    }
+
+    pub fn with_schema(mut self, schema: impl Into<String>) -> Self {
+        self.schema = Some(schema.into());
+        self
+    }
+
+    pub fn cascade(mut self, cascade: bool) -> Self {
+        self.cascade = cascade;
+        self
+    }
+}
+
+/// Options for upgrading an extension
+#[derive(Debug, Clone, Default)]
 pub struct UpgradeExtensionOptions {
     pub name: String,
     pub target_version: Option<String>,
+}
+
+impl UpgradeExtensionOptions {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            target_version: None,
+        }
+    }
+
+    pub fn to_version(mut self, version: impl Into<String>) -> Self {
+        self.target_version = Some(version.into());
+        self
+    }
+}
+```
+
+### 23.2 Extension Service
+
+```rust
+// src/services/extension.rs
+
+use crate::models::extension::{
+    Extension, ExtensionConfig, ExtensionDetail, ExtensionObject,
+    InstallExtensionOptions, UpgradeExtensionOptions,
+};
+use deadpool_postgres::Pool;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum ExtensionError {
+    #[error("Database error: {0}")]
+    Database(#[from] tokio_postgres::Error),
+
+    #[error("Pool error: {0}")]
+    Pool(#[from] deadpool_postgres::PoolError),
+
+    #[error("Extension not found: {0}")]
+    NotFound(String),
+
+    #[error("Extension not installed: {0}")]
+    NotInstalled(String),
+
+    #[error("Extension already installed: {0}")]
+    AlreadyInstalled(String),
+
+    #[error("Cannot uninstall: {0}")]
+    CannotUninstall(String),
 }
 
 pub struct ExtensionService;
 
 impl ExtensionService {
     /// Get all available and installed extensions
-    pub async fn get_extensions(client: &Client) -> Result<Vec<Extension>, ExtensionError> {
+    pub async fn get_extensions(pool: &Pool) -> Result<Vec<Extension>, ExtensionError> {
+        let client = pool.get().await?;
+
         let rows = client
             .query(
                 r#"
@@ -176,17 +242,16 @@ impl ExtensionService {
             )
             .await?;
 
-        let extensions: Vec<Extension> = rows
+        let extensions = rows
             .iter()
             .map(|row| {
-                let requires: Vec<String> = row
-                    .get::<_, Vec<String>>("requires");
+                let requires: Vec<String> = row.get("requires");
 
                 Extension {
                     name: row.get("name"),
                     installed_version: row.get("installed_version"),
                     default_version: row.get("default_version"),
-                    available_versions: vec![], // Will be populated separately
+                    available_versions: vec![], // Populated separately on demand
                     schema: row.get("schema"),
                     relocatable: row.get("relocatable"),
                     comment: row.get("comment"),
@@ -201,9 +266,11 @@ impl ExtensionService {
 
     /// Get available versions for an extension
     pub async fn get_available_versions(
-        client: &Client,
+        pool: &Pool,
         extension_name: &str,
     ) -> Result<Vec<String>, ExtensionError> {
+        let client = pool.get().await?;
+
         let rows = client
             .query(
                 r#"
@@ -216,18 +283,20 @@ impl ExtensionService {
             )
             .await?;
 
-        let versions: Vec<String> = rows.iter().map(|row| row.get("version")).collect();
+        let versions = rows.iter().map(|row| row.get("version")).collect();
         Ok(versions)
     }
 
     /// Get detailed information about an installed extension
     pub async fn get_extension_detail(
-        client: &Client,
+        pool: &Pool,
         extension_name: &str,
     ) -> Result<ExtensionDetail, ExtensionError> {
+        let client = pool.get().await?;
+
         // Get basic info
         let info_row = client
-            .query_one(
+            .query_opt(
                 r#"
                 SELECT
                     e.extname AS name,
@@ -242,7 +311,8 @@ impl ExtensionService {
                 "#,
                 &[&extension_name],
             )
-            .await?;
+            .await?
+            .ok_or_else(|| ExtensionError::NotInstalled(extension_name.to_string()))?;
 
         let name: String = info_row.get("name");
         let version: String = info_row.get("version");
@@ -272,6 +342,13 @@ impl ExtensionService {
                         WHEN 'pg_opclass'::regclass THEN 'operator class'
                         WHEN 'pg_opfamily'::regclass THEN 'operator family'
                         WHEN 'pg_am'::regclass THEN 'access method'
+                        WHEN 'pg_aggregate'::regclass THEN 'aggregate'
+                        WHEN 'pg_collation'::regclass THEN 'collation'
+                        WHEN 'pg_conversion'::regclass THEN 'conversion'
+                        WHEN 'pg_ts_config'::regclass THEN 'text search config'
+                        WHEN 'pg_ts_dict'::regclass THEN 'text search dictionary'
+                        WHEN 'pg_ts_parser'::regclass THEN 'text search parser'
+                        WHEN 'pg_ts_template'::regclass THEN 'text search template'
                         ELSE 'other'
                     END AS object_type,
                     COALESCE(n.nspname, '') AS schema,
@@ -288,11 +365,18 @@ impl ExtensionService {
             )
             .await?;
 
-        let objects: Vec<ExtensionObject> = object_rows
+        let objects = object_rows
             .iter()
             .map(|row| {
                 let identity: String = row.get("identity");
-                let name = identity.split('.').last().unwrap_or(&identity).to_string();
+                let name = identity
+                    .split('.')
+                    .last()
+                    .unwrap_or(&identity)
+                    .split('(')
+                    .next()
+                    .unwrap_or(&identity)
+                    .to_string();
 
                 ExtensionObject {
                     object_type: row.get("object_type"),
@@ -304,7 +388,9 @@ impl ExtensionService {
             .collect();
 
         // Get extension configuration parameters
-        let config = Self::get_extension_config(client, &name).await.unwrap_or_default();
+        let config = Self::get_extension_config(&client, &name)
+            .await
+            .unwrap_or_default();
 
         Ok(ExtensionDetail {
             name,
@@ -317,11 +403,11 @@ impl ExtensionService {
         })
     }
 
+    /// Get configuration parameters for an extension
     async fn get_extension_config(
-        client: &Client,
+        client: &tokio_postgres::Client,
         extension_name: &str,
     ) -> Result<Vec<ExtensionConfig>, ExtensionError> {
-        // Query for extension-specific GUCs
         let rows = client
             .query(
                 r#"
@@ -342,12 +428,14 @@ impl ExtensionService {
             )
             .await?;
 
-        let config: Vec<ExtensionConfig> = rows
+        let config = rows
             .iter()
             .map(|row| ExtensionConfig {
                 name: row.get("name"),
                 value: row.get("value"),
-                description: row.get::<_, Option<String>>("description").unwrap_or_default(),
+                description: row
+                    .get::<_, Option<String>>("description")
+                    .unwrap_or_default(),
                 unit: row.get("unit"),
                 vartype: row.get("vartype"),
                 enum_vals: row.get("enum_vals"),
@@ -361,9 +449,10 @@ impl ExtensionService {
 
     /// Install an extension
     pub async fn install_extension(
-        client: &Client,
+        pool: &Pool,
         options: &InstallExtensionOptions,
     ) -> Result<(), ExtensionError> {
+        let client = pool.get().await?;
         let sql = Self::build_install_sql(options);
         client.execute(&sql, &[]).await?;
         Ok(())
@@ -371,14 +460,17 @@ impl ExtensionService {
 
     /// Build CREATE EXTENSION SQL
     pub fn build_install_sql(options: &InstallExtensionOptions) -> String {
-        let mut sql = format!("CREATE EXTENSION IF NOT EXISTS {}", Self::quote_ident(&options.name));
+        let mut sql = format!(
+            "CREATE EXTENSION IF NOT EXISTS {}",
+            quote_ident(&options.name)
+        );
 
         if let Some(ref schema) = options.schema {
-            sql.push_str(&format!(" SCHEMA {}", Self::quote_ident(schema)));
+            sql.push_str(&format!(" SCHEMA {}", quote_ident(schema)));
         }
 
         if let Some(ref version) = options.version {
-            sql.push_str(&format!(" VERSION '{}'", Self::escape_string(version)));
+            sql.push_str(&format!(" VERSION '{}'", escape_string(version)));
         }
 
         if options.cascade {
@@ -390,9 +482,10 @@ impl ExtensionService {
 
     /// Upgrade an extension
     pub async fn upgrade_extension(
-        client: &Client,
+        pool: &Pool,
         options: &UpgradeExtensionOptions,
     ) -> Result<(), ExtensionError> {
+        let client = pool.get().await?;
         let sql = Self::build_upgrade_sql(options);
         client.execute(&sql, &[]).await?;
         Ok(())
@@ -400,10 +493,13 @@ impl ExtensionService {
 
     /// Build ALTER EXTENSION UPDATE SQL
     pub fn build_upgrade_sql(options: &UpgradeExtensionOptions) -> String {
-        let mut sql = format!("ALTER EXTENSION {} UPDATE", Self::quote_ident(&options.name));
+        let mut sql = format!(
+            "ALTER EXTENSION {} UPDATE",
+            quote_ident(&options.name)
+        );
 
         if let Some(ref version) = options.target_version {
-            sql.push_str(&format!(" TO '{}'", Self::escape_string(version)));
+            sql.push_str(&format!(" TO '{}'", escape_string(version)));
         }
 
         sql
@@ -411,10 +507,11 @@ impl ExtensionService {
 
     /// Uninstall an extension
     pub async fn uninstall_extension(
-        client: &Client,
+        pool: &Pool,
         extension_name: &str,
         cascade: bool,
     ) -> Result<(), ExtensionError> {
+        let client = pool.get().await?;
         let sql = Self::build_uninstall_sql(extension_name, cascade);
         client.execute(&sql, &[]).await?;
         Ok(())
@@ -422,7 +519,10 @@ impl ExtensionService {
 
     /// Build DROP EXTENSION SQL
     pub fn build_uninstall_sql(extension_name: &str, cascade: bool) -> String {
-        let mut sql = format!("DROP EXTENSION IF EXISTS {}", Self::quote_ident(extension_name));
+        let mut sql = format!(
+            "DROP EXTENSION IF EXISTS {}",
+            quote_ident(extension_name)
+        );
 
         if cascade {
             sql.push_str(" CASCADE");
@@ -431,913 +531,2027 @@ impl ExtensionService {
         sql
     }
 
-    fn quote_ident(s: &str) -> String {
-        if s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
-            s.to_string()
-        } else {
-            format!("\"{}\"", s.replace('"', "\"\""))
+    /// Check if an extension is installed
+    pub async fn is_installed(pool: &Pool, extension_name: &str) -> Result<bool, ExtensionError> {
+        let client = pool.get().await?;
+
+        let row = client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = $1)",
+                &[&extension_name],
+            )
+            .await?;
+
+        Ok(row.get(0))
+    }
+
+    /// Get extensions that depend on a given extension
+    pub async fn get_dependent_extensions(
+        pool: &Pool,
+        extension_name: &str,
+    ) -> Result<Vec<String>, ExtensionError> {
+        let client = pool.get().await?;
+
+        let rows = client
+            .query(
+                r#"
+                SELECT DISTINCT e2.extname
+                FROM pg_extension e1
+                JOIN pg_depend d ON d.refobjid = e1.oid
+                JOIN pg_extension e2 ON e2.oid = d.objid
+                WHERE e1.extname = $1
+                  AND d.deptype = 'n'
+                "#,
+                &[&extension_name],
+            )
+            .await?;
+
+        let deps = rows.iter().map(|row| row.get("extname")).collect();
+        Ok(deps)
+    }
+}
+
+/// Quote an identifier for safe use in SQL
+fn quote_ident(s: &str) -> String {
+    if s.chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+        && !s.is_empty()
+        && !s.chars().next().unwrap().is_ascii_digit()
+    {
+        s.to_string()
+    } else {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    }
+}
+
+/// Escape a string for safe use in SQL
+fn escape_string(s: &str) -> String {
+    s.replace('\'', "''")
+}
+```
+
+### 23.3 Extension State (GPUI Global)
+
+```rust
+// src/state/extension_state.rs
+
+use crate::models::extension::{
+    Extension, ExtensionDetail, InstallExtensionOptions, UpgradeExtensionOptions,
+};
+use crate::services::extension::{ExtensionError, ExtensionService};
+use deadpool_postgres::Pool;
+use gpui::Global;
+use parking_lot::RwLock;
+use std::sync::Arc;
+
+/// Application-wide extension management state
+pub struct ExtensionState {
+    inner: Arc<RwLock<ExtensionStateInner>>,
+}
+
+struct ExtensionStateInner {
+    /// All available and installed extensions
+    extensions: Vec<Extension>,
+
+    /// Currently selected extension (for detail view)
+    selected_extension: Option<String>,
+
+    /// Detail of selected extension (if installed)
+    extension_detail: Option<ExtensionDetail>,
+
+    /// Filter text
+    filter: String,
+
+    /// Show only installed extensions
+    show_installed_only: bool,
+
+    /// Loading state
+    loading: bool,
+
+    /// Error message
+    error: Option<String>,
+
+    /// Connection pool reference
+    pool: Option<Pool>,
+}
+
+impl Global for ExtensionState {}
+
+impl ExtensionState {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(ExtensionStateInner {
+                extensions: Vec::new(),
+                selected_extension: None,
+                extension_detail: None,
+                filter: String::new(),
+                show_installed_only: false,
+                loading: false,
+                error: None,
+                pool: None,
+            })),
         }
     }
 
-    fn escape_string(s: &str) -> String {
-        s.replace('\'', "''")
+    /// Set the connection pool
+    pub fn set_pool(&self, pool: Pool) {
+        self.inner.write().pool = Some(pool);
+    }
+
+    /// Get all extensions (unfiltered)
+    pub fn extensions(&self) -> Vec<Extension> {
+        self.inner.read().extensions.clone()
+    }
+
+    /// Get filtered extensions based on current filter settings
+    pub fn filtered_extensions(&self) -> Vec<Extension> {
+        let inner = self.inner.read();
+        let filter = inner.filter.to_lowercase();
+
+        inner
+            .extensions
+            .iter()
+            .filter(|ext| {
+                // Filter by installed status
+                if inner.show_installed_only && !ext.is_installed {
+                    return false;
+                }
+
+                // Filter by search text
+                if !filter.is_empty() {
+                    let name_match = ext.name.to_lowercase().contains(&filter);
+                    let comment_match = ext
+                        .comment
+                        .as_ref()
+                        .map(|c| c.to_lowercase().contains(&filter))
+                        .unwrap_or(false);
+
+                    if !name_match && !comment_match {
+                        return false;
+                    }
+                }
+
+                true
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Get installed extensions count
+    pub fn installed_count(&self) -> usize {
+        self.inner
+            .read()
+            .extensions
+            .iter()
+            .filter(|e| e.is_installed)
+            .count()
+    }
+
+    /// Get selected extension name
+    pub fn selected_extension(&self) -> Option<String> {
+        self.inner.read().selected_extension.clone()
+    }
+
+    /// Get extension detail
+    pub fn extension_detail(&self) -> Option<ExtensionDetail> {
+        self.inner.read().extension_detail.clone()
+    }
+
+    /// Get filter text
+    pub fn filter(&self) -> String {
+        self.inner.read().filter.clone()
+    }
+
+    /// Set filter text
+    pub fn set_filter(&self, filter: String) {
+        self.inner.write().filter = filter;
+    }
+
+    /// Get show installed only flag
+    pub fn show_installed_only(&self) -> bool {
+        self.inner.read().show_installed_only
+    }
+
+    /// Set show installed only flag
+    pub fn set_show_installed_only(&self, value: bool) {
+        self.inner.write().show_installed_only = value;
+    }
+
+    /// Check if loading
+    pub fn is_loading(&self) -> bool {
+        self.inner.read().loading
+    }
+
+    /// Get error message
+    pub fn error(&self) -> Option<String> {
+        self.inner.read().error.clone()
+    }
+
+    /// Clear error
+    pub fn clear_error(&self) {
+        self.inner.write().error = None;
+    }
+
+    /// Load all extensions
+    pub async fn load_extensions(&self) -> Result<(), ExtensionError> {
+        let pool = {
+            let inner = self.inner.read();
+            inner.pool.clone().ok_or_else(|| {
+                ExtensionError::Database(tokio_postgres::Error::__private_api_error(
+                    "No connection pool",
+                ))
+            })?
+        };
+
+        self.inner.write().loading = true;
+        self.inner.write().error = None;
+
+        match ExtensionService::get_extensions(&pool).await {
+            Ok(extensions) => {
+                let mut inner = self.inner.write();
+                inner.extensions = extensions;
+                inner.loading = false;
+                Ok(())
+            }
+            Err(e) => {
+                let mut inner = self.inner.write();
+                inner.loading = false;
+                inner.error = Some(e.to_string());
+                Err(e)
+            }
+        }
+    }
+
+    /// Select an extension for viewing
+    pub async fn select_extension(&self, name: &str) -> Result<(), ExtensionError> {
+        let pool = {
+            let inner = self.inner.read();
+            inner.pool.clone()
+        };
+
+        self.inner.write().selected_extension = Some(name.to_string());
+
+        // Check if installed
+        let is_installed = self
+            .inner
+            .read()
+            .extensions
+            .iter()
+            .find(|e| e.name == name)
+            .map(|e| e.is_installed)
+            .unwrap_or(false);
+
+        if is_installed {
+            if let Some(pool) = pool {
+                match ExtensionService::get_extension_detail(&pool, name).await {
+                    Ok(detail) => {
+                        self.inner.write().extension_detail = Some(detail);
+                    }
+                    Err(e) => {
+                        self.inner.write().error = Some(e.to_string());
+                        return Err(e);
+                    }
+                }
+            }
+        } else {
+            self.inner.write().extension_detail = None;
+        }
+
+        Ok(())
+    }
+
+    /// Clear selection
+    pub fn clear_selection(&self) {
+        let mut inner = self.inner.write();
+        inner.selected_extension = None;
+        inner.extension_detail = None;
+    }
+
+    /// Get available versions for an extension
+    pub async fn get_available_versions(&self, name: &str) -> Result<Vec<String>, ExtensionError> {
+        let pool = {
+            let inner = self.inner.read();
+            inner.pool.clone().ok_or_else(|| {
+                ExtensionError::NotFound("No connection pool".to_string())
+            })?
+        };
+
+        ExtensionService::get_available_versions(&pool, name).await
+    }
+
+    /// Install an extension
+    pub async fn install_extension(
+        &self,
+        options: &InstallExtensionOptions,
+    ) -> Result<(), ExtensionError> {
+        let pool = {
+            let inner = self.inner.read();
+            inner.pool.clone().ok_or_else(|| {
+                ExtensionError::NotFound("No connection pool".to_string())
+            })?
+        };
+
+        ExtensionService::install_extension(&pool, options).await?;
+        self.load_extensions().await?;
+
+        // If this was the selected extension, reload its detail
+        if self.inner.read().selected_extension.as_deref() == Some(&options.name) {
+            self.select_extension(&options.name).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Upgrade an extension
+    pub async fn upgrade_extension(
+        &self,
+        options: &UpgradeExtensionOptions,
+    ) -> Result<(), ExtensionError> {
+        let pool = {
+            let inner = self.inner.read();
+            inner.pool.clone().ok_or_else(|| {
+                ExtensionError::NotFound("No connection pool".to_string())
+            })?
+        };
+
+        ExtensionService::upgrade_extension(&pool, options).await?;
+        self.load_extensions().await?;
+
+        // Reload detail if this was the selected extension
+        if self.inner.read().selected_extension.as_deref() == Some(&options.name) {
+            self.select_extension(&options.name).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Uninstall an extension
+    pub async fn uninstall_extension(
+        &self,
+        name: &str,
+        cascade: bool,
+    ) -> Result<(), ExtensionError> {
+        let pool = {
+            let inner = self.inner.read();
+            inner.pool.clone().ok_or_else(|| {
+                ExtensionError::NotFound("No connection pool".to_string())
+            })?
+        };
+
+        ExtensionService::uninstall_extension(&pool, name, cascade).await?;
+
+        // Clear detail if this was the selected extension
+        if self.inner.read().selected_extension.as_deref() == Some(name) {
+            self.inner.write().extension_detail = None;
+        }
+
+        self.load_extensions().await
+    }
+
+    /// Generate install SQL
+    pub fn generate_install_sql(&self, options: &InstallExtensionOptions) -> String {
+        ExtensionService::build_install_sql(options)
+    }
+
+    /// Generate upgrade SQL
+    pub fn generate_upgrade_sql(&self, options: &UpgradeExtensionOptions) -> String {
+        ExtensionService::build_upgrade_sql(options)
+    }
+
+    /// Generate uninstall SQL
+    pub fn generate_uninstall_sql(&self, name: &str, cascade: bool) -> String {
+        ExtensionService::build_uninstall_sql(name, cascade)
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum ExtensionError {
-    #[error("Database error: {0}")]
-    DatabaseError(#[from] tokio_postgres::Error),
-
-    #[error("Extension not found: {0}")]
-    NotFound(String),
-
-    #[error("Extension not installed: {0}")]
-    NotInstalled(String),
+impl Default for ExtensionState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 ```
 
-### 23.3 Tauri Commands
+### 23.4 Extension List View
 
 ```rust
-// src-tauri/src/commands/extension.rs
+// src/components/extensions/extension_list.rs
 
-use tauri::State;
-use crate::services::extension::{
-    ExtensionService, Extension, ExtensionDetail,
-    InstallExtensionOptions, UpgradeExtensionOptions,
+use crate::models::extension::Extension;
+use crate::state::extension_state::ExtensionState;
+use crate::ui::{
+    Button, ButtonVariant, Checkbox, Icon, IconName, Input, ScrollView, Table,
+    TableColumn, TableRow, Tooltip,
 };
-use crate::state::AppState;
-use crate::error::Error;
+use gpui::{
+    div, px, AppContext, Context, Element, EventEmitter, FocusHandle, FocusableView,
+    InteractiveElement, IntoElement, ParentElement, Render, SharedString, Styled,
+    View, ViewContext, VisualContext,
+};
 
-#[tauri::command]
-pub async fn get_extensions(
-    state: State<'_, AppState>,
-    conn_id: String,
-) -> Result<Vec<Extension>, Error> {
-    let pool = state.get_connection(&conn_id)?;
-    let client = pool.get().await?;
-    let extensions = ExtensionService::get_extensions(&client).await?;
-    Ok(extensions)
+/// Events emitted by the extension list
+pub enum ExtensionListEvent {
+    Select(String),
+    Install(Extension),
+    Upgrade(Extension),
+    Uninstall(String),
 }
 
-#[tauri::command]
-pub async fn get_extension_versions(
-    state: State<'_, AppState>,
-    conn_id: String,
-    extension_name: String,
-) -> Result<Vec<String>, Error> {
-    let pool = state.get_connection(&conn_id)?;
-    let client = pool.get().await?;
-    let versions = ExtensionService::get_available_versions(&client, &extension_name).await?;
-    Ok(versions)
+pub struct ExtensionListView {
+    focus_handle: FocusHandle,
 }
 
-#[tauri::command]
-pub async fn get_extension_detail(
-    state: State<'_, AppState>,
-    conn_id: String,
-    extension_name: String,
-) -> Result<ExtensionDetail, Error> {
-    let pool = state.get_connection(&conn_id)?;
-    let client = pool.get().await?;
-    let detail = ExtensionService::get_extension_detail(&client, &extension_name).await?;
-    Ok(detail)
+impl EventEmitter<ExtensionListEvent> for ExtensionListView {}
+
+impl ExtensionListView {
+    pub fn new(cx: &mut ViewContext<Self>) -> Self {
+        Self {
+            focus_handle: cx.focus_handle(),
+        }
+    }
+
+    fn handle_filter_change(&mut self, text: String, cx: &mut ViewContext<Self>) {
+        let ext_state = cx.global::<ExtensionState>();
+        ext_state.set_filter(text);
+        cx.notify();
+    }
+
+    fn toggle_installed_filter(&mut self, cx: &mut ViewContext<Self>) {
+        let ext_state = cx.global::<ExtensionState>();
+        let current = ext_state.show_installed_only();
+        ext_state.set_show_installed_only(!current);
+        cx.notify();
+    }
+
+    fn handle_refresh(&mut self, cx: &mut ViewContext<Self>) {
+        let ext_state = cx.global::<ExtensionState>().clone();
+        cx.spawn(|_, _| async move {
+            let _ = ext_state.load_extensions().await;
+        })
+        .detach();
+    }
+
+    fn handle_select(&mut self, name: String, cx: &mut ViewContext<Self>) {
+        cx.emit(ExtensionListEvent::Select(name.clone()));
+
+        let ext_state = cx.global::<ExtensionState>().clone();
+        cx.spawn(|_, _| async move {
+            let _ = ext_state.select_extension(&name).await;
+        })
+        .detach();
+    }
+
+    fn handle_install(&mut self, ext: Extension, cx: &mut ViewContext<Self>) {
+        cx.emit(ExtensionListEvent::Install(ext));
+    }
+
+    fn handle_upgrade(&mut self, ext: Extension, cx: &mut ViewContext<Self>) {
+        cx.emit(ExtensionListEvent::Upgrade(ext));
+    }
+
+    fn handle_uninstall(&mut self, name: String, cx: &mut ViewContext<Self>) {
+        cx.emit(ExtensionListEvent::Uninstall(name));
+    }
 }
 
-#[tauri::command]
-pub async fn install_extension(
-    state: State<'_, AppState>,
-    conn_id: String,
-    options: InstallExtensionOptions,
-) -> Result<(), Error> {
-    let pool = state.get_connection(&conn_id)?;
-    let client = pool.get().await?;
-    ExtensionService::install_extension(&client, &options).await?;
-    Ok(())
+impl FocusableView for ExtensionListView {
+    fn focus_handle(&self, _cx: &AppContext) -> FocusHandle {
+        self.focus_handle.clone()
+    }
 }
 
-#[tauri::command]
-pub async fn upgrade_extension(
-    state: State<'_, AppState>,
-    conn_id: String,
-    options: UpgradeExtensionOptions,
-) -> Result<(), Error> {
-    let pool = state.get_connection(&conn_id)?;
-    let client = pool.get().await?;
-    ExtensionService::upgrade_extension(&client, &options).await?;
-    Ok(())
+impl Render for ExtensionListView {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let ext_state = cx.global::<ExtensionState>();
+        let extensions = ext_state.filtered_extensions();
+        let filter = ext_state.filter();
+        let show_installed_only = ext_state.show_installed_only();
+        let is_loading = ext_state.is_loading();
+        let selected = ext_state.selected_extension();
+        let installed_count = ext_state.installed_count();
+        let total_count = ext_state.extensions().len();
+
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .track_focus(&self.focus_handle)
+            .child(
+                // Toolbar
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .p_4()
+                    .border_b_1()
+                    .border_color(gpui::rgb(0xe5e7eb))
+                    .child(
+                        Input::new("search-extensions")
+                            .placeholder("Search extensions...")
+                            .value(filter)
+                            .on_change(cx.listener(|this, text: &String, cx| {
+                                this.handle_filter_change(text.clone(), cx);
+                            }))
+                            .flex_1(),
+                    )
+                    .child(
+                        Checkbox::new("installed-only")
+                            .checked(show_installed_only)
+                            .label("Installed only")
+                            .on_toggle(cx.listener(|this, _, cx| {
+                                this.toggle_installed_filter(cx);
+                            })),
+                    )
+                    .child(
+                        Button::new("refresh")
+                            .icon(IconName::Refresh)
+                            .variant(ButtonVariant::Ghost)
+                            .tooltip("Refresh extensions")
+                            .on_click(cx.listener(|this, _, cx| {
+                                this.handle_refresh(cx);
+                            })),
+                    ),
+            )
+            .child(
+                // Stats bar
+                div()
+                    .px_4()
+                    .py_2()
+                    .bg(gpui::rgb(0xf9fafb))
+                    .border_b_1()
+                    .border_color(gpui::rgb(0xe5e7eb))
+                    .text_sm()
+                    .text_color(gpui::rgb(0x6b7280))
+                    .child(format!(
+                        "{} installed of {} available",
+                        installed_count, total_count
+                    )),
+            )
+            .child(
+                // Extension table
+                ScrollView::new("extension-list-scroll")
+                    .flex_1()
+                    .child(
+                        Table::new("extensions-table")
+                            .header(vec![
+                                TableColumn::new("Extension").flex(1.0),
+                                TableColumn::new("Version").width(px(150.0)).center(),
+                                TableColumn::new("Schema").width(px(120.0)),
+                                TableColumn::new("Actions").width(px(120.0)).right(),
+                            ])
+                            .loading(is_loading)
+                            .empty_message(if filter.is_empty() {
+                                "No extensions found"
+                            } else {
+                                "No extensions match the filter"
+                            })
+                            .children(extensions.iter().map(|ext| {
+                                let name = ext.name.clone();
+                                let is_selected = selected.as_ref() == Some(&name);
+                                let ext_clone = ext.clone();
+                                let name_for_select = name.clone();
+                                let name_for_uninstall = name.clone();
+
+                                TableRow::new(format!("ext-{}", name))
+                                    .selected(is_selected)
+                                    .on_click(cx.listener(move |this, _, cx| {
+                                        this.handle_select(name_for_select.clone(), cx);
+                                    }))
+                                    .child(
+                                        // Extension name column
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap_2()
+                                            .child(
+                                                div()
+                                                    .w(px(8.0))
+                                                    .h(px(8.0))
+                                                    .rounded_full()
+                                                    .bg(if ext.is_installed {
+                                                        gpui::rgb(0x22c55e)
+                                                    } else {
+                                                        gpui::rgb(0xd1d5db)
+                                                    }),
+                                            )
+                                            .child(
+                                                div()
+                                                    .flex()
+                                                    .flex_col()
+                                                    .child(
+                                                        div()
+                                                            .font_weight(gpui::FontWeight::MEDIUM)
+                                                            .child(ext.name.clone()),
+                                                    )
+                                                    .when_some(
+                                                        ext.comment.as_ref(),
+                                                        |this, comment| {
+                                                            this.child(
+                                                                div()
+                                                                    .text_xs()
+                                                                    .text_color(gpui::rgb(0x6b7280))
+                                                                    .truncate()
+                                                                    .max_w(px(300.0))
+                                                                    .child(comment.clone()),
+                                                            )
+                                                        },
+                                                    ),
+                                            ),
+                                    )
+                                    .child(
+                                        // Version column
+                                        div()
+                                            .flex()
+                                            .justify_center()
+                                            .items_center()
+                                            .gap_1()
+                                            .child(if ext.is_installed {
+                                                div()
+                                                    .font_family("monospace")
+                                                    .text_sm()
+                                                    .child(
+                                                        ext.installed_version
+                                                            .clone()
+                                                            .unwrap_or_default(),
+                                                    )
+                                            } else {
+                                                div()
+                                                    .text_color(gpui::rgb(0x9ca3af))
+                                                    .text_sm()
+                                                    .child(ext.default_version.clone())
+                                            })
+                                            .when(ext.has_upgrade(), |this| {
+                                                this.child(
+                                                    div()
+                                                        .text_xs()
+                                                        .text_color(gpui::rgb(0xd97706))
+                                                        .child(format!(
+                                                            "→ {}",
+                                                            ext.default_version
+                                                        )),
+                                                )
+                                            }),
+                                    )
+                                    .child(
+                                        // Schema column
+                                        if let Some(ref schema) = ext.schema {
+                                            div()
+                                                .font_family("monospace")
+                                                .text_xs()
+                                                .px_1()
+                                                .py_px()
+                                                .bg(gpui::rgb(0xf3f4f6))
+                                                .rounded(px(4.0))
+                                                .child(schema.clone())
+                                        } else {
+                                            div()
+                                                .text_color(gpui::rgb(0x9ca3af))
+                                                .child("-")
+                                        },
+                                    )
+                                    .child(
+                                        // Actions column
+                                        div()
+                                            .flex()
+                                            .justify_end()
+                                            .gap_1()
+                                            .when(ext.is_installed && ext.has_upgrade(), |this| {
+                                                let ext_for_upgrade = ext_clone.clone();
+                                                this.child(
+                                                    Tooltip::new("Upgrade extension").child(
+                                                        Button::new(format!("upgrade-{}", name))
+                                                            .icon(IconName::ArrowUp)
+                                                            .variant(ButtonVariant::Ghost)
+                                                            .small()
+                                                            .on_click(cx.listener(
+                                                                move |this, _, cx| {
+                                                                    this.handle_upgrade(
+                                                                        ext_for_upgrade.clone(),
+                                                                        cx,
+                                                                    );
+                                                                },
+                                                            )),
+                                                    ),
+                                                )
+                                            })
+                                            .child(if ext.is_installed {
+                                                Tooltip::new("Uninstall extension").child(
+                                                    Button::new(format!("uninstall-{}", name))
+                                                        .icon(IconName::Trash)
+                                                        .variant(ButtonVariant::Ghost)
+                                                        .small()
+                                                        .danger()
+                                                        .on_click(cx.listener(
+                                                            move |this, _, cx| {
+                                                                this.handle_uninstall(
+                                                                    name_for_uninstall.clone(),
+                                                                    cx,
+                                                                );
+                                                            },
+                                                        )),
+                                                )
+                                            } else {
+                                                let ext_for_install = ext_clone.clone();
+                                                Tooltip::new("Install extension").child(
+                                                    Button::new(format!("install-{}", name))
+                                                        .icon(IconName::Download)
+                                                        .variant(ButtonVariant::Ghost)
+                                                        .small()
+                                                        .on_click(cx.listener(
+                                                            move |this, _, cx| {
+                                                                this.handle_install(
+                                                                    ext_for_install.clone(),
+                                                                    cx,
+                                                                );
+                                                            },
+                                                        )),
+                                                )
+                                            }),
+                                    )
+                            })),
+                    ),
+            )
+    }
+}
+```
+
+### 23.5 Extension Detail Panel
+
+```rust
+// src/components/extensions/extension_detail.rs
+
+use crate::models::extension::ExtensionDetail;
+use crate::state::extension_state::ExtensionState;
+use crate::ui::{
+    Button, ButtonVariant, EmptyState, Icon, IconName, ScrollView, TabBar, TabItem,
+};
+use gpui::{
+    div, px, AppContext, Context, Element, EventEmitter, FocusHandle, FocusableView,
+    InteractiveElement, IntoElement, ParentElement, Render, SharedString, Styled,
+    View, ViewContext, VisualContext,
+};
+
+/// Events emitted by the detail panel
+pub enum ExtensionDetailEvent {
+    Upgrade(String),
+    Uninstall(String),
 }
 
-#[tauri::command]
-pub async fn uninstall_extension(
-    state: State<'_, AppState>,
-    conn_id: String,
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DetailTab {
+    Objects,
+    Config,
+}
+
+pub struct ExtensionDetailPanel {
+    focus_handle: FocusHandle,
+    active_tab: DetailTab,
+}
+
+impl EventEmitter<ExtensionDetailEvent> for ExtensionDetailPanel {}
+
+impl ExtensionDetailPanel {
+    pub fn new(cx: &mut ViewContext<Self>) -> Self {
+        Self {
+            focus_handle: cx.focus_handle(),
+            active_tab: DetailTab::Objects,
+        }
+    }
+
+    fn set_tab(&mut self, tab: DetailTab, cx: &mut ViewContext<Self>) {
+        self.active_tab = tab;
+        cx.notify();
+    }
+
+    fn handle_upgrade(&mut self, name: String, cx: &mut ViewContext<Self>) {
+        cx.emit(ExtensionDetailEvent::Upgrade(name));
+    }
+
+    fn handle_uninstall(&mut self, name: String, cx: &mut ViewContext<Self>) {
+        cx.emit(ExtensionDetailEvent::Uninstall(name));
+    }
+
+    fn render_objects_tab(&self, detail: &ExtensionDetail) -> impl IntoElement {
+        let objects_by_type = detail.objects_by_type();
+
+        if detail.objects.is_empty() {
+            return div()
+                .flex_1()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(
+                    EmptyState::new("no-objects")
+                        .icon(IconName::Package)
+                        .title("No objects")
+                        .description("This extension has no objects"),
+                );
+        }
+
+        ScrollView::new("objects-scroll")
+            .p_4()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .children(objects_by_type.into_iter().map(|(obj_type, objects)| {
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(gpui::FontWeight::MEDIUM)
+                                    .text_color(gpui::rgb(0x374151))
+                                    .child(format!(
+                                        "{}s ({})",
+                                        capitalize(&obj_type),
+                                        objects.len()
+                                    )),
+                            )
+                            .child(
+                                div()
+                                    .bg(gpui::rgb(0xf9fafb))
+                                    .rounded(px(6.0))
+                                    .p_2()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_1()
+                                    .children(objects.into_iter().map(|obj| {
+                                        div()
+                                            .text_sm()
+                                            .font_family("monospace")
+                                            .py_1()
+                                            .px_2()
+                                            .rounded(px(4.0))
+                                            .hover(|s| s.bg(gpui::rgb(0xf3f4f6)))
+                                            .child(obj.identity.clone())
+                                    })),
+                            )
+                    })),
+            )
+    }
+
+    fn render_config_tab(&self, detail: &ExtensionDetail) -> impl IntoElement {
+        if detail.config.is_empty() {
+            return div()
+                .flex_1()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(
+                    EmptyState::new("no-config")
+                        .icon(IconName::Settings)
+                        .title("No configuration")
+                        .description("This extension has no configuration parameters"),
+                );
+        }
+
+        ScrollView::new("config-scroll")
+            .p_4()
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .children(detail.config.iter().map(|param| {
+                        div()
+                            .bg(gpui::rgb(0xf9fafb))
+                            .rounded(px(6.0))
+                            .p_3()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_between()
+                                    .child(
+                                        div()
+                                            .font_family("monospace")
+                                            .text_sm()
+                                            .child(param.name.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .font_family("monospace")
+                                            .text_sm()
+                                            .text_color(gpui::rgb(0x2563eb))
+                                            .child(param.display_value()),
+                                    ),
+                            )
+                            .when(!param.description.is_empty(), |this| {
+                                this.child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(gpui::rgb(0x6b7280))
+                                        .child(param.description.clone()),
+                                )
+                            })
+                    })),
+            )
+    }
+}
+
+impl FocusableView for ExtensionDetailPanel {
+    fn focus_handle(&self, _cx: &AppContext) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl Render for ExtensionDetailPanel {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let ext_state = cx.global::<ExtensionState>();
+        let detail = ext_state.extension_detail();
+        let selected = ext_state.selected_extension();
+
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .track_focus(&self.focus_handle)
+            .when(detail.is_none(), |this| {
+                this.child(
+                    div()
+                        .flex_1()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(
+                            EmptyState::new("no-selection")
+                                .icon(IconName::Puzzle)
+                                .title(if selected.is_some() {
+                                    "Extension not installed"
+                                } else {
+                                    "No extension selected"
+                                })
+                                .description(if selected.is_some() {
+                                    "Install the extension to view its details"
+                                } else {
+                                    "Select an extension from the list"
+                                }),
+                        ),
+                )
+            })
+            .when_some(detail.clone(), |this, detail| {
+                let name_for_upgrade = detail.name.clone();
+                let name_for_uninstall = detail.name.clone();
+
+                this.child(
+                    // Header
+                    div()
+                        .p_4()
+                        .border_b_1()
+                        .border_color(gpui::rgb(0xe5e7eb))
+                        .child(
+                            div()
+                                .flex()
+                                .items_start()
+                                .justify_between()
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_col()
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .text_lg()
+                                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                                .child(detail.name.clone()),
+                                        )
+                                        .when(!detail.description.is_empty(), |this| {
+                                            this.child(
+                                                div()
+                                                    .text_sm()
+                                                    .text_color(gpui::rgb(0x6b7280))
+                                                    .child(detail.description.clone()),
+                                            )
+                                        }),
+                                )
+                                .child(
+                                    div()
+                                        .flex()
+                                        .gap_2()
+                                        .child(
+                                            Button::new("upgrade-btn")
+                                                .label("Upgrade")
+                                                .variant(ButtonVariant::Secondary)
+                                                .small()
+                                                .on_click(cx.listener(
+                                                    move |this, _, cx| {
+                                                        this.handle_upgrade(
+                                                            name_for_upgrade.clone(),
+                                                            cx,
+                                                        );
+                                                    },
+                                                )),
+                                        )
+                                        .child(
+                                            Button::new("uninstall-btn")
+                                                .label("Uninstall")
+                                                .variant(ButtonVariant::Danger)
+                                                .small()
+                                                .on_click(cx.listener(
+                                                    move |this, _, cx| {
+                                                        this.handle_uninstall(
+                                                            name_for_uninstall.clone(),
+                                                            cx,
+                                                        );
+                                                    },
+                                                )),
+                                        ),
+                                ),
+                        )
+                        .child(
+                            // Info row
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_6()
+                                .mt_3()
+                                .text_sm()
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .text_color(gpui::rgb(0x6b7280))
+                                                .child("Version:"),
+                                        )
+                                        .child(
+                                            div()
+                                                .font_family("monospace")
+                                                .child(detail.version.clone()),
+                                        ),
+                                )
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_1()
+                                        .child(
+                                            div()
+                                                .text_color(gpui::rgb(0x6b7280))
+                                                .child("Schema:"),
+                                        )
+                                        .child(
+                                            div()
+                                                .font_family("monospace")
+                                                .child(detail.schema.clone()),
+                                        ),
+                                )
+                                .when(!detail.requires.is_empty(), |this| {
+                                    this.child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap_1()
+                                            .child(
+                                                div()
+                                                    .text_color(gpui::rgb(0x6b7280))
+                                                    .child("Requires:"),
+                                            )
+                                            .child(
+                                                div().child(detail.requires.join(", ")),
+                                            ),
+                                    )
+                                }),
+                        ),
+                )
+                .child(
+                    // Tabs
+                    TabBar::new("detail-tabs")
+                        .child(
+                            TabItem::new("objects")
+                                .label(format!("Objects ({})", detail.object_count()))
+                                .selected(self.active_tab == DetailTab::Objects)
+                                .on_click(cx.listener(|this, _, cx| {
+                                    this.set_tab(DetailTab::Objects, cx);
+                                })),
+                        )
+                        .child(
+                            TabItem::new("config")
+                                .label(format!("Configuration ({})", detail.config.len()))
+                                .selected(self.active_tab == DetailTab::Config)
+                                .on_click(cx.listener(|this, _, cx| {
+                                    this.set_tab(DetailTab::Config, cx);
+                                })),
+                        ),
+                )
+                .child(
+                    // Tab content
+                    div()
+                        .flex_1()
+                        .overflow_hidden()
+                        .child(match self.active_tab {
+                            DetailTab::Objects => self.render_objects_tab(&detail),
+                            DetailTab::Config => self.render_config_tab(&detail),
+                        }),
+                )
+            })
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(first) => first.to_uppercase().chain(c).collect(),
+    }
+}
+```
+
+### 23.6 Install Extension Dialog
+
+```rust
+// src/components/extensions/install_dialog.rs
+
+use crate::models::extension::{Extension, InstallExtensionOptions};
+use crate::state::extension_state::ExtensionState;
+use crate::ui::{
+    Button, ButtonVariant, Checkbox, Modal, ModalFooter, Section, Select, SelectOption,
+};
+use gpui::{
+    div, px, AppContext, Context, Element, EventEmitter, FocusHandle, FocusableView,
+    InteractiveElement, IntoElement, ParentElement, Render, SharedString, Styled,
+    View, ViewContext, VisualContext,
+};
+
+/// Events emitted by the install dialog
+pub enum InstallDialogEvent {
+    Installed,
+    Cancelled,
+}
+
+pub struct InstallExtensionDialog {
+    focus_handle: FocusHandle,
+    extension: Extension,
+    available_versions: Vec<String>,
+    schemas: Vec<String>,
+    selected_version: String,
+    selected_schema: String,
+    cascade: bool,
+    installing: bool,
+    error: Option<String>,
+}
+
+impl EventEmitter<InstallDialogEvent> for InstallExtensionDialog {}
+
+impl InstallExtensionDialog {
+    pub fn new(extension: Extension, schemas: Vec<String>, cx: &mut ViewContext<Self>) -> Self {
+        let selected_version = extension.default_version.clone();
+        let ext_name = extension.name.clone();
+
+        let mut dialog = Self {
+            focus_handle: cx.focus_handle(),
+            extension,
+            available_versions: vec![selected_version.clone()],
+            schemas,
+            selected_version,
+            selected_schema: "public".to_string(),
+            cascade: true,
+            installing: false,
+            error: None,
+        };
+
+        // Load available versions
+        let ext_state = cx.global::<ExtensionState>().clone();
+        cx.spawn(|this, mut cx| async move {
+            if let Ok(versions) = ext_state.get_available_versions(&ext_name).await {
+                this.update(&mut cx, |this, cx| {
+                    this.available_versions = versions;
+                    cx.notify();
+                })
+                .ok();
+            }
+        })
+        .detach();
+
+        dialog
+    }
+
+    fn generate_sql(&self) -> String {
+        let options = InstallExtensionOptions {
+            name: self.extension.name.clone(),
+            version: if self.selected_version != self.extension.default_version {
+                Some(self.selected_version.clone())
+            } else {
+                None
+            },
+            schema: if self.selected_schema != "public" {
+                Some(self.selected_schema.clone())
+            } else {
+                None
+            },
+            cascade: self.cascade,
+        };
+
+        let ext_state = ExtensionState::new(); // Use default for SQL generation
+        ext_state.generate_install_sql(&options)
+    }
+
+    fn handle_install(&mut self, cx: &mut ViewContext<Self>) {
+        self.installing = true;
+        self.error = None;
+        cx.notify();
+
+        let options = InstallExtensionOptions {
+            name: self.extension.name.clone(),
+            version: if self.selected_version != self.extension.default_version {
+                Some(self.selected_version.clone())
+            } else {
+                None
+            },
+            schema: if self.selected_schema != "public" {
+                Some(self.selected_schema.clone())
+            } else {
+                None
+            },
+            cascade: self.cascade,
+        };
+
+        let ext_state = cx.global::<ExtensionState>().clone();
+
+        cx.spawn(|this, mut cx| async move {
+            match ext_state.install_extension(&options).await {
+                Ok(()) => {
+                    this.update(&mut cx, |_, cx| {
+                        cx.emit(InstallDialogEvent::Installed);
+                    })
+                    .ok();
+                }
+                Err(e) => {
+                    this.update(&mut cx, |this, cx| {
+                        this.installing = false;
+                        this.error = Some(e.to_string());
+                        cx.notify();
+                    })
+                    .ok();
+                }
+            }
+        })
+        .detach();
+    }
+
+    fn handle_cancel(&mut self, cx: &mut ViewContext<Self>) {
+        cx.emit(InstallDialogEvent::Cancelled);
+    }
+}
+
+impl FocusableView for InstallExtensionDialog {
+    fn focus_handle(&self, _cx: &AppContext) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl Render for InstallExtensionDialog {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let generated_sql = self.generate_sql();
+
+        Modal::new("install-extension")
+            .title(format!("Install Extension: {}", self.extension.name))
+            .width(px(500.0))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .p_4()
+                    // Description
+                    .when_some(self.extension.comment.as_ref(), |this, comment| {
+                        this.child(
+                            div()
+                                .text_sm()
+                                .text_color(gpui::rgb(0x6b7280))
+                                .child(comment.clone()),
+                        )
+                    })
+                    // Dependencies warning
+                    .when(!self.extension.requires.is_empty(), |this| {
+                        this.child(
+                            div()
+                                .p_3()
+                                .bg(gpui::rgb(0xeff6ff))
+                                .border_1()
+                                .border_color(gpui::rgb(0xbfdbfe))
+                                .rounded(px(6.0))
+                                .text_sm()
+                                .child(
+                                    div()
+                                        .child(SharedString::from("Requires: "))
+                                        .child(self.extension.requires.join(", ")),
+                                ),
+                        )
+                    })
+                    // Error message
+                    .when_some(self.error.clone(), |this, error| {
+                        this.child(
+                            div()
+                                .p_3()
+                                .bg(gpui::rgb(0xfef2f2))
+                                .border_1()
+                                .border_color(gpui::rgb(0xfecaca))
+                                .rounded(px(6.0))
+                                .text_sm()
+                                .text_color(gpui::rgb(0xb91c1c))
+                                .child(error),
+                        )
+                    })
+                    // Version selection
+                    .child(
+                        Section::new("version")
+                            .label("Version")
+                            .child(
+                                Select::new("version-select")
+                                    .value(Some(SharedString::from(self.selected_version.clone())))
+                                    .options(
+                                        self.available_versions
+                                            .iter()
+                                            .map(|v| {
+                                                let label = if v == &self.extension.default_version {
+                                                    format!("{} (default)", v)
+                                                } else {
+                                                    v.clone()
+                                                };
+                                                SelectOption::new(v.clone(), label)
+                                            })
+                                            .collect(),
+                                    )
+                                    .on_change(cx.listener(
+                                        |this, value: &Option<SharedString>, cx| {
+                                            if let Some(v) = value {
+                                                this.selected_version = v.to_string();
+                                                cx.notify();
+                                            }
+                                        },
+                                    )),
+                            ),
+                    )
+                    // Schema selection
+                    .child(
+                        Section::new("schema")
+                            .label("Schema")
+                            .when(!self.extension.relocatable, |this| {
+                                this.hint(
+                                    "This extension is not relocatable and will use its default schema",
+                                )
+                            })
+                            .child(
+                                Select::new("schema-select")
+                                    .value(Some(SharedString::from(self.selected_schema.clone())))
+                                    .disabled(!self.extension.relocatable)
+                                    .options(
+                                        self.schemas
+                                            .iter()
+                                            .map(|s| SelectOption::new(s.clone(), s.clone()))
+                                            .collect(),
+                                    )
+                                    .on_change(cx.listener(
+                                        |this, value: &Option<SharedString>, cx| {
+                                            if let Some(v) = value {
+                                                this.selected_schema = v.to_string();
+                                                cx.notify();
+                                            }
+                                        },
+                                    )),
+                            ),
+                    )
+                    // Cascade option
+                    .child(
+                        Checkbox::new("cascade")
+                            .checked(self.cascade)
+                            .label("CASCADE - Automatically install required dependencies")
+                            .on_toggle(cx.listener(|this, _, cx| {
+                                this.cascade = !this.cascade;
+                                cx.notify();
+                            })),
+                    )
+                    // SQL preview
+                    .child(
+                        Section::new("sql")
+                            .label("Generated SQL")
+                            .child(
+                                div()
+                                    .p_3()
+                                    .bg(gpui::rgb(0xf3f4f6))
+                                    .rounded(px(6.0))
+                                    .font_family("monospace")
+                                    .text_xs()
+                                    .overflow_x_auto()
+                                    .child(generated_sql),
+                            ),
+                    ),
+            )
+            .footer(
+                ModalFooter::new().right(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            Button::new("cancel")
+                                .label("Cancel")
+                                .variant(ButtonVariant::Secondary)
+                                .on_click(cx.listener(|this, _, cx| {
+                                    this.handle_cancel(cx);
+                                })),
+                        )
+                        .child(
+                            Button::new("install")
+                                .label(if self.installing {
+                                    "Installing..."
+                                } else {
+                                    "Install"
+                                })
+                                .variant(ButtonVariant::Primary)
+                                .disabled(self.installing)
+                                .on_click(cx.listener(|this, _, cx| {
+                                    this.handle_install(cx);
+                                })),
+                        ),
+                ),
+            )
+    }
+}
+```
+
+### 23.7 Uninstall Extension Dialog
+
+```rust
+// src/components/extensions/uninstall_dialog.rs
+
+use crate::state::extension_state::ExtensionState;
+use crate::ui::{Button, ButtonVariant, Checkbox, Modal, ModalFooter, Section};
+use gpui::{
+    div, px, AppContext, Context, Element, EventEmitter, FocusHandle, FocusableView,
+    InteractiveElement, IntoElement, ParentElement, Render, SharedString, Styled,
+    View, ViewContext, VisualContext,
+};
+
+/// Events emitted by the uninstall dialog
+pub enum UninstallDialogEvent {
+    Uninstalled,
+    Cancelled,
+}
+
+pub struct UninstallExtensionDialog {
+    focus_handle: FocusHandle,
     extension_name: String,
     cascade: bool,
-) -> Result<(), Error> {
-    let pool = state.get_connection(&conn_id)?;
-    let client = pool.get().await?;
-    ExtensionService::uninstall_extension(&client, &extension_name, cascade).await?;
-    Ok(())
+    uninstalling: bool,
+    error: Option<String>,
 }
 
-#[tauri::command]
-pub fn generate_install_extension_sql(options: InstallExtensionOptions) -> String {
-    ExtensionService::build_install_sql(&options)
+impl EventEmitter<UninstallDialogEvent> for UninstallExtensionDialog {}
+
+impl UninstallExtensionDialog {
+    pub fn new(extension_name: String, cx: &mut ViewContext<Self>) -> Self {
+        Self {
+            focus_handle: cx.focus_handle(),
+            extension_name,
+            cascade: false, // Default to no cascade for safety
+            uninstalling: false,
+            error: None,
+        }
+    }
+
+    fn generate_sql(&self, ext_state: &ExtensionState) -> String {
+        ext_state.generate_uninstall_sql(&self.extension_name, self.cascade)
+    }
+
+    fn handle_uninstall(&mut self, cx: &mut ViewContext<Self>) {
+        self.uninstalling = true;
+        self.error = None;
+        cx.notify();
+
+        let ext_state = cx.global::<ExtensionState>().clone();
+        let name = self.extension_name.clone();
+        let cascade = self.cascade;
+
+        cx.spawn(|this, mut cx| async move {
+            match ext_state.uninstall_extension(&name, cascade).await {
+                Ok(()) => {
+                    this.update(&mut cx, |_, cx| {
+                        cx.emit(UninstallDialogEvent::Uninstalled);
+                    })
+                    .ok();
+                }
+                Err(e) => {
+                    this.update(&mut cx, |this, cx| {
+                        this.uninstalling = false;
+                        this.error = Some(e.to_string());
+                        cx.notify();
+                    })
+                    .ok();
+                }
+            }
+        })
+        .detach();
+    }
+
+    fn handle_cancel(&mut self, cx: &mut ViewContext<Self>) {
+        cx.emit(UninstallDialogEvent::Cancelled);
+    }
 }
 
-#[tauri::command]
-pub fn generate_upgrade_extension_sql(options: UpgradeExtensionOptions) -> String {
-    ExtensionService::build_upgrade_sql(&options)
+impl FocusableView for UninstallExtensionDialog {
+    fn focus_handle(&self, _cx: &AppContext) -> FocusHandle {
+        self.focus_handle.clone()
+    }
 }
 
-#[tauri::command]
-pub fn generate_uninstall_extension_sql(extension_name: String, cascade: bool) -> String {
-    ExtensionService::build_uninstall_sql(&extension_name, cascade)
+impl Render for UninstallExtensionDialog {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        let ext_state = cx.global::<ExtensionState>();
+        let generated_sql = self.generate_sql(ext_state);
+
+        Modal::new("uninstall-extension")
+            .title(format!("Uninstall Extension: {}", self.extension_name))
+            .width(px(450.0))
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .p_4()
+                    // Warning message
+                    .child(
+                        div()
+                            .p_3()
+                            .bg(gpui::rgb(0xfef3c7))
+                            .border_1()
+                            .border_color(gpui::rgb(0xfbbf24))
+                            .rounded(px(6.0))
+                            .text_sm()
+                            .text_color(gpui::rgb(0x92400e))
+                            .child(
+                                "This will remove the extension and all objects it created. This action cannot be undone.",
+                            ),
+                    )
+                    // Error message
+                    .when_some(self.error.clone(), |this, error| {
+                        this.child(
+                            div()
+                                .p_3()
+                                .bg(gpui::rgb(0xfef2f2))
+                                .border_1()
+                                .border_color(gpui::rgb(0xfecaca))
+                                .rounded(px(6.0))
+                                .text_sm()
+                                .text_color(gpui::rgb(0xb91c1c))
+                                .child(error),
+                        )
+                    })
+                    // Cascade option
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                Checkbox::new("cascade")
+                                    .checked(self.cascade)
+                                    .label("CASCADE - Also drop dependent objects")
+                                    .on_toggle(cx.listener(|this, _, cx| {
+                                        this.cascade = !this.cascade;
+                                        cx.notify();
+                                    })),
+                            )
+                            .when(self.cascade, |this| {
+                                this.child(
+                                    div()
+                                        .pl_6()
+                                        .text_xs()
+                                        .text_color(gpui::rgb(0xdc2626))
+                                        .child(
+                                            "Warning: This will drop all objects that depend on this extension!",
+                                        ),
+                                )
+                            }),
+                    )
+                    // SQL preview
+                    .child(
+                        Section::new("sql")
+                            .label("Generated SQL")
+                            .child(
+                                div()
+                                    .p_3()
+                                    .bg(gpui::rgb(0xf3f4f6))
+                                    .rounded(px(6.0))
+                                    .font_family("monospace")
+                                    .text_xs()
+                                    .child(generated_sql),
+                            ),
+                    ),
+            )
+            .footer(
+                ModalFooter::new().right(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            Button::new("cancel")
+                                .label("Cancel")
+                                .variant(ButtonVariant::Secondary)
+                                .on_click(cx.listener(|this, _, cx| {
+                                    this.handle_cancel(cx);
+                                })),
+                        )
+                        .child(
+                            Button::new("uninstall")
+                                .label(if self.uninstalling {
+                                    "Uninstalling..."
+                                } else {
+                                    "Uninstall"
+                                })
+                                .variant(ButtonVariant::Danger)
+                                .disabled(self.uninstalling)
+                                .on_click(cx.listener(|this, _, cx| {
+                                    this.handle_uninstall(cx);
+                                })),
+                        ),
+                ),
+            )
+    }
 }
 ```
 
-### 23.4 Extension Store (Svelte)
+### 23.8 Extension Manager Panel (Main Container)
 
-```typescript
-// src/lib/stores/extensionStore.svelte.ts
+```rust
+// src/components/extensions/extension_panel.rs
 
-import { invoke } from '@tauri-apps/api/core';
-import type {
-	Extension,
-	ExtensionDetail,
-	InstallExtensionOptions,
-	UpgradeExtensionOptions
-} from '$lib/types/extensions';
+use crate::components::extensions::{
+    ExtensionDetailEvent, ExtensionDetailPanel, ExtensionListEvent, ExtensionListView,
+    InstallDialogEvent, InstallExtensionDialog, UninstallDialogEvent,
+    UninstallExtensionDialog,
+};
+use crate::models::extension::Extension;
+use crate::state::extension_state::ExtensionState;
+use crate::ui::{Panel, SplitView, SplitViewDirection};
+use gpui::{
+    div, AppContext, Context, Element, FocusHandle, FocusableView, IntoElement,
+    ParentElement, Render, Styled, View, ViewContext, VisualContext,
+};
 
-interface ExtensionState {
-	extensions: Extension[];
-	selectedExtension: ExtensionDetail | null;
-	loading: boolean;
-	error: string | null;
-	filter: string;
-	showInstalledOnly: boolean;
+pub struct ExtensionPanel {
+    focus_handle: FocusHandle,
+    list_view: View<ExtensionListView>,
+    detail_panel: View<ExtensionDetailPanel>,
+    install_dialog: Option<View<InstallExtensionDialog>>,
+    uninstall_dialog: Option<View<UninstallExtensionDialog>>,
 }
 
-export function createExtensionStore() {
-	let state = $state<ExtensionState>({
-		extensions: [],
-		selectedExtension: null,
-		loading: false,
-		error: null,
-		filter: '',
-		showInstalledOnly: false
-	});
+impl ExtensionPanel {
+    pub fn new(cx: &mut ViewContext<Self>) -> Self {
+        // Initialize extension state
+        let ext_state = ExtensionState::new();
+        cx.set_global(ext_state);
 
-	async function loadExtensions(connId: string) {
-		state.loading = true;
-		state.error = null;
+        // Create child views
+        let list_view = cx.new_view(|cx| ExtensionListView::new(cx));
+        let detail_panel = cx.new_view(|cx| ExtensionDetailPanel::new(cx));
 
-		try {
-			state.extensions = await invoke<Extension[]>('get_extensions', { connId });
-		} catch (err) {
-			state.error = err instanceof Error ? err.message : String(err);
-		} finally {
-			state.loading = false;
-		}
-	}
+        // Subscribe to events
+        cx.subscribe(&list_view, Self::handle_list_event).detach();
+        cx.subscribe(&detail_panel, Self::handle_detail_event).detach();
 
-	async function loadExtensionDetail(connId: string, extensionName: string) {
-		if (!state.extensions.find((e) => e.name === extensionName)?.isInstalled) {
-			state.selectedExtension = null;
-			return;
-		}
+        Self {
+            focus_handle: cx.focus_handle(),
+            list_view,
+            detail_panel,
+            install_dialog: None,
+            uninstall_dialog: None,
+        }
+    }
 
-		try {
-			state.selectedExtension = await invoke<ExtensionDetail>('get_extension_detail', {
-				connId,
-				extensionName
-			});
-		} catch (err) {
-			state.error = err instanceof Error ? err.message : String(err);
-		}
-	}
+    /// Load extensions when panel becomes active
+    pub fn load_extensions(&self, cx: &mut ViewContext<Self>) {
+        let ext_state = cx.global::<ExtensionState>().clone();
 
-	async function installExtension(connId: string, options: InstallExtensionOptions) {
-		try {
-			await invoke('install_extension', { connId, options });
-			await loadExtensions(connId);
-		} catch (err) {
-			throw err;
-		}
-	}
+        cx.spawn(|this, mut cx| async move {
+            if let Err(e) = ext_state.load_extensions().await {
+                log::error!("Failed to load extensions: {}", e);
+            }
 
-	async function upgradeExtension(connId: string, options: UpgradeExtensionOptions) {
-		try {
-			await invoke('upgrade_extension', { connId, options });
-			await loadExtensions(connId);
-			if (state.selectedExtension?.name === options.name) {
-				await loadExtensionDetail(connId, options.name);
-			}
-		} catch (err) {
-			throw err;
-		}
-	}
+            this.update(&mut cx, |_, cx| cx.notify()).ok();
+        })
+        .detach();
+    }
 
-	async function uninstallExtension(connId: string, extensionName: string, cascade: boolean) {
-		try {
-			await invoke('uninstall_extension', { connId, extensionName, cascade });
-			if (state.selectedExtension?.name === extensionName) {
-				state.selectedExtension = null;
-			}
-			await loadExtensions(connId);
-		} catch (err) {
-			throw err;
-		}
-	}
+    fn handle_list_event(
+        &mut self,
+        _: View<ExtensionListView>,
+        event: &ExtensionListEvent,
+        cx: &mut ViewContext<Self>,
+    ) {
+        match event {
+            ExtensionListEvent::Select(_) => {
+                cx.notify();
+            }
+            ExtensionListEvent::Install(ext) => {
+                self.show_install_dialog(ext.clone(), cx);
+            }
+            ExtensionListEvent::Upgrade(ext) => {
+                self.handle_upgrade(ext.clone(), cx);
+            }
+            ExtensionListEvent::Uninstall(name) => {
+                self.show_uninstall_dialog(name.clone(), cx);
+            }
+        }
+    }
 
-	function setFilter(filter: string) {
-		state.filter = filter;
-	}
+    fn handle_detail_event(
+        &mut self,
+        _: View<ExtensionDetailPanel>,
+        event: &ExtensionDetailEvent,
+        cx: &mut ViewContext<Self>,
+    ) {
+        match event {
+            ExtensionDetailEvent::Upgrade(name) => {
+                // Find extension and trigger upgrade
+                let ext_state = cx.global::<ExtensionState>();
+                if let Some(ext) = ext_state.extensions().into_iter().find(|e| &e.name == name) {
+                    self.handle_upgrade(ext, cx);
+                }
+            }
+            ExtensionDetailEvent::Uninstall(name) => {
+                self.show_uninstall_dialog(name.clone(), cx);
+            }
+        }
+    }
 
-	function setShowInstalledOnly(value: boolean) {
-		state.showInstalledOnly = value;
-	}
+    fn show_install_dialog(&mut self, ext: Extension, cx: &mut ViewContext<Self>) {
+        // Get available schemas from schema cache (would come from another state)
+        let schemas = vec![
+            "public".to_string(),
+            "extensions".to_string(),
+        ];
 
-	function clearSelection() {
-		state.selectedExtension = null;
-	}
+        let dialog = cx.new_view(|cx| InstallExtensionDialog::new(ext, schemas, cx));
+        cx.subscribe(&dialog, Self::handle_install_dialog_event).detach();
+        self.install_dialog = Some(dialog);
+        cx.notify();
+    }
 
-	// Derived: filtered extensions
-	const filteredExtensions = $derived(
-		state.extensions.filter((ext) => {
-			if (state.showInstalledOnly && !ext.isInstalled) return false;
-			if (state.filter) {
-				const search = state.filter.toLowerCase();
-				return (
-					ext.name.toLowerCase().includes(search) ||
-					(ext.comment?.toLowerCase().includes(search) ?? false)
-				);
-			}
-			return true;
-		})
-	);
+    fn show_uninstall_dialog(&mut self, name: String, cx: &mut ViewContext<Self>) {
+        let dialog = cx.new_view(|cx| UninstallExtensionDialog::new(name, cx));
+        cx.subscribe(&dialog, Self::handle_uninstall_dialog_event).detach();
+        self.uninstall_dialog = Some(dialog);
+        cx.notify();
+    }
 
-	return {
-		get extensions() {
-			return state.extensions;
-		},
-		get filteredExtensions() {
-			return filteredExtensions;
-		},
-		get selectedExtension() {
-			return state.selectedExtension;
-		},
-		get loading() {
-			return state.loading;
-		},
-		get error() {
-			return state.error;
-		},
-		get filter() {
-			return state.filter;
-		},
-		get showInstalledOnly() {
-			return state.showInstalledOnly;
-		},
+    fn handle_upgrade(&mut self, ext: Extension, cx: &mut ViewContext<Self>) {
+        let ext_state = cx.global::<ExtensionState>().clone();
+        let options = crate::models::extension::UpgradeExtensionOptions::new(&ext.name);
 
-		loadExtensions,
-		loadExtensionDetail,
-		installExtension,
-		upgradeExtension,
-		uninstallExtension,
-		setFilter,
-		setShowInstalledOnly,
-		clearSelection
-	};
+        cx.spawn(|this, mut cx| async move {
+            if let Err(e) = ext_state.upgrade_extension(&options).await {
+                log::error!("Failed to upgrade extension: {}", e);
+            }
+
+            this.update(&mut cx, |_, cx| cx.notify()).ok();
+        })
+        .detach();
+    }
+
+    fn handle_install_dialog_event(
+        &mut self,
+        _: View<InstallExtensionDialog>,
+        event: &InstallDialogEvent,
+        cx: &mut ViewContext<Self>,
+    ) {
+        match event {
+            InstallDialogEvent::Installed | InstallDialogEvent::Cancelled => {
+                self.install_dialog = None;
+                cx.notify();
+            }
+        }
+    }
+
+    fn handle_uninstall_dialog_event(
+        &mut self,
+        _: View<UninstallExtensionDialog>,
+        event: &UninstallDialogEvent,
+        cx: &mut ViewContext<Self>,
+    ) {
+        match event {
+            UninstallDialogEvent::Uninstalled | UninstallDialogEvent::Cancelled => {
+                self.uninstall_dialog = None;
+                cx.notify();
+            }
+        }
+    }
 }
 
-export const extensionStore = createExtensionStore();
-```
+impl FocusableView for ExtensionPanel {
+    fn focus_handle(&self, _cx: &AppContext) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
 
-### 23.5 Extension List Component
-
-```svelte
-<!-- src/lib/components/extensions/ExtensionList.svelte -->
-<script lang="ts">
-	import type { Extension } from '$lib/types/extensions';
-	import { extensionStore } from '$lib/stores/extensionStore.svelte';
-
-	interface Props {
-		connId: string;
-		onSelect: (ext: Extension) => void;
-		onInstall: (ext: Extension) => void;
-	}
-
-	let { connId, onSelect, onInstall }: Props = $props();
-</script>
-
-<div class="flex flex-col h-full">
-	<!-- Toolbar -->
-	<div class="flex items-center gap-2 p-4 border-b border-gray-200 dark:border-gray-700">
-		<input
-			type="text"
-			value={extensionStore.filter}
-			oninput={(e) => extensionStore.setFilter(e.currentTarget.value)}
-			placeholder="Search extensions..."
-			class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
-             bg-white dark:bg-gray-700 text-sm"
-		/>
-		<label class="flex items-center gap-2 text-sm">
-			<input
-				type="checkbox"
-				checked={extensionStore.showInstalledOnly}
-				onchange={(e) => extensionStore.setShowInstalledOnly(e.currentTarget.checked)}
-				class="rounded border-gray-300"
-			/>
-			Installed only
-		</label>
-		<button
-			onclick={() => extensionStore.loadExtensions(connId)}
-			class="px-3 py-2 text-sm text-gray-600 dark:text-gray-400
-             hover:text-gray-900 dark:hover:text-gray-100"
-		>
-			Refresh
-		</button>
-	</div>
-
-	<!-- Extension List -->
-	<div class="flex-1 overflow-auto">
-		{#if extensionStore.loading}
-			<div class="flex items-center justify-center h-full">
-				<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-			</div>
-		{:else if extensionStore.error}
-			<div class="p-4 text-center text-red-500">{extensionStore.error}</div>
-		{:else}
-			<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-				<thead class="bg-gray-50 dark:bg-gray-900/50 sticky top-0">
-					<tr>
-						<th
-							class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-						>
-							Extension
-						</th>
-						<th
-							class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-						>
-							Version
-						</th>
-						<th
-							class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-						>
-							Schema
-						</th>
-						<th
-							class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-						>
-							Actions
-						</th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-					{#each extensionStore.filteredExtensions as ext (ext.name)}
-						<tr
-							class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer
-                     {extensionStore.selectedExtension?.name === ext.name
-								? 'bg-blue-50 dark:bg-blue-900/20'
-								: ''}"
-							onclick={() => onSelect(ext)}
-						>
-							<td class="px-4 py-3">
-								<div class="flex items-center gap-2">
-									{#if ext.isInstalled}
-										<span class="w-2 h-2 rounded-full bg-green-500" title="Installed"></span>
-									{:else}
-										<span
-											class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"
-											title="Not installed"
-										></span>
-									{/if}
-									<div>
-										<div class="font-medium">{ext.name}</div>
-										{#if ext.comment}
-											<div class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-md">
-												{ext.comment}
-											</div>
-										{/if}
-									</div>
-								</div>
-							</td>
-							<td class="px-4 py-3 text-center text-sm">
-								{#if ext.isInstalled}
-									<span class="font-mono">{ext.installedVersion}</span>
-									{#if ext.installedVersion !== ext.defaultVersion}
-										<span
-											class="ml-1 text-xs text-amber-600 dark:text-amber-400"
-											title="Upgrade available"
-										>
-											→ {ext.defaultVersion}
-										</span>
-									{/if}
-								{:else}
-									<span class="text-gray-400">{ext.defaultVersion}</span>
-								{/if}
-							</td>
-							<td class="px-4 py-3 text-sm">
-								{#if ext.schema}
-									<span
-										class="font-mono text-xs bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded"
-									>
-										{ext.schema}
-									</span>
-								{:else}
-									<span class="text-gray-400">-</span>
-								{/if}
-							</td>
-							<td class="px-4 py-3 text-right">
-								{#if ext.isInstalled}
-									<button
-										onclick={(e) => {
-											e.stopPropagation(); /* uninstall */
-										}}
-										class="text-red-600 hover:text-red-700 dark:text-red-400
-                           dark:hover:text-red-300 text-sm"
-									>
-										Uninstall
-									</button>
-								{:else}
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											onInstall(ext);
-										}}
-										class="text-blue-600 hover:text-blue-700 dark:text-blue-400
-                           dark:hover:text-blue-300 text-sm"
-									>
-										Install
-									</button>
-								{/if}
-							</td>
-						</tr>
-					{:else}
-						<tr>
-							<td colspan="4" class="px-4 py-8 text-center text-gray-500">
-								{extensionStore.filter ? 'No extensions match the filter' : 'No extensions found'}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/if}
-	</div>
-</div>
-```
-
-### 23.6 Extension Detail Panel
-
-```svelte
-<!-- src/lib/components/extensions/ExtensionDetail.svelte -->
-<script lang="ts">
-	import type { ExtensionDetail } from '$lib/types/extensions';
-
-	interface Props {
-		detail: ExtensionDetail;
-		onUpgrade: () => void;
-		onUninstall: () => void;
-	}
-
-	let { detail, onUpgrade, onUninstall }: Props = $props();
-
-	let activeTab = $state<'objects' | 'config'>('objects');
-
-	// Group objects by type
-	const objectsByType = $derived(() => {
-		const groups: Record<string, typeof detail.objects> = {};
-		for (const obj of detail.objects) {
-			if (!groups[obj.objectType]) {
-				groups[obj.objectType] = [];
-			}
-			groups[obj.objectType].push(obj);
-		}
-		return groups;
-	});
-
-	const objectTypes = $derived(Object.keys(objectsByType()).sort());
-</script>
-
-<div class="flex flex-col h-full">
-	<!-- Header -->
-	<div class="p-4 border-b border-gray-200 dark:border-gray-700">
-		<div class="flex items-center justify-between">
-			<div>
-				<h2 class="text-lg font-semibold">{detail.name}</h2>
-				<p class="text-sm text-gray-500 dark:text-gray-400">{detail.description}</p>
-			</div>
-			<div class="flex items-center gap-2">
-				<button
-					onclick={onUpgrade}
-					class="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 dark:bg-blue-900/30
-                 dark:text-blue-400 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
-				>
-					Upgrade
-				</button>
-				<button
-					onclick={onUninstall}
-					class="px-3 py-1.5 text-sm bg-red-100 text-red-700 dark:bg-red-900/30
-                 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
-				>
-					Uninstall
-				</button>
-			</div>
-		</div>
-
-		<!-- Info Row -->
-		<div class="flex items-center gap-6 mt-3 text-sm">
-			<div>
-				<span class="text-gray-500">Version:</span>
-				<span class="ml-1 font-mono">{detail.version}</span>
-			</div>
-			<div>
-				<span class="text-gray-500">Schema:</span>
-				<span class="ml-1 font-mono">{detail.schema}</span>
-			</div>
-			{#if detail.requires.length > 0}
-				<div>
-					<span class="text-gray-500">Requires:</span>
-					<span class="ml-1">{detail.requires.join(', ')}</span>
-				</div>
-			{/if}
-		</div>
-	</div>
-
-	<!-- Tabs -->
-	<div class="flex border-b border-gray-200 dark:border-gray-700">
-		<button
-			onclick={() => (activeTab = 'objects')}
-			class="px-4 py-2 text-sm font-medium transition-colors
-             {activeTab === 'objects'
-				? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-				: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-		>
-			Objects ({detail.objects.length})
-		</button>
-		<button
-			onclick={() => (activeTab = 'config')}
-			class="px-4 py-2 text-sm font-medium transition-colors
-             {activeTab === 'config'
-				? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-				: 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
-		>
-			Configuration ({detail.config.length})
-		</button>
-	</div>
-
-	<!-- Content -->
-	<div class="flex-1 overflow-auto p-4">
-		{#if activeTab === 'objects'}
-			{#if detail.objects.length === 0}
-				<p class="text-gray-500 text-center py-8">No objects found</p>
-			{:else}
-				<div class="space-y-4">
-					{#each objectTypes as objType}
-						<div>
-							<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 capitalize">
-								{objType}s ({objectsByType()[objType].length})
-							</h3>
-							<div class="bg-gray-50 dark:bg-gray-900/50 rounded p-2 space-y-1">
-								{#each objectsByType()[objType] as obj}
-									<div
-										class="text-sm font-mono py-1 px-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-									>
-										{obj.identity}
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		{:else if activeTab === 'config'}
-			{#if detail.config.length === 0}
-				<p class="text-gray-500 text-center py-8">No configuration parameters</p>
-			{:else}
-				<div class="space-y-3">
-					{#each detail.config as param}
-						<div class="bg-gray-50 dark:bg-gray-900/50 rounded p-3">
-							<div class="flex items-center justify-between">
-								<span class="font-mono text-sm">{param.name}</span>
-								<span class="font-mono text-sm text-blue-600 dark:text-blue-400">
-									{param.value}
-									{#if param.unit}
-										<span class="text-gray-500">{param.unit}</span>
-									{/if}
-								</span>
-							</div>
-							{#if param.description}
-								<p class="text-xs text-gray-500 mt-1">{param.description}</p>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		{/if}
-	</div>
-</div>
-```
-
-### 23.7 Install Extension Dialog
-
-```svelte
-<!-- src/lib/components/extensions/InstallExtensionDialog.svelte -->
-<script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-	import type { Extension, InstallExtensionOptions } from '$lib/types/extensions';
-	import { invoke } from '@tauri-apps/api/core';
-
-	interface Props {
-		open: boolean;
-		connId: string;
-		extension: Extension;
-		schemas: string[];
-	}
-
-	let { open = $bindable(), connId, extension, schemas }: Props = $props();
-
-	const dispatch = createEventDispatcher<{
-		install: InstallExtensionOptions;
-		cancel: void;
-	}>();
-
-	let selectedVersion = $state(extension.defaultVersion);
-	let selectedSchema = $state('public');
-	let cascade = $state(true);
-	let availableVersions = $state<string[]>([]);
-	let loading = $state(false);
-	let generatedSql = $state('');
-
-	// Load available versions
-	$effect(() => {
-		if (open) {
-			loadVersions();
-			updateSql();
-		}
-	});
-
-	async function loadVersions() {
-		try {
-			availableVersions = await invoke<string[]>('get_extension_versions', {
-				connId,
-				extensionName: extension.name
-			});
-		} catch {
-			availableVersions = [extension.defaultVersion];
-		}
-	}
-
-	function updateSql() {
-		const options: InstallExtensionOptions = {
-			name: extension.name,
-			version: selectedVersion !== extension.defaultVersion ? selectedVersion : undefined,
-			schema: selectedSchema !== 'public' ? selectedSchema : undefined,
-			cascade
-		};
-
-		generatedSql = `CREATE EXTENSION IF NOT EXISTS ${extension.name}`;
-		if (options.schema) {
-			generatedSql += ` SCHEMA ${options.schema}`;
-		}
-		if (options.version) {
-			generatedSql += ` VERSION '${options.version}'`;
-		}
-		if (options.cascade) {
-			generatedSql += ` CASCADE`;
-		}
-		generatedSql += ';';
-	}
-
-	// Update SQL when options change
-	$effect(() => {
-		selectedVersion;
-		selectedSchema;
-		cascade;
-		updateSql();
-	});
-
-	function handleInstall() {
-		dispatch('install', {
-			name: extension.name,
-			version: selectedVersion !== extension.defaultVersion ? selectedVersion : undefined,
-			schema: selectedSchema !== 'public' ? selectedSchema : undefined,
-			cascade
-		});
-		open = false;
-	}
-
-	function handleCancel() {
-		dispatch('cancel');
-		open = false;
-	}
-</script>
-
-{#if open}
-	<div
-		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-		role="dialog"
-		aria-modal="true"
-	>
-		<div
-			class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[500px] max-h-[80vh] overflow-hidden"
-		>
-			<!-- Header -->
-			<div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-				<h2 class="text-lg font-semibold">Install Extension: {extension.name}</h2>
-			</div>
-
-			<!-- Body -->
-			<div class="p-4 space-y-4">
-				{#if extension.comment}
-					<p class="text-sm text-gray-600 dark:text-gray-400">{extension.comment}</p>
-				{/if}
-
-				<!-- Dependencies -->
-				{#if extension.requires.length > 0}
-					<div
-						class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200
-                      dark:border-blue-800 rounded text-sm"
-					>
-						<strong>Requires:</strong>
-						<span class="ml-1">{extension.requires.join(', ')}</span>
-					</div>
-				{/if}
-
-				<!-- Version -->
-				<div>
-					<label class="block text-sm font-medium mb-1">Version</label>
-					<select
-						bind:value={selectedVersion}
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
-                   bg-white dark:bg-gray-700 text-sm"
-					>
-						{#each availableVersions as version}
-							<option value={version}>
-								{version}
-								{version === extension.defaultVersion ? '(default)' : ''}
-							</option>
-						{/each}
-					</select>
-				</div>
-
-				<!-- Schema -->
-				<div>
-					<label class="block text-sm font-medium mb-1">Schema</label>
-					<select
-						bind:value={selectedSchema}
-						disabled={!extension.relocatable}
-						class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded
-                   bg-white dark:bg-gray-700 text-sm disabled:opacity-50"
-					>
-						{#each schemas as schema}
-							<option value={schema}>{schema}</option>
-						{/each}
-					</select>
-					{#if !extension.relocatable}
-						<p class="text-xs text-gray-500 mt-1">
-							This extension is not relocatable and will be installed in its default schema.
-						</p>
-					{/if}
-				</div>
-
-				<!-- Cascade -->
-				<label class="flex items-start gap-3 cursor-pointer">
-					<input
-						type="checkbox"
-						bind:checked={cascade}
-						class="mt-1 rounded border-gray-300 dark:border-gray-600"
-					/>
-					<div>
-						<span class="font-medium text-sm">CASCADE</span>
-						<p class="text-xs text-gray-500 dark:text-gray-400">
-							Automatically install required dependencies
-						</p>
-					</div>
-				</label>
-
-				<!-- SQL Preview -->
-				<div>
-					<label class="block text-sm font-medium mb-1">Generated SQL</label>
-					<pre class="p-3 bg-gray-100 dark:bg-gray-900 rounded font-mono text-xs overflow-auto">
-{generatedSql}
-          </pre>
-				</div>
-			</div>
-
-			<!-- Footer -->
-			<div class="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-				<button
-					onclick={handleCancel}
-					class="px-4 py-2 text-sm text-gray-700 dark:text-gray-300
-                 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-				>
-					Cancel
-				</button>
-				<button
-					onclick={handleInstall}
-					class="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-				>
-					Install
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+impl Render for ExtensionPanel {
+    fn render(&mut self, cx: &mut ViewContext<Self>) -> impl IntoElement {
+        Panel::new("extension-manager")
+            .title("Extension Manager")
+            .child(
+                SplitView::new("extension-split")
+                    .direction(SplitViewDirection::Horizontal)
+                    .initial_ratio(0.55)
+                    .min_size(300.0)
+                    .left(self.list_view.clone())
+                    .right(self.detail_panel.clone()),
+            )
+            // Install dialog overlay
+            .when_some(self.install_dialog.clone(), |this, dialog| {
+                this.child(dialog)
+            })
+            // Uninstall dialog overlay
+            .when_some(self.uninstall_dialog.clone(), |this, dialog| {
+                this.child(dialog)
+            })
+    }
+}
 ```
 
 ## Acceptance Criteria
 
 1. **Extension Listing**
-   - [ ] Display all available extensions
-   - [ ] Show installed status and version
-   - [ ] Indicate upgrade availability
-   - [ ] Filter by name and installed status
-   - [ ] Show extension description
+   - [ ] Display all available extensions in a sortable table
+   - [ ] Show installed status with visual indicator
+   - [ ] Display version with upgrade availability
+   - [ ] Filter by name, description, and installed status
+   - [ ] Show extension count statistics
 
 2. **Extension Installation**
-   - [ ] Select version to install
+   - [ ] Select version to install from available versions
    - [ ] Choose target schema (if relocatable)
    - [ ] CASCADE option for dependencies
-   - [ ] Preview generated SQL
-   - [ ] Handle installation errors
+   - [ ] Preview generated SQL before execution
+   - [ ] Handle installation errors gracefully
 
 3. **Extension Details**
-   - [ ] Show installed extension info
-   - [ ] List all objects created by extension
-   - [ ] Display configuration parameters
+   - [ ] Show installed extension info (version, schema, description)
+   - [ ] List all objects created by extension grouped by type
+   - [ ] Display configuration parameters with values
    - [ ] Show required dependencies
 
 4. **Extension Upgrade**
-   - [ ] Select target version
+   - [ ] Upgrade to latest or specific version
    - [ ] Preview upgrade SQL
-   - [ ] Handle upgrade errors
+   - [ ] Handle upgrade errors gracefully
 
 5. **Extension Removal**
-   - [ ] Confirm before uninstall
+   - [ ] Confirm before uninstall with warning
    - [ ] CASCADE option for dependent objects
+   - [ ] Preview uninstall SQL
    - [ ] Handle removal errors
 
-## MCP Testing Instructions
+6. **State Management**
+   - [ ] Use GPUI Global trait for ExtensionState
+   - [ ] Thread-safe access with parking_lot::RwLock
+   - [ ] Automatic refresh after mutations
+   - [ ] Loading and error states
 
-### Tauri MCP Testing
+## Testing
 
-```typescript
-// List extensions
-await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-	command: 'get_extensions',
-	args: { connId: 'test-conn' }
-});
+### Unit Tests
 
-// Install extension
-await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-	command: 'install_extension',
-	args: {
-		connId: 'test-conn',
-		options: {
-			name: 'uuid-ossp',
-			schema: 'public',
-			cascade: true
-		}
-	}
-});
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// Get extension detail
-await mcp___hypothesi_tauri_mcp_server__ipc_execute_command({
-	command: 'get_extension_detail',
-	args: {
-		connId: 'test-conn',
-		extensionName: 'uuid-ossp'
-	}
-});
+    #[test]
+    fn test_install_sql_basic() {
+        let options = InstallExtensionOptions::new("uuid-ossp");
+        let sql = ExtensionService::build_install_sql(&options);
+        assert_eq!(sql, "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\" CASCADE");
+    }
+
+    #[test]
+    fn test_install_sql_with_options() {
+        let options = InstallExtensionOptions {
+            name: "postgis".to_string(),
+            version: Some("3.4.0".to_string()),
+            schema: Some("extensions".to_string()),
+            cascade: true,
+        };
+        let sql = ExtensionService::build_install_sql(&options);
+        assert!(sql.contains("SCHEMA extensions"));
+        assert!(sql.contains("VERSION '3.4.0'"));
+        assert!(sql.contains("CASCADE"));
+    }
+
+    #[test]
+    fn test_upgrade_sql() {
+        let options = UpgradeExtensionOptions {
+            name: "postgis".to_string(),
+            target_version: Some("3.5.0".to_string()),
+        };
+        let sql = ExtensionService::build_upgrade_sql(&options);
+        assert_eq!(sql, "ALTER EXTENSION postgis UPDATE TO '3.5.0'");
+    }
+
+    #[test]
+    fn test_uninstall_sql() {
+        assert_eq!(
+            ExtensionService::build_uninstall_sql("hstore", false),
+            "DROP EXTENSION IF EXISTS hstore"
+        );
+        assert_eq!(
+            ExtensionService::build_uninstall_sql("hstore", true),
+            "DROP EXTENSION IF EXISTS hstore CASCADE"
+        );
+    }
+
+    #[test]
+    fn test_extension_has_upgrade() {
+        let ext = Extension {
+            name: "test".to_string(),
+            installed_version: Some("1.0".to_string()),
+            default_version: "2.0".to_string(),
+            available_versions: vec![],
+            schema: None,
+            relocatable: true,
+            comment: None,
+            requires: vec![],
+            is_installed: true,
+        };
+        assert!(ext.has_upgrade());
+
+        let ext_no_upgrade = Extension {
+            installed_version: Some("2.0".to_string()),
+            ..ext.clone()
+        };
+        assert!(!ext_no_upgrade.has_upgrade());
+    }
+}
 ```
 
-### Playwright MCP Testing
+### Integration Tests
 
-```typescript
-// Navigate to extensions
-await mcp__playwright__browser_navigate({
-	url: 'http://localhost:1420/extensions'
-});
+```rust
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use gpui::TestAppContext;
 
-// Search for extension
-await mcp__playwright__browser_type({
-	element: 'Search input',
-	ref: 'input[placeholder*="Search"]',
-	text: 'uuid'
-});
+    #[gpui::test]
+    async fn test_extension_list_filtering(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            let state = ExtensionState::new();
+            cx.set_global(state);
+        });
 
-// Click install button
-await mcp__playwright__browser_click({
-	element: 'Install button',
-	ref: 'button:has-text("Install"):first'
-});
+        let view = cx.new_view(|cx| ExtensionListView::new(cx));
 
-// Take screenshot of install dialog
-await mcp__playwright__browser_take_screenshot({
-	filename: 'extension-install-dialog.png'
-});
+        view.update(cx, |_, cx| {
+            let ext_state = cx.global::<ExtensionState>();
+            ext_state.set_filter("uuid".to_string());
+        });
+
+        view.update(cx, |_, cx| {
+            let ext_state = cx.global::<ExtensionState>();
+            assert_eq!(ext_state.filter(), "uuid");
+        });
+    }
+
+    #[gpui::test]
+    async fn test_install_dialog_sql_generation(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            let state = ExtensionState::new();
+            cx.set_global(state);
+        });
+
+        let ext = Extension {
+            name: "pg_trgm".to_string(),
+            installed_version: None,
+            default_version: "1.6".to_string(),
+            available_versions: vec!["1.6".to_string()],
+            schema: None,
+            relocatable: true,
+            comment: Some("text similarity".to_string()),
+            requires: vec![],
+            is_installed: false,
+        };
+
+        let view = cx.new_view(|cx| {
+            InstallExtensionDialog::new(
+                ext,
+                vec!["public".to_string(), "extensions".to_string()],
+                cx,
+            )
+        });
+
+        view.update(cx, |view, _| {
+            let sql = view.generate_sql();
+            assert!(sql.contains("CREATE EXTENSION"));
+            assert!(sql.contains("pg_trgm"));
+        });
+    }
+}
 ```

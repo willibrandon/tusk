@@ -58,76 +58,47 @@ PGPASSWORD=$(skate get tusk/postgres/password) psql -h localhost -U brandon -d p
 
 ## Project Overview
 
-Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.
+Tusk is a fast, free, native Postgres client built with pure Rust and GPUI (Zed's GPU-accelerated UI framework). It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.
 
 **Design Document:** `docs/design.md`
 
 ## Technology Stack
 
-### Frontend
+### Core Framework
 
-- **Framework:** Svelte 5 (compiled reactivity, minimal runtime)
-- **Editor:** Monaco Editor (SQL editing with autocomplete)
-- **Data Grid:** TanStack Table + custom virtualization
-- **Diagrams:** @xyflow/svelte (ER diagram canvas)
-- **Styling:** Tailwind CSS
-- **State:** Svelte stores + context
+- **GPUI**: Zed's GPU-accelerated UI framework (pure Rust, cross-platform)
+- **Rust**: 1.75+ with 2021 edition
 
-### Backend (Rust)
+### UI Layer
 
-- **Framework:** Tauri v2
-- **Postgres Driver:** tokio-postgres (async, streaming, COPY protocol)
-- **Connection Pooling:** deadpool-postgres
-- **SSH Tunnels:** russh (pure Rust SSH2)
-- **Local Storage:** rusqlite (SQLite for metadata)
-- **Credentials:** keyring (OS keychain integration)
-- **Serialization:** serde + serde_json
+- **Rendering**: GPUI's `Render` trait with fluent styling API
+- **State Management**: GPUI's `Global` trait for application-wide state
+- **Concurrency**: `parking_lot::RwLock` for thread-safe synchronous access
+- **Actions**: GPUI's `actions!` macro for keyboard shortcuts and commands
+- **Virtualization**: GPUI's `UniformList` for large datasets
 
-## MCP Servers Available
+### Backend Services
 
-### Playwright MCP
+- **Postgres Driver**: tokio-postgres (async, streaming, COPY protocol)
+- **Connection Pooling**: deadpool-postgres
+- **SSH Tunnels**: russh (pure Rust SSH2)
+- **Local Storage**: rusqlite (SQLite for metadata)
+- **Credentials**: keyring (OS keychain integration)
+- **Serialization**: serde + serde_json
+- **Error Handling**: thiserror for error types
+- **Logging**: tracing for structured logging
 
-Browser automation for testing web interfaces. Available tools:
+### Build & Packaging
 
-- `mcp__playwright__browser_navigate` - Navigate to URLs
-- `mcp__playwright__browser_snapshot` - Capture accessibility snapshots
-- `mcp__playwright__browser_click` - Click elements
-- `mcp__playwright__browser_type` - Type text
-- `mcp__playwright__browser_fill_form` - Fill multiple form fields
-- `mcp__playwright__browser_take_screenshot` - Capture screenshots
-- `mcp__playwright__browser_evaluate` - Execute JavaScript
-- `mcp__playwright__browser_wait_for` - Wait for conditions
-
-**Use for:** Testing the Svelte frontend in isolation, verifying UI components, accessibility testing.
-
-### Tauri MCP Server
-
-Native Tauri app automation and testing. Available tools:
-
-- `mcp___hypothesi_tauri-mcp-server__driver_session` - Start/stop connection to running Tauri app
-- `mcp___hypothesi_tauri-mcp-server__webview_screenshot` - Screenshot the webview
-- `mcp___hypothesi_tauri-mcp-server__webview_dom_snapshot` - Get DOM/accessibility snapshot
-- `mcp___hypothesi_tauri-mcp-server__webview_find_element` - Find DOM elements
-- `mcp___hypothesi_tauri-mcp-server__webview_interact` - Click, scroll, swipe, focus
-- `mcp___hypothesi_tauri-mcp-server__webview_keyboard` - Type text, key events
-- `mcp___hypothesi_tauri-mcp-server__webview_execute_js` - Execute JavaScript in webview
-- `mcp___hypothesi_tauri-mcp-server__webview_wait_for` - Wait for elements/text/events
-- `mcp___hypothesi_tauri-mcp-server__webview_get_styles` - Get computed CSS styles
-- `mcp___hypothesi_tauri-mcp-server__ipc_execute_command` - Execute Tauri IPC commands
-- `mcp___hypothesi_tauri-mcp-server__ipc_monitor` - Monitor IPC traffic
-- `mcp___hypothesi_tauri-mcp-server__ipc_emit_event` - Emit Tauri events
-- `mcp___hypothesi_tauri-mcp-server__ipc_get_backend_state` - Get app metadata
-- `mcp___hypothesi_tauri-mcp-server__manage_window` - List/resize windows
-- `mcp___hypothesi_tauri-mcp-server__read_logs` - Read console/system logs
-
-**Use for:** End-to-end testing of the complete Tauri application, testing IPC commands, verifying frontend-backend integration.
+- **Cargo workspace**: Multi-crate project structure
+- **cargo-bundle**: Platform-specific packaging (macOS .app, Windows .msi, Linux .deb/.AppImage)
 
 ## Testing Workflow
 
-1. **Unit Tests:** Rust backend tests via `cargo test`, Svelte component tests via Vitest
-2. **Integration Tests:** Use Tauri MCP to test IPC commands and data flow
-3. **E2E Tests:** Use Tauri MCP for full application testing with a running Postgres instance
-4. **UI Tests:** Use Playwright MCP for isolated frontend component testing
+1. **Unit Tests**: Rust tests via `cargo test` for all modules
+2. **Integration Tests**: Tests with test PostgreSQL database
+3. **UI Tests**: GPUI's built-in test harness for component testing
+4. **E2E Tests**: Headless window mode for full application testing
 
 ## Project Structure
 
@@ -136,106 +107,202 @@ tusk/
 ├── docs/
 │   ├── design.md              # Complete design specification
 │   └── features/              # Feature implementation documents
-├── src-tauri/                 # Rust backend
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── lib.rs
-│   │   ├── commands/          # Tauri IPC commands
-│   │   ├── services/          # Business logic
-│   │   │   ├── connection.rs  # Connection management
-│   │   │   ├── query.rs       # Query execution
-│   │   │   ├── schema.rs      # Schema introspection
-│   │   │   ├── admin.rs       # Admin/monitoring
-│   │   │   └── storage.rs     # Local SQLite storage
-│   │   ├── models/            # Data structures
-│   │   └── error.rs           # Error types
-│   ├── Cargo.toml
-│   └── tauri.conf.json
-├── src/                       # Svelte frontend
-│   ├── lib/
-│   │   ├── components/        # UI components
-│   │   │   ├── shell/         # App shell (sidebar, tabs, status)
-│   │   │   ├── editor/        # Monaco editor wrapper
-│   │   │   ├── grid/          # Results grid
-│   │   │   ├── tree/          # Schema browser tree
-│   │   │   ├── dialogs/       # Modal dialogs
-│   │   │   └── common/        # Shared components
-│   │   ├── stores/            # Svelte stores
-│   │   ├── services/          # Frontend services (IPC wrappers)
-│   │   └── utils/             # Utilities
-│   ├── routes/                # SvelteKit routes (if using)
-│   └── app.html
-├── package.json
-├── svelte.config.js
-├── tailwind.config.js
-├── vite.config.ts
+├── crates/
+│   ├── tusk/                  # Main application crate
+│   │   ├── src/
+│   │   │   ├── main.rs        # Application entry point
+│   │   │   ├── app.rs         # TuskApp root component
+│   │   │   ├── components/    # GPUI UI components
+│   │   │   │   ├── shell/     # App shell (sidebar, tabs, status)
+│   │   │   │   ├── editor/    # SQL editor component
+│   │   │   │   ├── grid/      # Results grid with virtualization
+│   │   │   │   ├── tree/      # Schema browser tree
+│   │   │   │   ├── dialogs/   # Modal dialogs
+│   │   │   │   └── common/    # Shared components (buttons, inputs)
+│   │   │   ├── state/         # Global state types
+│   │   │   └── actions.rs     # GPUI action definitions
+│   │   └── Cargo.toml
+│   ├── tusk_core/             # Core services crate
+│   │   ├── src/
+│   │   │   ├── lib.rs
+│   │   │   ├── services/      # Business logic services
+│   │   │   │   ├── connection.rs  # Connection management
+│   │   │   │   ├── query.rs       # Query execution
+│   │   │   │   ├── schema.rs      # Schema introspection
+│   │   │   │   ├── admin.rs       # Admin/monitoring
+│   │   │   │   └── storage.rs     # Local SQLite storage
+│   │   │   ├── models/        # Data structures
+│   │   │   └── error.rs       # Error types
+│   │   └── Cargo.toml
+│   └── tusk_editor/           # SQL editor crate (optional separation)
+│       ├── src/
+│       │   ├── lib.rs
+│       │   ├── syntax.rs      # SQL syntax highlighting
+│       │   ├── autocomplete.rs # Schema-aware completion
+│       │   └── parser.rs      # SQL statement parsing
+│       └── Cargo.toml
+├── assets/                    # Icons, fonts, themes
+├── Cargo.toml                 # Workspace manifest
 └── CLAUDE.md
 ```
 
 ## Key Design Decisions
 
-1. **Postgres Only:** No multi-database support. Deep Postgres integration.
-2. **Fully Local:** No cloud sync, no telemetry, no network calls except to Postgres servers.
-3. **OS Keychain:** Passwords never stored in files, always in OS keychain.
-4. **Streaming Results:** Large result sets streamed in batches via Tauri events.
-5. **Virtual Scrolling:** Grid handles millions of rows via virtualization.
-6. **Statement Timeout:** Configurable query timeout to prevent runaway queries.
+1. **Postgres Only**: No multi-database support. Deep Postgres integration.
+2. **Fully Local**: No cloud sync, no telemetry, no network calls except to Postgres servers.
+3. **OS Keychain**: Passwords never stored in files, always in OS keychain.
+4. **Streaming Results**: Large result sets streamed in batches via mpsc channels.
+5. **Virtual Scrolling**: Grid handles millions of rows via GPUI's UniformList.
+6. **Statement Timeout**: Configurable query timeout to prevent runaway queries.
+7. **Pure Rust**: No JavaScript, no webview — native GPUI rendering throughout.
 
 ## Performance Targets
 
 | Metric                    | Target     |
 | ------------------------- | ---------- |
-| Cold start                | < 1 second |
-| Memory (idle)             | < 100 MB   |
-| Memory (1M rows)          | < 500 MB   |
-| Render 1000 rows          | < 100ms    |
-| Schema load (1000 tables) | < 500ms    |
-| Autocomplete response     | < 50ms     |
+| Cold start                | < 500ms    |
+| Memory (idle)             | < 50 MB    |
+| Memory (1M rows)          | < 400 MB   |
+| Render 1000 rows          | < 16ms     |
+| Schema load (1000 tables) | < 300ms    |
+| Autocomplete response     | < 30ms     |
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-npm install
-cd src-tauri && cargo build
+# Build the project
+cargo build
 
-# Development
-npm run tauri dev
+# Run in development mode
+cargo run
 
-# Build for production
-npm run tauri build
+# Build for release
+cargo build --release
 
-# Run Rust tests
-cd src-tauri && cargo test
+# Run all tests
+cargo test
 
-# Run frontend tests
-npm test
+# Run tests for a specific crate
+cargo test -p tusk_core
+
+# Package for distribution (macOS)
+cargo bundle --release
+
+# Check code without building
+cargo check
+
+# Format code
+cargo fmt
+
+# Run clippy lints
+cargo clippy
 ```
 
 ## Feature Implementation Order
 
 See `docs/features/00-feature-index.md` for the complete ordered list of feature documents that must be implemented sequentially.
 
-## IPC Command Patterns
+## Architecture Patterns
 
-All Tauri commands follow this pattern:
+### State Management with Global Trait
 
 ```rust
-#[tauri::command]
-async fn command_name(
-    state: State<'_, AppState>,
-    param: Type
-) -> Result<ReturnType, Error> {
-    // Implementation
+use gpui::Global;
+use parking_lot::RwLock;
+
+pub struct ConnectionState {
+    connections: RwLock<HashMap<Uuid, ActiveConnection>>,
+    active_id: RwLock<Option<Uuid>>,
+}
+
+impl Global for ConnectionState {}
+
+// Access in components
+fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+    let state = cx.global::<ConnectionState>();
+    let connections = state.connections.read();
+    // ...
 }
 ```
 
-For streaming large results:
+### Component Rendering with Render Trait
 
 ```rust
-// Emit batches via events
-app.emit("query:rows", RowBatch { query_id, rows, batch_num })?;
-app.emit("query:complete", QueryComplete { query_id, total_rows, elapsed_ms })?;
+use gpui::{Render, Context, IntoElement, div};
+
+pub struct QueryEditor {
+    content: String,
+    connection_id: Option<Uuid>,
+}
+
+impl Render for QueryEditor {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .child(self.render_toolbar(cx))
+            .child(self.render_editor(cx))
+    }
+}
+```
+
+### Direct Service Calls
+
+```rust
+// Services are accessed directly, no IPC layer
+impl QueryEditor {
+    fn execute_query(&mut self, cx: &mut Context<Self>) {
+        let sql = self.content.clone();
+        let connection_id = self.connection_id;
+
+        cx.spawn(|this, mut cx| async move {
+            let service = cx.global::<QueryService>();
+            let result = service.execute(&sql, connection_id).await;
+
+            this.update(&mut cx, |this, cx| {
+                this.handle_result(result, cx);
+            });
+        }).detach();
+    }
+}
+```
+
+### Streaming with Channels
+
+```rust
+use tokio::sync::mpsc;
+
+pub enum StreamEvent {
+    Batch(Vec<Row>),
+    Complete { total: usize, elapsed_ms: u64 },
+    Error(TuskError),
+}
+
+impl QueryService {
+    pub async fn execute_streaming(
+        &self,
+        sql: &str,
+        tx: mpsc::Sender<StreamEvent>,
+    ) -> Result<()> {
+        let rows = self.client.query_raw(sql, &[]).await?;
+        let mut batch = Vec::with_capacity(1000);
+
+        while let Some(row) = rows.try_next().await? {
+            batch.push(row);
+            if batch.len() >= 1000 {
+                tx.send(StreamEvent::Batch(std::mem::take(&mut batch))).await?;
+            }
+        }
+
+        if !batch.is_empty() {
+            tx.send(StreamEvent::Batch(batch)).await?;
+        }
+
+        tx.send(StreamEvent::Complete { total, elapsed_ms }).await?;
+        Ok(())
+    }
+}
 ```
 
 ## Error Handling
@@ -248,6 +315,39 @@ All errors should include:
 - Position (for query errors)
 - Postgres error code (if applicable)
 
+```rust
+#[derive(Debug, thiserror::Error)]
+pub enum TuskError {
+    #[error("{message}")]
+    Query {
+        message: String,
+        detail: Option<String>,
+        hint: Option<String>,
+        position: Option<usize>,
+        code: Option<String>,
+    },
+
+    #[error("Connection failed: {0}")]
+    Connection(String),
+
+    #[error("Storage error: {0}")]
+    Storage(#[from] rusqlite::Error),
+}
+
+impl TuskError {
+    pub fn to_response(&self) -> ErrorResponse {
+        ErrorResponse {
+            message: self.to_string(),
+            detail: self.detail(),
+            hint: self.hint(),
+            position: self.position(),
+            code: self.code(),
+            recoverable: self.is_recoverable(),
+        }
+    }
+}
+```
+
 ## Security Requirements
 
 1. Never log passwords or credentials
@@ -256,14 +356,29 @@ All errors should include:
 4. Respect read-only connection mode
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
+## GPUI Reference
+
+GPUI documentation and examples can be found in the Zed repository:
+- Source: `~/src/zed/crates/gpui/`
+- Examples: `~/src/zed/crates/gpui/examples/`
+
+Key GPUI concepts:
+- `Render` trait: Component rendering
+- `Global` trait: Application-wide state
+- `Context<T>`: Component context for state and spawning
+- `actions!` macro: Define keyboard-triggerable actions
+- `UniformList`: Virtualized list for large datasets
+- `div()`, `h_flex()`, `v_flex()`: Layout primitives
+- `.on_click()`, `.on_mouse_down()`: Event handlers
+
 ## Active Technologies
 
-- Rust 1.75+ (backend), TypeScript 5.5+ (frontend) + Tauri v2, tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, thiserror, tracing, directories (002-backend-architecture)
-- SQLite (rusqlite) for local metadata; PostgreSQL for user databases (via tokio-postgres) (002-backend-architecture)
-
-- TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend) (001-project-init)
-- N/A (project scaffolding only; SQLite for metadata in future features) (001-project-init)
-
-## Recent Changes
-
-- 001-project-init: Added TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend)
+- Rust 1.75+ with GPUI (Zed's GPU-accelerated UI framework)
+- tokio-postgres, deadpool-postgres for PostgreSQL connectivity
+- rusqlite for local SQLite metadata storage
+- russh for SSH tunneling
+- keyring for OS keychain integration
+- thiserror for error handling
+- tracing for structured logging
+- parking_lot for synchronization primitives
+- serde/serde_json for serialization

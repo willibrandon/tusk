@@ -4,6 +4,7 @@ This document defines the complete ordered sequence of feature documents require
 
 **Total Documents:** 29
 **Reference:** `docs/design.md`
+**Architecture:** Pure Rust with GPUI (Zed's GPU-accelerated UI framework)
 
 ---
 
@@ -11,14 +12,14 @@ This document defines the complete ordered sequence of feature documents require
 
 These features establish the project infrastructure and must be completed first.
 
-| #   | Document                                                                   | Description                                       | Dependencies |
-| --- | -------------------------------------------------------------------------- | ------------------------------------------------- | ------------ |
-| 01  | [01-project-initialization.md](./01-project-initialization.md)             | Tauri project setup, tooling, build configuration | None         |
-| 02  | [02-backend-architecture.md](./02-backend-architecture.md)                 | Rust backend structure, modules, error handling   | 01           |
-| 03  | [03-frontend-architecture.md](./03-frontend-architecture.md)               | Svelte 5 setup, component structure, Tailwind     | 01           |
-| 04  | [04-ipc-layer.md](./04-ipc-layer.md)                                       | Tauri commands, events, serialization patterns    | 02, 03       |
-| 05  | [05-local-storage.md](./05-local-storage.md)                               | SQLite schema, migrations, CRUD operations        | 02, 04       |
-| 06  | [06-settings-theming-credentials.md](./06-settings-theming-credentials.md) | Settings system, light/dark theme, OS keychain    | 03, 04, 05   |
+| #   | Document                                                                   | Description                                          | Dependencies |
+| --- | -------------------------------------------------------------------------- | ---------------------------------------------------- | ------------ |
+| 01  | [01-project-initialization.md](./01-project-initialization.md)             | GPUI project setup, Cargo workspace, build config    | None         |
+| 02  | [02-backend-architecture.md](./02-backend-architecture.md)                 | Rust service layer, modules, error handling          | 01           |
+| 03  | [03-frontend-architecture.md](./03-frontend-architecture.md)               | GPUI component structure, styling, Global state      | 01           |
+| 04  | [04-ipc-layer.md](./04-ipc-layer.md)                                       | Service integration, async patterns, channel events  | 02, 03       |
+| 05  | [05-local-storage.md](./05-local-storage.md)                               | SQLite schema, migrations, CRUD operations           | 02, 04       |
+| 06  | [06-settings-theming-credentials.md](./06-settings-theming-credentials.md) | Settings system, GPUI theming, OS keychain           | 03, 04, 05   |
 
 ---
 
@@ -26,11 +27,11 @@ These features establish the project infrastructure and must be completed first.
 
 Core connection functionality required for all database operations.
 
-| #   | Document                                                     | Description                                        | Dependencies |
-| --- | ------------------------------------------------------------ | -------------------------------------------------- | ------------ |
-| 07  | [07-connection-management.md](./07-connection-management.md) | Connection model, pooling, lifecycle, validation   | 04, 05, 06   |
-| 08  | [08-ssl-ssh-security.md](./08-ssl-ssh-security.md)           | SSL/TLS modes, SSH tunneling via russh             | 07           |
-| 09  | [09-connection-ui.md](./09-connection-ui.md)                 | Connection dialog, tree, groups, status indicators | 06, 07, 08   |
+| #   | Document                                                     | Description                                            | Dependencies |
+| --- | ------------------------------------------------------------ | ------------------------------------------------------ | ------------ |
+| 07  | [07-connection-management.md](./07-connection-management.md) | Connection model, pooling, lifecycle, validation       | 04, 05, 06   |
+| 08  | [08-ssl-ssh-security.md](./08-ssl-ssh-security.md)           | SSL/TLS modes, SSH tunneling via russh                 | 07           |
+| 09  | [09-connection-ui.md](./09-connection-ui.md)                 | GPUI connection dialog, tree, groups, status           | 06, 07, 08   |
 
 ---
 
@@ -51,7 +52,7 @@ Query execution is the core functionality of the application.
 | #   | Document                                         | Description                                           | Dependencies |
 | --- | ------------------------------------------------ | ----------------------------------------------------- | ------------ |
 | 11  | [11-query-execution.md](./11-query-execution.md) | Execution engine, streaming, cancellation, parsing    | 07, 10       |
-| 12  | [12-monaco-editor.md](./12-monaco-editor.md)     | Monaco integration, autocomplete, syntax highlighting | 03, 10, 11   |
+| 12  | [12-sql-editor.md](./12-sql-editor.md)           | Native GPUI editor, autocomplete, syntax highlighting | 03, 10, 11   |
 | 13  | [13-tabs-history.md](./13-tabs-history.md)       | Tab management, query history, saved queries          | 05, 12       |
 
 ---
@@ -60,10 +61,10 @@ Query execution is the core functionality of the application.
 
 Display and interact with query results.
 
-| #   | Document                                   | Description                                     | Dependencies |
-| --- | ------------------------------------------ | ----------------------------------------------- | ------------ |
-| 14  | [14-results-grid.md](./14-results-grid.md) | TanStack Table, virtualization, cell rendering  | 03, 11       |
-| 15  | [15-export-copy.md](./15-export-copy.md)   | Export formats, copy operations, cell selection | 14           |
+| #   | Document                                   | Description                                        | Dependencies |
+| --- | ------------------------------------------ | -------------------------------------------------- | ------------ |
+| 14  | [14-results-grid.md](./14-results-grid.md) | GPUI virtualized list, custom cell rendering       | 03, 11       |
+| 15  | [15-export-copy.md](./15-export-copy.md)   | Export formats, copy operations, cell selection    | 14           |
 
 ---
 
@@ -73,7 +74,7 @@ Navigate and explore database objects.
 
 | #   | Document                                       | Description                                  | Dependencies |
 | --- | ---------------------------------------------- | -------------------------------------------- | ------------ |
-| 16  | [16-schema-browser.md](./16-schema-browser.md) | Tree view, object search, context menus, DDL | 09, 10       |
+| 16  | [16-schema-browser.md](./16-schema-browser.md) | GPUI tree view, object search, context menus | 09, 10       |
 
 ---
 
@@ -144,9 +145,9 @@ Data import and backup functionality.
 
 Visual database schema representation.
 
-| #   | Document                               | Description                                      | Dependencies |
-| --- | -------------------------------------- | ------------------------------------------------ | ------------ |
-| 26  | [26-er-diagram.md](./26-er-diagram.md) | @xyflow/svelte canvas, layout algorithms, export | 10, 16       |
+| #   | Document                               | Description                                          | Dependencies |
+| --- | -------------------------------------- | ---------------------------------------------------- | ------------ |
+| 26  | [26-er-diagram.md](./26-er-diagram.md) | Native GPUI canvas, layout algorithms, export to PNG | 10, 16       |
 
 ---
 
@@ -162,26 +163,85 @@ Platform-specific features and final polish.
 
 ---
 
+## Technology Stack
+
+### Core Framework
+
+- **GPUI**: Zed's GPU-accelerated UI framework (pure Rust)
+- **Rust**: 1.75+ with 2021 edition
+
+### Backend Services
+
+- **tokio-postgres**: Async PostgreSQL driver with streaming
+- **deadpool-postgres**: Connection pooling
+- **rusqlite**: Local SQLite storage for metadata
+- **russh**: Pure Rust SSH tunneling
+- **keyring**: OS keychain integration
+- **serde/serde_json**: Serialization
+
+### UI Components
+
+- **GPUI Render trait**: Component rendering with `impl IntoElement`
+- **GPUI Global trait**: Application-wide state management
+- **parking_lot::RwLock**: Thread-safe state access
+- **GPUI Actions**: Keyboard shortcuts and command palette
+- **GPUI UniformList**: Virtualized scrolling for large datasets
+
+### Build & Development
+
+- **Cargo workspace**: Multi-crate project structure
+- **cargo-bundle**: Platform-specific packaging
+
+---
+
 ## Implementation Notes
 
 ### Critical Path
 
 The minimum viable path to a working query interface:
 
-1. Project Initialization (01)
-2. Backend/Frontend Architecture (02, 03)
-3. IPC Layer (04)
-4. Local Storage (05)
-5. Connection Management (07)
-6. Query Execution (11)
-7. Results Grid (14)
+1. Project Initialization (01) - GPUI app scaffold
+2. Backend Architecture (02) - Service layer structure
+3. GPUI Architecture (03) - Component and state patterns
+4. Service Integration (04) - Async service calls from UI
+5. Local Storage (05) - SQLite for connections/settings
+6. Connection Management (07) - PostgreSQL connection pool
+7. Query Execution (11) - Execute SQL and stream results
+8. Results Grid (14) - Display query results with virtualization
+
+### Architecture Patterns
+
+All feature documents follow these GPUI patterns:
+
+```rust
+// State management with Global trait
+pub struct AppState {
+    data: RwLock<StateData>,
+}
+impl Global for AppState {}
+
+// Component rendering with Render trait
+impl Render for MyComponent {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        div().child("content")
+    }
+}
+
+// Direct service calls (no IPC layer)
+let result = cx.global::<ConnectionService>().connect(config).await;
+
+// Event emission via channels
+let (tx, rx) = tokio::sync::mpsc::channel(100);
+service.stream_results(query, tx).await;
+```
 
 ### Testing Strategy
 
 - Each feature document specifies testable acceptance criteria
-- Use Tauri MCP for end-to-end testing
-- Use Playwright MCP for isolated UI component testing
-- Maintain test coverage throughout development
+- Unit tests via `cargo test` for all service modules
+- Integration tests with test PostgreSQL database
+- UI tests using GPUI's built-in test harness
+- End-to-end tests with headless window mode
 
 ### No Deferrals
 
@@ -204,8 +264,8 @@ Update this table as implementation progresses:
 | --- | -------------------------------- | ----------- |
 | 01  | Project Initialization           | Not Started |
 | 02  | Backend Architecture             | Not Started |
-| 03  | Frontend Architecture            | Not Started |
-| 04  | IPC Layer                        | Not Started |
+| 03  | GPUI Architecture                | Not Started |
+| 04  | Service Integration              | Not Started |
 | 05  | Local Storage                    | Not Started |
 | 06  | Settings/Theming/Credentials     | Not Started |
 | 07  | Connection Management            | Not Started |
@@ -213,7 +273,7 @@ Update this table as implementation progresses:
 | 09  | Connection UI                    | Not Started |
 | 10  | Schema Introspection             | Not Started |
 | 11  | Query Execution                  | Not Started |
-| 12  | Monaco Editor                    | Not Started |
+| 12  | SQL Editor                       | Not Started |
 | 13  | Tabs & History                   | Not Started |
 | 14  | Results Grid                     | Not Started |
 | 15  | Export & Copy                    | Not Started |

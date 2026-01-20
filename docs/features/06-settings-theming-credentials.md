@@ -2,482 +2,390 @@
 
 ## Overview
 
-Implement the settings system, theme management (light/dark/system), and secure credential storage using OS keychain. This feature provides the configuration foundation for all user preferences.
+Implement the settings system, theme management (light/dark/system), and secure credential storage using OS keychain. This is a pure GPUI implementation with themes as Globals, settings stored in SQLite via StorageService, and passwords secured in the OS keychain.
 
 ## Goals
 
-- Complete settings UI with all categories from design doc
-- Theme switching with system preference detection
+- Complete settings panel with all categories from design doc
+- Theme system with light/dark/system modes and color palette
 - OS keychain integration for passwords and SSH passphrases
-- Settings persistence and sync with backend
-- Keyboard shortcut customization framework
+- Settings persistence via StorageService
+- Keyboard shortcut customization integrated with GPUI's key bindings
+- Platform-native appearance following OS conventions
 
 ## Technical Specification
 
-### 1. Settings Dialog Component
-
-```svelte
-<!-- components/dialogs/SettingsDialog.svelte -->
-<script lang="ts">
-	import Dialog from './Dialog.svelte';
-	import { settingsStore, type Settings } from '$stores/settings';
-	import { storageCommands } from '$services/ipc';
-
-	interface Props {
-		open: boolean;
-		onClose: () => void;
-	}
-
-	let { open, onClose }: Props = $props();
-
-	let activeCategory = $state('general');
-	let settings = $state<Settings>($settingsStore);
-	let isDirty = $state(false);
-	let isSaving = $state(false);
-
-	const categories = [
-		{ id: 'general', label: 'General', icon: 'settings' },
-		{ id: 'editor', label: 'Editor', icon: 'code' },
-		{ id: 'results', label: 'Results', icon: 'table' },
-		{ id: 'query', label: 'Query Execution', icon: 'play' },
-		{ id: 'connections', label: 'Connections', icon: 'database' },
-		{ id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'keyboard' }
-	];
-
-	function handleChange() {
-		isDirty = true;
-	}
-
-	async function handleSave() {
-		isSaving = true;
-		try {
-			await storageCommands.saveSettings(settings);
-			settingsStore.set(settings);
-			isDirty = false;
-		} catch (error) {
-			console.error('Failed to save settings:', error);
-		} finally {
-			isSaving = false;
-		}
-	}
-
-	function handleCancel() {
-		settings = $settingsStore;
-		isDirty = false;
-		onClose();
-	}
-
-	function handleReset() {
-		// Reset current category to defaults
-		switch (activeCategory) {
-			case 'editor':
-				settings.editor = getDefaultEditorSettings();
-				break;
-			case 'results':
-				settings.results = getDefaultResultsSettings();
-				break;
-			// ... etc
-		}
-		isDirty = true;
-	}
-</script>
-
-<Dialog {open} onClose={handleCancel} title="Settings" size="large">
-	<div class="flex h-[500px]">
-		<!-- Sidebar -->
-		<nav class="w-48 border-r border-gray-200 dark:border-gray-700 p-2">
-			{#each categories as category}
-				<button
-					class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-left"
-					class:bg-blue-100={activeCategory === category.id}
-					class:dark:bg-blue-900={activeCategory === category.id}
-					onclick={() => (activeCategory = category.id)}
-				>
-					<Icon name={category.icon} size={16} />
-					{category.label}
-				</button>
-			{/each}
-		</nav>
-
-		<!-- Content -->
-		<div class="flex-1 p-4 overflow-auto">
-			{#if activeCategory === 'general'}
-				<GeneralSettings bind:settings onchange={handleChange} />
-			{:else if activeCategory === 'editor'}
-				<EditorSettings bind:settings onchange={handleChange} />
-			{:else if activeCategory === 'results'}
-				<ResultsSettings bind:settings onchange={handleChange} />
-			{:else if activeCategory === 'query'}
-				<QueryExecutionSettings bind:settings onchange={handleChange} />
-			{:else if activeCategory === 'connections'}
-				<ConnectionsSettings bind:settings onchange={handleChange} />
-			{:else if activeCategory === 'shortcuts'}
-				<ShortcutsSettings bind:settings onchange={handleChange} />
-			{/if}
-		</div>
-	</div>
-
-	<svelte:fragment slot="footer">
-		<div class="flex items-center justify-between w-full">
-			<button class="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800" onclick={handleReset}>
-				Reset to Defaults
-			</button>
-			<div class="flex gap-2">
-				<button class="px-4 py-1.5 text-sm border rounded hover:bg-gray-50" onclick={handleCancel}>
-					Cancel
-				</button>
-				<button
-					class="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-					onclick={handleSave}
-					disabled={!isDirty || isSaving}
-				>
-					{isSaving ? 'Saving...' : 'Save'}
-				</button>
-			</div>
-		</div>
-	</svelte:fragment>
-</Dialog>
-```
-
-### 2. Settings Categories Components
-
-```svelte
-<!-- components/settings/GeneralSettings.svelte -->
-<script lang="ts">
-	import type { Settings } from '$stores/settings';
-	import FormField from '$components/forms/FormField.svelte';
-	import Select from '$components/forms/Select.svelte';
-	import Checkbox from '$components/forms/Checkbox.svelte';
-
-	interface Props {
-		settings: Settings;
-		onchange: () => void;
-	}
-
-	let { settings = $bindable(), onchange }: Props = $props();
-
-	const themeOptions = [
-		{ value: 'light', label: 'Light' },
-		{ value: 'dark', label: 'Dark' },
-		{ value: 'system', label: 'System' }
-	];
-
-	const startupOptions = [
-		{ value: 'restore', label: 'Restore previous session' },
-		{ value: 'fresh', label: 'Start fresh' }
-	];
-</script>
-
-<div class="space-y-6">
-	<h3 class="text-lg font-medium">General</h3>
-
-	<FormField label="Theme">
-		<Select options={themeOptions} bind:value={settings.theme.mode} {onchange} />
-	</FormField>
-
-	<FormField label="Startup">
-		<Select options={startupOptions} bind:value={settings.general.startup} {onchange} />
-	</FormField>
-
-	<FormField label="Auto-save">
-		<div class="flex items-center gap-2">
-			<Checkbox bind:checked={settings.general.autoSave} {onchange} />
-			<span class="text-sm text-gray-600">Save query tabs every</span>
-			<input
-				type="number"
-				class="w-16 px-2 py-1 text-sm border rounded"
-				bind:value={settings.general.autoSaveIntervalSec}
-				{onchange}
-				min="5"
-				max="300"
-			/>
-			<span class="text-sm text-gray-600">seconds</span>
-		</div>
-	</FormField>
-</div>
-```
-
-```svelte
-<!-- components/settings/EditorSettings.svelte -->
-<script lang="ts">
-	import type { Settings } from '$stores/settings';
-	import FormField from '$components/forms/FormField.svelte';
-	import Select from '$components/forms/Select.svelte';
-	import Checkbox from '$components/forms/Checkbox.svelte';
-	import Input from '$components/forms/Input.svelte';
-
-	interface Props {
-		settings: Settings;
-		onchange: () => void;
-	}
-
-	let { settings = $bindable(), onchange }: Props = $props();
-
-	const fontFamilies = [
-		{ value: 'JetBrains Mono', label: 'JetBrains Mono' },
-		{ value: 'Fira Code', label: 'Fira Code' },
-		{ value: 'Monaco', label: 'Monaco' },
-		{ value: 'Consolas', label: 'Consolas' },
-		{ value: 'monospace', label: 'System Monospace' }
-	];
-
-	const tabSizes = [
-		{ value: 2, label: '2 spaces' },
-		{ value: 4, label: '4 spaces' },
-		{ value: 8, label: '8 spaces' }
-	];
-</script>
-
-<div class="space-y-6">
-	<h3 class="text-lg font-medium">Editor</h3>
-
-	<div class="grid grid-cols-2 gap-4">
-		<FormField label="Font Family">
-			<Select options={fontFamilies} bind:value={settings.editor.fontFamily} {onchange} />
-		</FormField>
-
-		<FormField label="Font Size">
-			<Input type="number" bind:value={settings.editor.fontSize} {onchange} min="8" max="24" />
-		</FormField>
-	</div>
-
-	<div class="grid grid-cols-2 gap-4">
-		<FormField label="Tab Size">
-			<Select options={tabSizes} bind:value={settings.editor.tabSize} {onchange} />
-		</FormField>
-
-		<FormField label="Indentation">
-			<Select
-				options={[
-					{ value: true, label: 'Spaces' },
-					{ value: false, label: 'Tabs' }
-				]}
-				bind:value={settings.editor.useSpaces}
-				{onchange}
-			/>
-		</FormField>
-	</div>
-
-	<div class="space-y-3">
-		<Checkbox bind:checked={settings.editor.lineNumbers} {onchange} label="Show line numbers" />
-
-		<Checkbox bind:checked={settings.editor.minimap} {onchange} label="Show minimap" />
-
-		<Checkbox bind:checked={settings.editor.wordWrap} {onchange} label="Word wrap" />
-
-		<Checkbox bind:checked={settings.editor.bracketMatching} {onchange} label="Bracket matching" />
-	</div>
-
-	<FormField label="Autocomplete delay (ms)">
-		<Input
-			type="number"
-			bind:value={settings.editor.autocompleteDelayMs}
-			{onchange}
-			min="0"
-			max="1000"
-		/>
-	</FormField>
-</div>
-```
-
-```svelte
-<!-- components/settings/ResultsSettings.svelte -->
-<script lang="ts">
-	import type { Settings } from '$stores/settings';
-	import FormField from '$components/forms/FormField.svelte';
-	import Select from '$components/forms/Select.svelte';
-	import Input from '$components/forms/Input.svelte';
-
-	interface Props {
-		settings: Settings;
-		onchange: () => void;
-	}
-
-	let { settings = $bindable(), onchange }: Props = $props();
-
-	const copyFormats = [
-		{ value: 'tsv', label: 'Tab-separated (TSV)' },
-		{ value: 'csv', label: 'Comma-separated (CSV)' },
-		{ value: 'json', label: 'JSON' }
-	];
-
-	const dateFormats = [
-		{ value: 'YYYY-MM-DD HH:mm:ss', label: 'ISO (2024-03-15 10:30:00)' },
-		{ value: 'MM/DD/YYYY h:mm A', label: 'US (03/15/2024 10:30 AM)' },
-		{ value: 'DD/MM/YYYY HH:mm', label: 'EU (15/03/2024 10:30)' },
-		{ value: 'relative', label: 'Relative (2 hours ago)' }
-	];
-</script>
-
-<div class="space-y-6">
-	<h3 class="text-lg font-medium">Results</h3>
-
-	<FormField label="Default row limit">
-		<Input
-			type="number"
-			bind:value={settings.results.defaultRowLimit}
-			{onchange}
-			min="100"
-			max="100000"
-		/>
-		<p class="text-xs text-gray-500 mt-1">Maximum rows to fetch for SELECT queries without LIMIT</p>
-	</FormField>
-
-	<FormField label="Date/Time format">
-		<Select options={dateFormats} bind:value={settings.results.dateFormat} {onchange} />
-	</FormField>
-
-	<FormField label="NULL display">
-		<Input type="text" bind:value={settings.results.nullDisplay} {onchange} placeholder="NULL" />
-	</FormField>
-
-	<FormField label="Truncate text at (characters)">
-		<Input
-			type="number"
-			bind:value={settings.results.truncateTextAt}
-			{onchange}
-			min="50"
-			max="10000"
-		/>
-	</FormField>
-
-	<FormField label="Copy format">
-		<Select options={copyFormats} bind:value={settings.results.copyFormat} {onchange} />
-	</FormField>
-</div>
-```
-
-### 3. Theme System
-
-```typescript
-// stores/theme.ts
-import { writable, derived } from 'svelte/store';
-import { browser } from '$app/environment';
-import { storageCommands } from '$services/ipc';
-
-export type ThemeMode = 'light' | 'dark' | 'system';
-
-interface ThemeState {
-	mode: ThemeMode;
-	resolved: 'light' | 'dark';
-}
-
-function getSystemTheme(): 'light' | 'dark' {
-	if (!browser) return 'light';
-	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
-	if (mode === 'system') {
-		return getSystemTheme();
-	}
-	return mode;
-}
-
-function createThemeStore() {
-	const { subscribe, set, update } = writable<ThemeState>({
-		mode: 'system',
-		resolved: getSystemTheme()
-	});
-
-	// Listen for system theme changes
-	if (browser) {
-		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-		mediaQuery.addEventListener('change', () => {
-			update((state) => {
-				if (state.mode === 'system') {
-					return { ...state, resolved: getSystemTheme() };
-				}
-				return state;
-			});
-		});
-	}
-
-	return {
-		subscribe,
-
-		async setMode(mode: ThemeMode) {
-			const resolved = resolveTheme(mode);
-			set({ mode, resolved });
-
-			// Apply to document
-			if (browser) {
-				document.documentElement.classList.toggle('dark', resolved === 'dark');
-			}
-
-			// Persist to settings
-			try {
-				const settings = await storageCommands.getSettings();
-				settings.theme.mode = mode;
-				await storageCommands.saveSettings(settings);
-			} catch (error) {
-				console.error('Failed to save theme setting:', error);
-			}
-		},
-
-		async initialize() {
-			try {
-				const settings = await storageCommands.getSettings();
-				const mode = (settings.theme?.mode as ThemeMode) || 'system';
-				const resolved = resolveTheme(mode);
-				set({ mode, resolved });
-
-				if (browser) {
-					document.documentElement.classList.toggle('dark', resolved === 'dark');
-				}
-			} catch (error) {
-				console.error('Failed to load theme setting:', error);
-			}
-		}
-	};
-}
-
-export const themeStore = createThemeStore();
-
-// Derived store for easy access to resolved theme
-export const currentTheme = derived(themeStore, ($theme) => $theme.resolved);
-```
-
-### 4. Credential Management (Keyring)
+### 1. Theme System
 
 ```rust
-// services/keyring.rs
+// src/theme/mod.rs
+
+use gpui::{Global, Hsla, Rgba, WindowAppearance};
+use serde::{Deserialize, Serialize};
+
+/// Theme mode preference.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ThemeMode {
+    Light,
+    Dark,
+    #[default]
+    System,
+}
+
+/// Active theme colors.
+pub struct Theme {
+    pub mode: ThemeMode,
+    pub appearance: Appearance,
+    pub colors: ThemeColors,
+    pub syntax: SyntaxColors,
+}
+
+impl Global for Theme {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Appearance {
+    Light,
+    Dark,
+}
+
+impl Appearance {
+    pub fn is_dark(&self) -> bool {
+        matches!(self, Self::Dark)
+    }
+}
+
+/// Color palette for UI elements.
+#[derive(Debug, Clone)]
+pub struct ThemeColors {
+    // Backgrounds
+    pub background: Hsla,
+    pub surface: Hsla,
+    pub surface_elevated: Hsla,
+    pub panel: Hsla,
+
+    // Text
+    pub text: Hsla,
+    pub text_muted: Hsla,
+    pub text_placeholder: Hsla,
+    pub text_accent: Hsla,
+
+    // Interactive states
+    pub hover: Hsla,
+    pub selection: Hsla,
+    pub focus_ring: Hsla,
+
+    // Borders
+    pub border: Hsla,
+    pub border_focused: Hsla,
+    pub border_selected: Hsla,
+
+    // Semantic colors
+    pub error: Hsla,
+    pub warning: Hsla,
+    pub success: Hsla,
+    pub info: Hsla,
+
+    // Editor specific
+    pub editor_background: Hsla,
+    pub editor_gutter: Hsla,
+    pub editor_line_highlight: Hsla,
+    pub editor_selection: Hsla,
+
+    // Results grid
+    pub grid_header: Hsla,
+    pub grid_row_even: Hsla,
+    pub grid_row_odd: Hsla,
+    pub grid_row_hover: Hsla,
+    pub grid_cell_null: Hsla,
+
+    // Connection status
+    pub connected: Hsla,
+    pub disconnected: Hsla,
+    pub connecting: Hsla,
+}
+
+/// SQL syntax highlighting colors.
+#[derive(Debug, Clone)]
+pub struct SyntaxColors {
+    pub keyword: Hsla,
+    pub string: Hsla,
+    pub number: Hsla,
+    pub comment: Hsla,
+    pub operator: Hsla,
+    pub function: Hsla,
+    pub type_name: Hsla,
+    pub identifier: Hsla,
+    pub table: Hsla,
+    pub column: Hsla,
+}
+
+impl Theme {
+    /// Create theme from mode, resolving system preference.
+    pub fn from_mode(mode: ThemeMode, system_appearance: WindowAppearance) -> Self {
+        let appearance = match mode {
+            ThemeMode::Light => Appearance::Light,
+            ThemeMode::Dark => Appearance::Dark,
+            ThemeMode::System => match system_appearance {
+                WindowAppearance::Dark | WindowAppearance::VibrantDark => Appearance::Dark,
+                _ => Appearance::Light,
+            },
+        };
+
+        let (colors, syntax) = match appearance {
+            Appearance::Light => (Self::light_colors(), Self::light_syntax()),
+            Appearance::Dark => (Self::dark_colors(), Self::dark_syntax()),
+        };
+
+        Self {
+            mode,
+            appearance,
+            colors,
+            syntax,
+        }
+    }
+
+    fn light_colors() -> ThemeColors {
+        ThemeColors {
+            // Backgrounds
+            background: hsla(0.0, 0.0, 0.98, 1.0),
+            surface: hsla(0.0, 0.0, 1.0, 1.0),
+            surface_elevated: hsla(0.0, 0.0, 1.0, 1.0),
+            panel: hsla(0.0, 0.0, 0.96, 1.0),
+
+            // Text
+            text: hsla(0.0, 0.0, 0.1, 1.0),
+            text_muted: hsla(0.0, 0.0, 0.4, 1.0),
+            text_placeholder: hsla(0.0, 0.0, 0.6, 1.0),
+            text_accent: hsla(211.0, 0.8, 0.45, 1.0),
+
+            // Interactive
+            hover: hsla(0.0, 0.0, 0.0, 0.04),
+            selection: hsla(211.0, 0.8, 0.45, 0.15),
+            focus_ring: hsla(211.0, 0.8, 0.55, 1.0),
+
+            // Borders
+            border: hsla(0.0, 0.0, 0.0, 0.1),
+            border_focused: hsla(211.0, 0.8, 0.55, 1.0),
+            border_selected: hsla(211.0, 0.8, 0.45, 1.0),
+
+            // Semantic
+            error: hsla(0.0, 0.7, 0.5, 1.0),
+            warning: hsla(35.0, 0.9, 0.5, 1.0),
+            success: hsla(120.0, 0.5, 0.4, 1.0),
+            info: hsla(211.0, 0.8, 0.55, 1.0),
+
+            // Editor
+            editor_background: hsla(0.0, 0.0, 1.0, 1.0),
+            editor_gutter: hsla(0.0, 0.0, 0.96, 1.0),
+            editor_line_highlight: hsla(0.0, 0.0, 0.0, 0.03),
+            editor_selection: hsla(211.0, 0.8, 0.45, 0.2),
+
+            // Grid
+            grid_header: hsla(0.0, 0.0, 0.96, 1.0),
+            grid_row_even: hsla(0.0, 0.0, 1.0, 1.0),
+            grid_row_odd: hsla(0.0, 0.0, 0.98, 1.0),
+            grid_row_hover: hsla(211.0, 0.8, 0.45, 0.08),
+            grid_cell_null: hsla(0.0, 0.0, 0.6, 1.0),
+
+            // Connection
+            connected: hsla(120.0, 0.5, 0.4, 1.0),
+            disconnected: hsla(0.0, 0.0, 0.5, 1.0),
+            connecting: hsla(35.0, 0.9, 0.5, 1.0),
+        }
+    }
+
+    fn dark_colors() -> ThemeColors {
+        ThemeColors {
+            // Backgrounds
+            background: hsla(220.0, 0.15, 0.1, 1.0),
+            surface: hsla(220.0, 0.15, 0.12, 1.0),
+            surface_elevated: hsla(220.0, 0.15, 0.14, 1.0),
+            panel: hsla(220.0, 0.15, 0.08, 1.0),
+
+            // Text
+            text: hsla(0.0, 0.0, 0.9, 1.0),
+            text_muted: hsla(0.0, 0.0, 0.6, 1.0),
+            text_placeholder: hsla(0.0, 0.0, 0.4, 1.0),
+            text_accent: hsla(211.0, 0.8, 0.65, 1.0),
+
+            // Interactive
+            hover: hsla(0.0, 0.0, 1.0, 0.06),
+            selection: hsla(211.0, 0.8, 0.55, 0.25),
+            focus_ring: hsla(211.0, 0.8, 0.65, 1.0),
+
+            // Borders
+            border: hsla(0.0, 0.0, 1.0, 0.1),
+            border_focused: hsla(211.0, 0.8, 0.65, 1.0),
+            border_selected: hsla(211.0, 0.8, 0.55, 1.0),
+
+            // Semantic
+            error: hsla(0.0, 0.7, 0.6, 1.0),
+            warning: hsla(35.0, 0.9, 0.55, 1.0),
+            success: hsla(120.0, 0.5, 0.5, 1.0),
+            info: hsla(211.0, 0.8, 0.65, 1.0),
+
+            // Editor
+            editor_background: hsla(220.0, 0.15, 0.1, 1.0),
+            editor_gutter: hsla(220.0, 0.15, 0.12, 1.0),
+            editor_line_highlight: hsla(0.0, 0.0, 1.0, 0.04),
+            editor_selection: hsla(211.0, 0.8, 0.55, 0.3),
+
+            // Grid
+            grid_header: hsla(220.0, 0.15, 0.14, 1.0),
+            grid_row_even: hsla(220.0, 0.15, 0.12, 1.0),
+            grid_row_odd: hsla(220.0, 0.15, 0.1, 1.0),
+            grid_row_hover: hsla(211.0, 0.8, 0.55, 0.12),
+            grid_cell_null: hsla(0.0, 0.0, 0.4, 1.0),
+
+            // Connection
+            connected: hsla(120.0, 0.5, 0.5, 1.0),
+            disconnected: hsla(0.0, 0.0, 0.5, 1.0),
+            connecting: hsla(35.0, 0.9, 0.55, 1.0),
+        }
+    }
+
+    fn light_syntax() -> SyntaxColors {
+        SyntaxColors {
+            keyword: hsla(280.0, 0.6, 0.45, 1.0),   // Purple
+            string: hsla(30.0, 0.7, 0.45, 1.0),    // Orange
+            number: hsla(200.0, 0.8, 0.4, 1.0),    // Cyan
+            comment: hsla(0.0, 0.0, 0.5, 1.0),     // Gray
+            operator: hsla(0.0, 0.0, 0.3, 1.0),    // Dark gray
+            function: hsla(200.0, 0.7, 0.4, 1.0),  // Blue
+            type_name: hsla(180.0, 0.6, 0.4, 1.0), // Teal
+            identifier: hsla(0.0, 0.0, 0.2, 1.0), // Near black
+            table: hsla(280.0, 0.5, 0.5, 1.0),    // Light purple
+            column: hsla(220.0, 0.6, 0.45, 1.0),  // Blue
+        }
+    }
+
+    fn dark_syntax() -> SyntaxColors {
+        SyntaxColors {
+            keyword: hsla(280.0, 0.6, 0.7, 1.0),   // Light purple
+            string: hsla(30.0, 0.7, 0.65, 1.0),    // Light orange
+            number: hsla(200.0, 0.8, 0.65, 1.0),   // Light cyan
+            comment: hsla(0.0, 0.0, 0.5, 1.0),     // Gray
+            operator: hsla(0.0, 0.0, 0.7, 1.0),    // Light gray
+            function: hsla(200.0, 0.7, 0.65, 1.0), // Light blue
+            type_name: hsla(180.0, 0.6, 0.65, 1.0),// Light teal
+            identifier: hsla(0.0, 0.0, 0.85, 1.0),// Near white
+            table: hsla(280.0, 0.5, 0.7, 1.0),    // Light purple
+            column: hsla(220.0, 0.6, 0.7, 1.0),   // Light blue
+        }
+    }
+}
+
+fn hsla(h: f32, s: f32, l: f32, a: f32) -> Hsla {
+    Hsla { h: h / 360.0, s, l, a }
+}
+```
+
+### 2. Theme Manager
+
+```rust
+// src/theme/manager.rs
+
+use gpui::*;
+use crate::state::TuskState;
+use crate::theme::{Theme, ThemeMode};
+
+/// Manages theme state and switching.
+pub struct ThemeManager;
+
+impl ThemeManager {
+    /// Initialize theme from saved settings.
+    pub fn initialize(cx: &mut AppContext) {
+        let settings = cx.global::<TuskState>().storage.get_all_settings()
+            .unwrap_or_default();
+
+        let mode = settings.theme.mode;
+        let appearance = cx.window_appearance();
+        let theme = Theme::from_mode(mode, appearance);
+
+        cx.set_global(theme);
+
+        // Listen for system appearance changes
+        cx.observe_window_appearance(|cx| {
+            let theme = cx.global::<Theme>();
+            if theme.mode == ThemeMode::System {
+                ThemeManager::update_theme(theme.mode, cx);
+            }
+        })
+        .detach();
+    }
+
+    /// Update theme to a new mode.
+    pub fn set_mode(mode: ThemeMode, cx: &mut AppContext) {
+        Self::update_theme(mode, cx);
+
+        // Persist to storage
+        let state = cx.global::<TuskState>();
+        if let Ok(mut settings) = state.storage.get_all_settings() {
+            settings.theme.mode = mode;
+            let _ = state.storage.save_all_settings(&settings);
+        }
+    }
+
+    fn update_theme(mode: ThemeMode, cx: &mut AppContext) {
+        let appearance = cx.window_appearance();
+        let theme = Theme::from_mode(mode, appearance);
+        cx.set_global(theme);
+    }
+
+    /// Get the current resolved appearance.
+    pub fn appearance(cx: &AppContext) -> crate::theme::Appearance {
+        cx.global::<Theme>().appearance
+    }
+}
+```
+
+### 3. Credential Management (Keyring)
+
+```rust
+// src/services/keyring.rs
+
 use keyring::Entry;
 use crate::error::{Result, TuskError};
 
-const SERVICE_NAME: &str = "tusk";
+const SERVICE_NAME: &str = "dev.tusk.Tusk";
 
+/// Secure credential storage using OS keychain.
+///
+/// - macOS: Keychain
+/// - Windows: Credential Manager
+/// - Linux: Secret Service (libsecret)
 pub struct KeyringService;
 
 impl KeyringService {
-    /// Store a password for a connection
+    /// Store a database password for a connection.
     pub fn store_password(connection_id: &str, password: &str) -> Result<()> {
-        let entry = Entry::new(SERVICE_NAME, &format!("conn:{}", connection_id))
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+        let entry = Entry::new(SERVICE_NAME, &format!("db:{}", connection_id))
+            .map_err(|e| TuskError::Keyring(format!("Failed to create entry: {}", e)))?;
 
         entry.set_password(password)
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+            .map_err(|e| TuskError::Keyring(format!("Failed to store password: {}", e)))?;
 
         tracing::debug!("Stored password for connection: {}", connection_id);
         Ok(())
     }
 
-    /// Retrieve a password for a connection
+    /// Retrieve a database password for a connection.
     pub fn get_password(connection_id: &str) -> Result<Option<String>> {
-        let entry = Entry::new(SERVICE_NAME, &format!("conn:{}", connection_id))
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+        let entry = Entry::new(SERVICE_NAME, &format!("db:{}", connection_id))
+            .map_err(|e| TuskError::Keyring(format!("Failed to create entry: {}", e)))?;
 
         match entry.get_password() {
             Ok(password) => Ok(Some(password)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(TuskError::KeyringError(e.to_string())),
+            Err(e) => Err(TuskError::Keyring(format!("Failed to get password: {}", e))),
         }
     }
 
-    /// Delete a password for a connection
+    /// Delete a database password for a connection.
     pub fn delete_password(connection_id: &str) -> Result<()> {
-        let entry = Entry::new(SERVICE_NAME, &format!("conn:{}", connection_id))
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+        let entry = Entry::new(SERVICE_NAME, &format!("db:{}", connection_id))
+            .map_err(|e| TuskError::Keyring(format!("Failed to create entry: {}", e)))?;
 
         match entry.delete_credential() {
             Ok(()) => {
@@ -485,526 +393,1194 @@ impl KeyringService {
                 Ok(())
             }
             Err(keyring::Error::NoEntry) => Ok(()), // Already deleted
-            Err(e) => Err(TuskError::KeyringError(e.to_string())),
+            Err(e) => Err(TuskError::Keyring(format!("Failed to delete password: {}", e))),
         }
     }
 
-    /// Store SSH passphrase for a connection
+    /// Store SSH key passphrase for a connection.
     pub fn store_ssh_passphrase(connection_id: &str, passphrase: &str) -> Result<()> {
         let entry = Entry::new(SERVICE_NAME, &format!("ssh:{}", connection_id))
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+            .map_err(|e| TuskError::Keyring(format!("Failed to create entry: {}", e)))?;
 
         entry.set_password(passphrase)
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+            .map_err(|e| TuskError::Keyring(format!("Failed to store passphrase: {}", e)))?;
 
         tracing::debug!("Stored SSH passphrase for connection: {}", connection_id);
         Ok(())
     }
 
-    /// Retrieve SSH passphrase for a connection
+    /// Retrieve SSH key passphrase for a connection.
     pub fn get_ssh_passphrase(connection_id: &str) -> Result<Option<String>> {
         let entry = Entry::new(SERVICE_NAME, &format!("ssh:{}", connection_id))
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+            .map_err(|e| TuskError::Keyring(format!("Failed to create entry: {}", e)))?;
 
         match entry.get_password() {
             Ok(passphrase) => Ok(Some(passphrase)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(TuskError::KeyringError(e.to_string())),
+            Err(e) => Err(TuskError::Keyring(format!("Failed to get passphrase: {}", e))),
         }
     }
 
-    /// Delete SSH passphrase for a connection
+    /// Delete SSH key passphrase for a connection.
     pub fn delete_ssh_passphrase(connection_id: &str) -> Result<()> {
         let entry = Entry::new(SERVICE_NAME, &format!("ssh:{}", connection_id))
-            .map_err(|e| TuskError::KeyringError(e.to_string()))?;
+            .map_err(|e| TuskError::Keyring(format!("Failed to create entry: {}", e)))?;
 
         match entry.delete_credential() {
             Ok(()) => Ok(()),
             Err(keyring::Error::NoEntry) => Ok(()),
-            Err(e) => Err(TuskError::KeyringError(e.to_string())),
+            Err(e) => Err(TuskError::Keyring(format!("Failed to delete passphrase: {}", e))),
         }
     }
 
-    /// Delete all credentials for a connection
-    pub fn delete_all_for_connection(connection_id: &str) -> Result<()> {
+    /// Delete all credentials for a connection.
+    pub fn delete_all(connection_id: &str) -> Result<()> {
         Self::delete_password(connection_id)?;
         Self::delete_ssh_passphrase(connection_id)?;
         Ok(())
     }
+
+    /// Check if keyring is available on this system.
+    pub fn is_available() -> bool {
+        // Try to create an entry to check availability
+        Entry::new(SERVICE_NAME, "test")
+            .map(|_| true)
+            .unwrap_or(false)
+    }
 }
 ```
 
-### 5. Credential Commands
+### 4. Settings Panel Component
 
 ```rust
-// commands/credentials.rs
-use tauri::command;
-use crate::error::Result;
-use crate::services::keyring::KeyringService;
+// src/components/settings_panel.rs
 
-#[command]
-pub fn store_password(connection_id: String, password: String) -> Result<()> {
-    KeyringService::store_password(&connection_id, &password)
+use gpui::*;
+use crate::state::TuskState;
+use crate::theme::{Theme, ThemeMode, ThemeManager};
+use crate::models::settings::*;
+
+/// Settings category.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingsCategory {
+    General,
+    Editor,
+    Results,
+    Query,
+    Connections,
+    Shortcuts,
 }
 
-#[command]
-pub fn get_password(connection_id: String) -> Result<Option<String>> {
-    KeyringService::get_password(&connection_id)
+impl SettingsCategory {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::General => "General",
+            Self::Editor => "Editor",
+            Self::Results => "Results",
+            Self::Query => "Query Execution",
+            Self::Connections => "Connections",
+            Self::Shortcuts => "Keyboard Shortcuts",
+        }
+    }
+
+    fn icon(&self) -> IconName {
+        match self {
+            Self::General => IconName::Settings,
+            Self::Editor => IconName::Code,
+            Self::Results => IconName::Table,
+            Self::Query => IconName::Play,
+            Self::Connections => IconName::Database,
+            Self::Shortcuts => IconName::Keyboard,
+        }
+    }
+
+    fn all() -> &'static [Self] {
+        &[
+            Self::General,
+            Self::Editor,
+            Self::Results,
+            Self::Query,
+            Self::Connections,
+            Self::Shortcuts,
+        ]
+    }
 }
 
-#[command]
-pub fn delete_password(connection_id: String) -> Result<()> {
-    KeyringService::delete_password(&connection_id)
+pub struct SettingsPanel {
+    active_category: SettingsCategory,
+    settings: Settings,
+    original_settings: Settings,
+    is_dirty: bool,
+    focus_handle: FocusHandle,
 }
 
-#[command]
-pub fn store_ssh_passphrase(connection_id: String, passphrase: String) -> Result<()> {
-    KeyringService::store_ssh_passphrase(&connection_id, &passphrase)
+impl SettingsPanel {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let state = cx.global::<TuskState>();
+        let settings = state.storage.get_all_settings().unwrap_or_default();
+
+        Self {
+            active_category: SettingsCategory::General,
+            settings: settings.clone(),
+            original_settings: settings,
+            is_dirty: false,
+            focus_handle: cx.focus_handle(),
+        }
+    }
+
+    fn select_category(&mut self, category: SettingsCategory, cx: &mut Context<Self>) {
+        self.active_category = category;
+        cx.notify();
+    }
+
+    fn mark_dirty(&mut self, cx: &mut Context<Self>) {
+        self.is_dirty = true;
+        cx.notify();
+    }
+
+    fn save(&mut self, cx: &mut Context<Self>) {
+        let state = cx.global::<TuskState>();
+
+        if let Err(e) = state.storage.save_all_settings(&self.settings) {
+            tracing::error!("Failed to save settings: {}", e);
+            return;
+        }
+
+        // Apply theme change immediately
+        ThemeManager::set_mode(self.settings.theme.mode, cx);
+
+        self.original_settings = self.settings.clone();
+        self.is_dirty = false;
+        cx.notify();
+    }
+
+    fn cancel(&mut self, cx: &mut Context<Self>) {
+        self.settings = self.original_settings.clone();
+        self.is_dirty = false;
+        cx.notify();
+    }
+
+    fn reset_category(&mut self, cx: &mut Context<Self>) {
+        match self.active_category {
+            SettingsCategory::General => {
+                self.settings.theme = ThemeSettings::default();
+            }
+            SettingsCategory::Editor => {
+                self.settings.editor = EditorSettings::default();
+            }
+            SettingsCategory::Results => {
+                self.settings.results = ResultsSettings::default();
+            }
+            SettingsCategory::Query => {
+                self.settings.query_execution = QueryExecutionSettings::default();
+            }
+            SettingsCategory::Connections => {
+                self.settings.connections = ConnectionsSettings::default();
+            }
+            SettingsCategory::Shortcuts => {
+                // Reset shortcuts to defaults
+            }
+        }
+        self.mark_dirty(cx);
+    }
+
+    fn render_sidebar(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .w_48()
+            .border_r_1()
+            .border_color(theme.colors.border)
+            .p_2()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .children(SettingsCategory::all().iter().map(|&category| {
+                let is_active = self.active_category == category;
+
+                div()
+                    .id(ElementId::Name(format!("settings-{:?}", category).into()))
+                    .px_3()
+                    .py_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .when(is_active, |this| this.bg(theme.colors.selection))
+                    .hover(|this| this.bg(theme.colors.hover))
+                    .on_click(cx.listener(move |this, _, cx| {
+                        this.select_category(category, cx);
+                    }))
+                    .child(Icon::new(category.icon()).size(IconSize::Small))
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(theme.colors.text)
+                            .child(category.label())
+                    )
+            }))
+    }
+
+    fn render_content(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex_1()
+            .p_4()
+            .overflow_y_auto()
+            .child(match self.active_category {
+                SettingsCategory::General => self.render_general_settings(theme, cx).into_any_element(),
+                SettingsCategory::Editor => self.render_editor_settings(theme, cx).into_any_element(),
+                SettingsCategory::Results => self.render_results_settings(theme, cx).into_any_element(),
+                SettingsCategory::Query => self.render_query_settings(theme, cx).into_any_element(),
+                SettingsCategory::Connections => self.render_connections_settings(theme, cx).into_any_element(),
+                SettingsCategory::Shortcuts => self.render_shortcuts_settings(theme, cx).into_any_element(),
+            })
+    }
+
+    fn render_general_settings(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child("General")
+            )
+            .child(
+                FormField::new("Theme")
+                    .child(
+                        Select::new("theme-mode")
+                            .options(vec![
+                                SelectOption::new("light", "Light"),
+                                SelectOption::new("dark", "Dark"),
+                                SelectOption::new("system", "System"),
+                            ])
+                            .selected(match self.settings.theme.mode {
+                                ThemeMode::Light => "light",
+                                ThemeMode::Dark => "dark",
+                                ThemeMode::System => "system",
+                            })
+                            .on_change(cx.listener(|this, value: &str, cx| {
+                                this.settings.theme.mode = match value {
+                                    "light" => ThemeMode::Light,
+                                    "dark" => ThemeMode::Dark,
+                                    _ => ThemeMode::System,
+                                };
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+    }
+
+    fn render_editor_settings(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child("Editor")
+            )
+            .child(
+                div()
+                    .flex()
+                    .gap_4()
+                    .child(
+                        FormField::new("Font Family")
+                            .flex_1()
+                            .child(
+                                Select::new("font-family")
+                                    .options(vec![
+                                        SelectOption::new("Zed Plex Mono", "Zed Plex Mono"),
+                                        SelectOption::new("JetBrains Mono", "JetBrains Mono"),
+                                        SelectOption::new("Fira Code", "Fira Code"),
+                                        SelectOption::new("Monaco", "Monaco"),
+                                        SelectOption::new("Consolas", "Consolas"),
+                                    ])
+                                    .selected(&self.settings.editor.font_family)
+                                    .on_change(cx.listener(|this, value: &str, cx| {
+                                        this.settings.editor.font_family = value.to_string();
+                                        this.mark_dirty(cx);
+                                    }))
+                            )
+                    )
+                    .child(
+                        FormField::new("Font Size")
+                            .w_24()
+                            .child(
+                                NumberInput::new("font-size")
+                                    .value(self.settings.editor.font_size)
+                                    .min(8.0)
+                                    .max(24.0)
+                                    .step(1.0)
+                                    .on_change(cx.listener(|this, value: f32, cx| {
+                                        this.settings.editor.font_size = value;
+                                        this.mark_dirty(cx);
+                                    }))
+                            )
+                    )
+            )
+            .child(
+                div()
+                    .flex()
+                    .gap_4()
+                    .child(
+                        FormField::new("Tab Size")
+                            .child(
+                                Select::new("tab-size")
+                                    .options(vec![
+                                        SelectOption::new("2", "2 spaces"),
+                                        SelectOption::new("4", "4 spaces"),
+                                        SelectOption::new("8", "8 spaces"),
+                                    ])
+                                    .selected(&self.settings.editor.tab_size.to_string())
+                                    .on_change(cx.listener(|this, value: &str, cx| {
+                                        this.settings.editor.tab_size = value.parse().unwrap_or(2);
+                                        this.mark_dirty(cx);
+                                    }))
+                            )
+                    )
+                    .child(
+                        FormField::new("Indentation")
+                            .child(
+                                Select::new("use-spaces")
+                                    .options(vec![
+                                        SelectOption::new("true", "Spaces"),
+                                        SelectOption::new("false", "Tabs"),
+                                    ])
+                                    .selected(if self.settings.editor.use_spaces { "true" } else { "false" })
+                                    .on_change(cx.listener(|this, value: &str, cx| {
+                                        this.settings.editor.use_spaces = value == "true";
+                                        this.mark_dirty(cx);
+                                    }))
+                            )
+                    )
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(
+                        Checkbox::new("line-numbers")
+                            .label("Show line numbers")
+                            .checked(self.settings.editor.line_numbers)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.editor.line_numbers = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+                    .child(
+                        Checkbox::new("highlight-line")
+                            .label("Highlight current line")
+                            .checked(self.settings.editor.highlight_current_line)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.editor.highlight_current_line = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+                    .child(
+                        Checkbox::new("bracket-matching")
+                            .label("Bracket matching")
+                            .checked(self.settings.editor.bracket_matching)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.editor.bracket_matching = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+                    .child(
+                        Checkbox::new("word-wrap")
+                            .label("Word wrap")
+                            .checked(self.settings.editor.word_wrap)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.editor.word_wrap = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Autocomplete delay (ms)")
+                    .child(
+                        NumberInput::new("autocomplete-delay")
+                            .value(self.settings.editor.autocomplete_delay_ms as f32)
+                            .min(0.0)
+                            .max(1000.0)
+                            .step(50.0)
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.editor.autocomplete_delay_ms = value as u32;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+    }
+
+    fn render_results_settings(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child("Results")
+            )
+            .child(
+                FormField::new("Default row limit")
+                    .description("Maximum rows to fetch for SELECT queries without LIMIT")
+                    .child(
+                        NumberInput::new("row-limit")
+                            .value(self.settings.results.default_row_limit as f32)
+                            .min(100.0)
+                            .max(100000.0)
+                            .step(100.0)
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.results.default_row_limit = value as u32;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Timestamp format")
+                    .child(
+                        Select::new("timestamp-format")
+                            .options(vec![
+                                SelectOption::new("YYYY-MM-DD HH:mm:ss", "ISO (2024-03-15 10:30:00)"),
+                                SelectOption::new("MM/DD/YYYY h:mm A", "US (03/15/2024 10:30 AM)"),
+                                SelectOption::new("DD/MM/YYYY HH:mm", "EU (15/03/2024 10:30)"),
+                            ])
+                            .selected(&self.settings.results.timestamp_format)
+                            .on_change(cx.listener(|this, value: &str, cx| {
+                                this.settings.results.timestamp_format = value.to_string();
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("NULL display")
+                    .child(
+                        TextInput::new("null-display")
+                            .value(self.settings.results.null_display.clone())
+                            .placeholder("NULL")
+                            .on_change(cx.listener(|this, value: String, cx| {
+                                this.settings.results.null_display = value;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Truncate text at (characters)")
+                    .child(
+                        NumberInput::new("truncate-at")
+                            .value(self.settings.results.truncate_text_at as f32)
+                            .min(50.0)
+                            .max(10000.0)
+                            .step(50.0)
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.results.truncate_text_at = value as u32;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Copy format")
+                    .child(
+                        Select::new("copy-format")
+                            .options(vec![
+                                SelectOption::new("tsv", "Tab-separated (TSV)"),
+                                SelectOption::new("csv", "Comma-separated (CSV)"),
+                                SelectOption::new("json", "JSON"),
+                                SelectOption::new("markdown", "Markdown"),
+                            ])
+                            .selected(match self.settings.results.copy_format {
+                                CopyFormat::Tsv => "tsv",
+                                CopyFormat::Csv => "csv",
+                                CopyFormat::Json => "json",
+                                CopyFormat::Markdown => "markdown",
+                            })
+                            .on_change(cx.listener(|this, value: &str, cx| {
+                                this.settings.results.copy_format = match value {
+                                    "csv" => CopyFormat::Csv,
+                                    "json" => CopyFormat::Json,
+                                    "markdown" => CopyFormat::Markdown,
+                                    _ => CopyFormat::Tsv,
+                                };
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+    }
+
+    fn render_query_settings(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child("Query Execution")
+            )
+            .child(
+                FormField::new("Default statement timeout")
+                    .description("Leave empty for no timeout")
+                    .child(
+                        NumberInput::new("timeout")
+                            .value(self.settings.query_execution.default_timeout_ms.unwrap_or(0) as f32)
+                            .min(0.0)
+                            .max(300000.0)
+                            .step(1000.0)
+                            .suffix("ms")
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.query_execution.default_timeout_ms =
+                                    if value > 0.0 { Some(value as u64) } else { None };
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(
+                        Checkbox::new("confirm-ddl")
+                            .label("Confirm DDL statements (CREATE, ALTER, DROP)")
+                            .checked(self.settings.query_execution.confirm_ddl)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.query_execution.confirm_ddl = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+                    .child(
+                        Checkbox::new("confirm-destructive")
+                            .label("Confirm destructive statements (DELETE without WHERE, TRUNCATE)")
+                            .checked(self.settings.query_execution.confirm_destructive)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.query_execution.confirm_destructive = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+                    .child(
+                        Checkbox::new("auto-uppercase")
+                            .label("Auto-uppercase SQL keywords")
+                            .checked(self.settings.query_execution.auto_uppercase_keywords)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.query_execution.auto_uppercase_keywords = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+                    .child(
+                        Checkbox::new("auto-limit")
+                            .label("Auto-add LIMIT to SELECT queries without LIMIT")
+                            .checked(self.settings.query_execution.auto_limit_select)
+                            .on_change(cx.listener(|this, checked: bool, cx| {
+                                this.settings.query_execution.auto_limit_select = checked;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("EXPLAIN output format")
+                    .child(
+                        Select::new("explain-format")
+                            .options(vec![
+                                SelectOption::new("text", "Text"),
+                                SelectOption::new("json", "JSON"),
+                                SelectOption::new("yaml", "YAML"),
+                                SelectOption::new("xml", "XML"),
+                            ])
+                            .selected(match self.settings.query_execution.explain_format {
+                                ExplainFormat::Text => "text",
+                                ExplainFormat::Json => "json",
+                                ExplainFormat::Yaml => "yaml",
+                                ExplainFormat::Xml => "xml",
+                            })
+                            .on_change(cx.listener(|this, value: &str, cx| {
+                                this.settings.query_execution.explain_format = match value {
+                                    "json" => ExplainFormat::Json,
+                                    "yaml" => ExplainFormat::Yaml,
+                                    "xml" => ExplainFormat::Xml,
+                                    _ => ExplainFormat::Text,
+                                };
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+    }
+
+    fn render_connections_settings(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child("Connections")
+            )
+            .child(
+                FormField::new("Default SSL mode")
+                    .child(
+                        Select::new("ssl-mode")
+                            .options(vec![
+                                SelectOption::new("disable", "Disable"),
+                                SelectOption::new("prefer", "Prefer"),
+                                SelectOption::new("require", "Require"),
+                                SelectOption::new("verify-ca", "Verify CA"),
+                                SelectOption::new("verify-full", "Verify Full"),
+                            ])
+                            .selected(match self.settings.connections.default_ssl_mode {
+                                SslMode::Disable => "disable",
+                                SslMode::Prefer => "prefer",
+                                SslMode::Require => "require",
+                                SslMode::VerifyCa => "verify-ca",
+                                SslMode::VerifyFull => "verify-full",
+                            })
+                            .on_change(cx.listener(|this, value: &str, cx| {
+                                this.settings.connections.default_ssl_mode = match value {
+                                    "disable" => SslMode::Disable,
+                                    "require" => SslMode::Require,
+                                    "verify-ca" => SslMode::VerifyCa,
+                                    "verify-full" => SslMode::VerifyFull,
+                                    _ => SslMode::Prefer,
+                                };
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Connection timeout")
+                    .child(
+                        NumberInput::new("connect-timeout")
+                            .value(self.settings.connections.default_connect_timeout_sec as f32)
+                            .min(1.0)
+                            .max(120.0)
+                            .step(1.0)
+                            .suffix("seconds")
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.connections.default_connect_timeout_sec = value as u64;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Auto-reconnect attempts")
+                    .child(
+                        NumberInput::new("reconnect-attempts")
+                            .value(self.settings.connections.auto_reconnect_attempts as f32)
+                            .min(0.0)
+                            .max(10.0)
+                            .step(1.0)
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.connections.auto_reconnect_attempts = value as u32;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                FormField::new("Keepalive interval")
+                    .child(
+                        NumberInput::new("keepalive")
+                            .value(self.settings.connections.keepalive_interval_sec as f32)
+                            .min(0.0)
+                            .max(300.0)
+                            .step(10.0)
+                            .suffix("seconds")
+                            .on_change(cx.listener(|this, value: f32, cx| {
+                                this.settings.connections.keepalive_interval_sec = value as u64;
+                                this.mark_dirty(cx);
+                            }))
+                    )
+            )
+            .child(
+                Checkbox::new("auto-reconnect")
+                    .label("Automatically reconnect on connection loss")
+                    .checked(self.settings.connections.auto_reconnect)
+                    .on_change(cx.listener(|this, checked: bool, cx| {
+                        this.settings.connections.auto_reconnect = checked;
+                        this.mark_dirty(cx);
+                    }))
+            )
+    }
+
+    fn render_shortcuts_settings(&mut self, theme: &Theme, cx: &mut Context<Self>) -> impl IntoElement {
+        // Keyboard shortcuts configuration
+        div()
+            .flex()
+            .flex_col()
+            .gap_6()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child("Keyboard Shortcuts")
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.colors.text_muted)
+                    .child("Keyboard shortcuts are configured through key bindings. See documentation for customization.")
+            )
+            // Shortcut categories would be rendered here
+            // This integrates with GPUI's key binding system
+    }
+
+    fn render_footer(&self, theme: &Theme, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .px_4()
+            .py_3()
+            .border_t_1()
+            .border_color(theme.colors.border)
+            .child(
+                Button::new("reset")
+                    .label("Reset to Defaults")
+                    .style(ButtonStyle::Ghost)
+                    .on_click(cx.listener(|this, _, cx| {
+                        this.reset_category(cx);
+                    }))
+            )
+            .child(
+                div()
+                    .flex()
+                    .gap_2()
+                    .child(
+                        Button::new("cancel")
+                            .label("Cancel")
+                            .style(ButtonStyle::Secondary)
+                            .on_click(cx.listener(|this, _, cx| {
+                                this.cancel(cx);
+                            }))
+                    )
+                    .child(
+                        Button::new("save")
+                            .label("Save")
+                            .style(ButtonStyle::Primary)
+                            .disabled(!self.is_dirty)
+                            .on_click(cx.listener(|this, _, cx| {
+                                this.save(cx);
+                            }))
+                    )
+            )
+    }
 }
 
-#[command]
-pub fn get_ssh_passphrase(connection_id: String) -> Result<Option<String>> {
-    KeyringService::get_ssh_passphrase(&connection_id)
-}
+impl Render for SettingsPanel {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
 
-#[command]
-pub fn delete_ssh_passphrase(connection_id: String) -> Result<()> {
-    KeyringService::delete_ssh_passphrase(&connection_id)
+        div()
+            .id("settings-panel")
+            .key_context("SettingsPanel")
+            .track_focus(&self.focus_handle)
+            .size_full()
+            .flex()
+            .flex_col()
+            .bg(theme.colors.surface)
+            .child(
+                // Header
+                div()
+                    .px_4()
+                    .py_3()
+                    .border_b_1()
+                    .border_color(theme.colors.border)
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.colors.text)
+                            .child("Settings")
+                    )
+            )
+            .child(
+                // Content
+                div()
+                    .flex_1()
+                    .flex()
+                    .overflow_hidden()
+                    .child(self.render_sidebar(theme, cx))
+                    .child(self.render_content(theme, cx))
+            )
+            .child(self.render_footer(theme, cx))
+    }
 }
 ```
 
-### 6. Settings Store
+### 5. Form Components
 
-```typescript
-// stores/settings.ts
-import { writable, get } from 'svelte/store';
-import { storageCommands } from '$services/ipc';
+```rust
+// src/components/forms/mod.rs
 
-export interface Settings {
-	general: GeneralSettings;
-	theme: ThemeSettings;
-	editor: EditorSettings;
-	results: ResultsSettings;
-	queryExecution: QueryExecutionSettings;
-	connections: ConnectionsSettings;
-	shortcuts: ShortcutsSettings;
+use gpui::*;
+use crate::theme::Theme;
+
+/// Form field wrapper with label and optional description.
+pub struct FormField {
+    label: SharedString,
+    description: Option<SharedString>,
+    children: Vec<AnyElement>,
+    width: Option<DefiniteLength>,
 }
 
-export interface GeneralSettings {
-	startup: 'restore' | 'fresh';
-	autoSave: boolean;
-	autoSaveIntervalSec: number;
+impl FormField {
+    pub fn new(label: impl Into<SharedString>) -> Self {
+        Self {
+            label: label.into(),
+            description: None,
+            children: Vec::new(),
+            width: None,
+        }
+    }
+
+    pub fn description(mut self, desc: impl Into<SharedString>) -> Self {
+        self.description = Some(desc.into());
+        self
+    }
+
+    pub fn w_24(mut self) -> Self {
+        self.width = Some(px(96.0).into());
+        self
+    }
+
+    pub fn flex_1(mut self) -> Self {
+        self.width = None; // Will use flex-1 instead
+        self
+    }
+
+    pub fn child(mut self, child: impl IntoElement) -> Self {
+        self.children.push(child.into_any_element());
+        self
+    }
 }
 
-export interface ThemeSettings {
-	mode: 'light' | 'dark' | 'system';
+impl IntoElement for FormField {
+    type Element = Div;
+
+    fn into_element(self) -> Self::Element {
+        let theme = // get from context;
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .when_some(self.width, |this, w| this.w(w))
+            .child(
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.colors.text)
+                    .child(self.label)
+            )
+            .when_some(self.description, |this, desc| {
+                this.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.colors.text_muted)
+                        .child(desc)
+                )
+            })
+            .children(self.children)
+    }
 }
 
-export interface EditorSettings {
-	fontFamily: string;
-	fontSize: number;
-	tabSize: number;
-	useSpaces: boolean;
-	lineNumbers: boolean;
-	minimap: boolean;
-	wordWrap: boolean;
-	autocompleteDelayMs: number;
-	bracketMatching: boolean;
+/// Checkbox input.
+pub struct Checkbox {
+    id: ElementId,
+    label: Option<SharedString>,
+    checked: bool,
+    on_change: Option<Box<dyn Fn(bool, &mut WindowContext) + 'static>>,
 }
 
-export interface ResultsSettings {
-	defaultRowLimit: number;
-	dateFormat: string;
-	nullDisplay: string;
-	truncateTextAt: number;
-	copyFormat: 'tsv' | 'csv' | 'json';
+impl Checkbox {
+    pub fn new(id: impl Into<ElementId>) -> Self {
+        Self {
+            id: id.into(),
+            label: None,
+            checked: false,
+            on_change: None,
+        }
+    }
+
+    pub fn label(mut self, label: impl Into<SharedString>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = checked;
+        self
+    }
+
+    pub fn on_change(mut self, handler: impl Fn(bool, &mut WindowContext) + 'static) -> Self {
+        self.on_change = Some(Box::new(handler));
+        self
+    }
 }
 
-export interface QueryExecutionSettings {
-	defaultStatementTimeoutMs: number | null;
-	confirmDdl: boolean;
-	confirmDestructive: boolean;
-	autoUppercaseKeywords: boolean;
-	autoLimitSelect: boolean;
+impl IntoElement for Checkbox {
+    type Element = Div;
+
+    fn into_element(self) -> Self::Element {
+        let theme = // get from context;
+        let checked = self.checked;
+
+        div()
+            .id(self.id)
+            .flex()
+            .items_center()
+            .gap_2()
+            .cursor_pointer()
+            .child(
+                div()
+                    .size_4()
+                    .rounded_sm()
+                    .border_1()
+                    .border_color(if checked { theme.colors.border_focused } else { theme.colors.border })
+                    .bg(if checked { theme.colors.text_accent } else { theme.colors.surface })
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .when(checked, |this| {
+                        this.child(Icon::new(IconName::Check).size(IconSize::XSmall).color(theme.colors.surface))
+                    })
+            )
+            .when_some(self.label, |this, label| {
+                this.child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.colors.text)
+                        .child(label)
+                )
+            })
+    }
 }
 
-export interface ConnectionsSettings {
-	defaultSslMode: string;
-	defaultConnectTimeoutSec: number;
-	autoReconnectAttempts: number;
-	keepaliveIntervalSec: number;
+/// Number input with optional min/max/step.
+pub struct NumberInput {
+    id: ElementId,
+    value: f32,
+    min: Option<f32>,
+    max: Option<f32>,
+    step: f32,
+    suffix: Option<SharedString>,
+    on_change: Option<Box<dyn Fn(f32, &mut WindowContext) + 'static>>,
 }
 
-export interface ShortcutsSettings {
-	shortcuts: Record<string, string>;
+impl NumberInput {
+    pub fn new(id: impl Into<ElementId>) -> Self {
+        Self {
+            id: id.into(),
+            value: 0.0,
+            min: None,
+            max: None,
+            step: 1.0,
+            suffix: None,
+            on_change: None,
+        }
+    }
+
+    pub fn value(mut self, value: f32) -> Self {
+        self.value = value;
+        self
+    }
+
+    pub fn min(mut self, min: f32) -> Self {
+        self.min = Some(min);
+        self
+    }
+
+    pub fn max(mut self, max: f32) -> Self {
+        self.max = Some(max);
+        self
+    }
+
+    pub fn step(mut self, step: f32) -> Self {
+        self.step = step;
+        self
+    }
+
+    pub fn suffix(mut self, suffix: impl Into<SharedString>) -> Self {
+        self.suffix = Some(suffix.into());
+        self
+    }
+
+    pub fn on_change(mut self, handler: impl Fn(f32, &mut WindowContext) + 'static) -> Self {
+        self.on_change = Some(Box::new(handler));
+        self
+    }
 }
-
-const defaultSettings: Settings = {
-	general: {
-		startup: 'restore',
-		autoSave: true,
-		autoSaveIntervalSec: 30
-	},
-	theme: {
-		mode: 'system'
-	},
-	editor: {
-		fontFamily: 'JetBrains Mono',
-		fontSize: 13,
-		tabSize: 2,
-		useSpaces: true,
-		lineNumbers: true,
-		minimap: false,
-		wordWrap: false,
-		autocompleteDelayMs: 100,
-		bracketMatching: true
-	},
-	results: {
-		defaultRowLimit: 1000,
-		dateFormat: 'YYYY-MM-DD HH:mm:ss',
-		nullDisplay: 'NULL',
-		truncateTextAt: 500,
-		copyFormat: 'tsv'
-	},
-	queryExecution: {
-		defaultStatementTimeoutMs: null,
-		confirmDdl: true,
-		confirmDestructive: true,
-		autoUppercaseKeywords: false,
-		autoLimitSelect: true
-	},
-	connections: {
-		defaultSslMode: 'prefer',
-		defaultConnectTimeoutSec: 10,
-		autoReconnectAttempts: 3,
-		keepaliveIntervalSec: 60
-	},
-	shortcuts: {
-		shortcuts: {}
-	}
-};
-
-function createSettingsStore() {
-	const { subscribe, set, update } = writable<Settings>(defaultSettings);
-
-	return {
-		subscribe,
-		set,
-		update,
-
-		async load() {
-			try {
-				const settings = await storageCommands.getSettings();
-				set({ ...defaultSettings, ...settings });
-			} catch (error) {
-				console.error('Failed to load settings:', error);
-			}
-		},
-
-		async save(settings: Settings) {
-			try {
-				await storageCommands.saveSettings(settings);
-				set(settings);
-			} catch (error) {
-				console.error('Failed to save settings:', error);
-				throw error;
-			}
-		},
-
-		reset() {
-			set(defaultSettings);
-		}
-	};
-}
-
-export const settingsStore = createSettingsStore();
 ```
 
-### 7. Keyboard Shortcuts Settings
+### 6. Key Bindings Integration
 
-```svelte
-<!-- components/settings/ShortcutsSettings.svelte -->
-<script lang="ts">
-	import type { Settings } from '$stores/settings';
-	import { defaultShortcuts, type ShortcutAction } from '$utils/keyboard';
-	import Input from '$components/forms/Input.svelte';
+```rust
+// src/keybindings.rs
 
-	interface Props {
-		settings: Settings;
-		onchange: () => void;
-	}
+use gpui::*;
 
-	let { settings = $bindable(), onchange }: Props = $props();
+/// Define application-wide key bindings.
+pub fn register_bindings(cx: &mut AppContext) {
+    // Global bindings
+    cx.bind_keys([
+        // Settings
+        KeyBinding::new("cmd-,", OpenSettings, None),
 
-	let searchQuery = $state('');
-	let editingAction = $state<string | null>(null);
-	let recordedKeys = $state('');
+        // Tabs
+        KeyBinding::new("cmd-n", NewQueryTab, None),
+        KeyBinding::new("cmd-w", CloseTab, None),
+        KeyBinding::new("cmd-shift-]", NextTab, None),
+        KeyBinding::new("cmd-shift-[", PreviousTab, None),
 
-	const shortcutCategories = [
-		{
-			name: 'General',
-			shortcuts: [
-				{ action: 'settings', label: 'Open Settings' },
-				{ action: 'commandPalette', label: 'Command Palette' },
-				{ action: 'newTab', label: 'New Query Tab' },
-				{ action: 'closeTab', label: 'Close Tab' },
-				{ action: 'nextTab', label: 'Next Tab' },
-				{ action: 'prevTab', label: 'Previous Tab' },
-				{ action: 'toggleSidebar', label: 'Toggle Sidebar' }
-			]
-		},
-		{
-			name: 'Editor',
-			shortcuts: [
-				{ action: 'execute', label: 'Execute Query' },
-				{ action: 'executeAll', label: 'Execute All' },
-				{ action: 'cancelQuery', label: 'Cancel Query' },
-				{ action: 'format', label: 'Format SQL' },
-				{ action: 'save', label: 'Save' },
-				{ action: 'comment', label: 'Toggle Comment' },
-				{ action: 'find', label: 'Find' },
-				{ action: 'replace', label: 'Find and Replace' },
-				{ action: 'goToLine', label: 'Go to Line' }
-			]
-		},
-		{
-			name: 'Results',
-			shortcuts: [
-				{ action: 'copy', label: 'Copy Selection' },
-				{ action: 'selectAll', label: 'Select All' },
-				{ action: 'export', label: 'Export Results' },
-				{ action: 'toggleEditMode', label: 'Toggle Edit Mode' }
-			]
-		},
-		{
-			name: 'Navigation',
-			shortcuts: [
-				{ action: 'focusEditor', label: 'Focus Editor' },
-				{ action: 'focusResults', label: 'Focus Results' },
-				{ action: 'focusSidebar', label: 'Focus Sidebar' },
-				{ action: 'searchObjects', label: 'Search Objects' }
-			]
-		}
-	];
+        // Sidebar
+        KeyBinding::new("cmd-b", ToggleSidebar, None),
 
-	function getShortcut(action: string): string {
-		return settings.shortcuts.shortcuts[action] || defaultShortcuts[action] || '';
-	}
+        // Navigation
+        KeyBinding::new("cmd-1", FocusEditor, None),
+        KeyBinding::new("cmd-2", FocusResults, None),
+        KeyBinding::new("cmd-0", FocusSidebar, None),
+    ]);
 
-	function formatShortcut(shortcut: string): string {
-		const isMac = navigator.platform.includes('Mac');
-		return shortcut
-			.replace('Mod', isMac ? '⌘' : 'Ctrl')
-			.replace('Shift', isMac ? '⇧' : 'Shift')
-			.replace('Alt', isMac ? '⌥' : 'Alt');
-	}
+    // Editor context bindings
+    cx.bind_keys([
+        KeyBinding::new("cmd-enter", ExecuteQuery, Some("Editor")),
+        KeyBinding::new("cmd-shift-enter", ExecuteAll, Some("Editor")),
+        KeyBinding::new("cmd-.", CancelQuery, Some("Editor")),
+        KeyBinding::new("cmd-shift-f", FormatSql, Some("Editor")),
+        KeyBinding::new("cmd-s", Save, Some("Editor")),
+        KeyBinding::new("cmd-/", ToggleComment, Some("Editor")),
+        KeyBinding::new("cmd-f", Find, Some("Editor")),
+        KeyBinding::new("cmd-h", Replace, Some("Editor")),
+        KeyBinding::new("cmd-g", GoToLine, Some("Editor")),
+    ]);
 
-	function startRecording(action: string) {
-		editingAction = action;
-		recordedKeys = '';
-	}
-
-	function handleKeyDown(e: KeyboardEvent) {
-		if (!editingAction) return;
-
-		e.preventDefault();
-		e.stopPropagation();
-
-		const parts: string[] = [];
-		if (e.metaKey || e.ctrlKey) parts.push('Mod');
-		if (e.shiftKey) parts.push('Shift');
-		if (e.altKey) parts.push('Alt');
-
-		if (!['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
-			parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
-
-			const shortcut = parts.join('+');
-			settings.shortcuts.shortcuts[editingAction] = shortcut;
-			editingAction = null;
-			onchange();
-		} else {
-			recordedKeys = parts.join('+');
-		}
-	}
-
-	function resetShortcut(action: string) {
-		delete settings.shortcuts.shortcuts[action];
-		onchange();
-	}
-
-	function filteredCategories() {
-		if (!searchQuery) return shortcutCategories;
-
-		return shortcutCategories
-			.map((cat) => ({
-				...cat,
-				shortcuts: cat.shortcuts.filter((s) =>
-					s.label.toLowerCase().includes(searchQuery.toLowerCase())
-				)
-			}))
-			.filter((cat) => cat.shortcuts.length > 0);
-	}
-</script>
-
-<svelte:window onkeydown={handleKeyDown} />
-
-<div class="space-y-4">
-	<h3 class="text-lg font-medium">Keyboard Shortcuts</h3>
-
-	<Input type="text" placeholder="Search shortcuts..." bind:value={searchQuery} />
-
-	<div class="space-y-6">
-		{#each filteredCategories() as category}
-			<div>
-				<h4 class="text-sm font-medium text-gray-500 mb-2">{category.name}</h4>
-				<div class="space-y-1">
-					{#each category.shortcuts as shortcut}
-						<div class="flex items-center justify-between py-1">
-							<span class="text-sm">{shortcut.label}</span>
-							<div class="flex items-center gap-2">
-								{#if editingAction === shortcut.action}
-									<span class="px-2 py-1 text-sm bg-blue-100 dark:bg-blue-900 rounded">
-										{recordedKeys || 'Press keys...'}
-									</span>
-									<button
-										class="text-xs text-gray-500 hover:text-gray-700"
-										onclick={() => (editingAction = null)}
-									>
-										Cancel
-									</button>
-								{:else}
-									<button
-										class="px-2 py-1 text-sm font-mono bg-gray-100 dark:bg-gray-800 rounded hover:bg-gray-200"
-										onclick={() => startRecording(shortcut.action)}
-									>
-										{formatShortcut(getShortcut(shortcut.action)) || 'Not set'}
-									</button>
-									{#if settings.shortcuts.shortcuts[shortcut.action]}
-										<button
-											class="text-xs text-gray-400 hover:text-gray-600"
-											onclick={() => resetShortcut(shortcut.action)}
-											title="Reset to default"
-										>
-											×
-										</button>
-									{/if}
-								{/if}
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/each}
-	</div>
-</div>
-```
-
-### 8. Keyboard Utility
-
-```typescript
-// utils/keyboard.ts
-import { browser } from '$app/environment';
-
-export const defaultShortcuts: Record<string, string> = {
-	// General
-	settings: 'Mod+,',
-	commandPalette: 'Mod+Shift+P',
-	newTab: 'Mod+N',
-	closeTab: 'Mod+W',
-	nextTab: 'Mod+Tab',
-	prevTab: 'Mod+Shift+Tab',
-	toggleSidebar: 'Mod+B',
-
-	// Editor
-	execute: 'Mod+Enter',
-	executeAll: 'Mod+Shift+Enter',
-	cancelQuery: 'Mod+.',
-	format: 'Mod+Shift+F',
-	save: 'Mod+S',
-	comment: 'Mod+/',
-	find: 'Mod+F',
-	replace: 'Mod+H',
-	goToLine: 'Mod+G',
-
-	// Results
-	copy: 'Mod+C',
-	selectAll: 'Mod+A',
-	export: 'Mod+E',
-	toggleEditMode: 'Mod+Shift+E',
-
-	// Navigation
-	focusEditor: 'Mod+1',
-	focusResults: 'Mod+2',
-	focusSidebar: 'Mod+0',
-	searchObjects: 'Mod+P'
-};
-
-export function parseShortcut(shortcut: string): {
-	mod: boolean;
-	shift: boolean;
-	alt: boolean;
-	key: string;
-} {
-	const parts = shortcut.split('+');
-	return {
-		mod: parts.includes('Mod'),
-		shift: parts.includes('Shift'),
-		alt: parts.includes('Alt'),
-		key: parts[parts.length - 1]
-	};
+    // Results context bindings
+    cx.bind_keys([
+        KeyBinding::new("cmd-c", Copy, Some("ResultsGrid")),
+        KeyBinding::new("cmd-a", SelectAll, Some("ResultsGrid")),
+        KeyBinding::new("cmd-e", Export, Some("ResultsGrid")),
+        KeyBinding::new("cmd-shift-e", ToggleEditMode, Some("ResultsGrid")),
+    ]);
 }
 
-export function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
-	const parsed = parseShortcut(shortcut);
-	const isMac = browser && navigator.platform.includes('Mac');
-
-	const modKey = isMac ? e.metaKey : e.ctrlKey;
-
-	return (
-		modKey === parsed.mod &&
-		e.shiftKey === parsed.shift &&
-		e.altKey === parsed.alt &&
-		e.key.toUpperCase() === parsed.key.toUpperCase()
-	);
-}
-
-export type ShortcutAction = keyof typeof defaultShortcuts;
+// Action definitions
+actions!(
+    tusk,
+    [
+        OpenSettings,
+        NewQueryTab,
+        CloseTab,
+        NextTab,
+        PreviousTab,
+        ToggleSidebar,
+        FocusEditor,
+        FocusResults,
+        FocusSidebar,
+        ExecuteQuery,
+        ExecuteAll,
+        CancelQuery,
+        FormatSql,
+        Save,
+        ToggleComment,
+        Find,
+        Replace,
+        GoToLine,
+        Copy,
+        SelectAll,
+        Export,
+        ToggleEditMode,
+    ]
+);
 ```
 
 ## Acceptance Criteria
 
-1. [ ] Settings dialog opens with Cmd/Ctrl+,
-2. [ ] All settings categories display correctly
-3. [ ] Settings persist across app restarts
-4. [ ] Theme switching works (light/dark/system)
-5. [ ] System theme detection works
-6. [ ] Passwords stored in OS keychain, not in SQLite
+1. [ ] Theme system with light/dark/system modes
+2. [ ] System theme detection and automatic switching
+3. [ ] Theme persists across restarts
+4. [ ] Settings panel with all categories
+5. [ ] Settings persist to SQLite via StorageService
+6. [ ] Passwords stored in OS keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service)
 7. [ ] SSH passphrases stored in OS keychain
-8. [ ] Keyboard shortcuts can be customized
-9. [ ] Shortcut conflicts are detected and warned
-10. [ ] Reset to defaults works per category
+8. [ ] Credentials deleted when connection deleted
+9. [ ] Key bindings work in appropriate contexts
+10. [ ] Settings changes apply immediately (theme)
+11. [ ] Cancel reverts unsaved changes
+12. [ ] Reset defaults works per category
 
-## Testing with MCP
+## Testing
 
-```
-1. Start app: npm run tauri dev
-2. Connect: driver_session action=start
-3. Open settings: webview_keyboard action=press key="," modifiers=["Meta"]
-4. Verify dialog: webview_dom_snapshot type=accessibility
-5. Change theme: webview_click selector="[data-value='dark']"
-6. Verify theme applied: webview_get_styles selector="html" properties=["color-scheme"]
-7. Test credential storage: ipc_execute_command command="store_password" args={...}
-8. Verify in keychain: ipc_execute_command command="get_password" args={...}
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_theme_resolution() {
+        // Light mode
+        let theme = Theme::from_mode(ThemeMode::Light, WindowAppearance::Light);
+        assert_eq!(theme.appearance, Appearance::Light);
+
+        // Dark mode
+        let theme = Theme::from_mode(ThemeMode::Dark, WindowAppearance::Light);
+        assert_eq!(theme.appearance, Appearance::Dark);
+
+        // System mode follows window
+        let theme = Theme::from_mode(ThemeMode::System, WindowAppearance::Dark);
+        assert_eq!(theme.appearance, Appearance::Dark);
+
+        let theme = Theme::from_mode(ThemeMode::System, WindowAppearance::Light);
+        assert_eq!(theme.appearance, Appearance::Light);
+    }
+
+    #[test]
+    fn test_keyring_roundtrip() {
+        // Skip if keyring not available (CI)
+        if !KeyringService::is_available() {
+            return;
+        }
+
+        let conn_id = "test-conn-123";
+        let password = "secret-password";
+
+        // Store
+        KeyringService::store_password(conn_id, password).unwrap();
+
+        // Retrieve
+        let retrieved = KeyringService::get_password(conn_id).unwrap();
+        assert_eq!(retrieved, Some(password.to_string()));
+
+        // Delete
+        KeyringService::delete_password(conn_id).unwrap();
+
+        // Verify deleted
+        let retrieved = KeyringService::get_password(conn_id).unwrap();
+        assert_eq!(retrieved, None);
+    }
+}
 ```
 
 ## Dependencies on Other Features
 
-- 03-frontend-architecture.md
-- 04-ipc-layer.md
-- 05-local-storage.md
+- **03-frontend-architecture.md**: GPUI component patterns
+- **04-ipc-layer.md**: TuskState global
+- **05-local-storage.md**: Settings persistence
 
 ## Dependent Features
 
-- 07-connection-management.md
-- 12-monaco-editor.md
-- All features that use settings
+- **07-connection-management.md**: Connection settings, credential storage
+- **12-sql-editor.md**: Editor settings
+- **14-results-grid.md**: Results settings
+- All features that use theme colors

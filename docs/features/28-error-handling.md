@@ -2,31 +2,31 @@
 
 ## Overview
 
-This feature implements comprehensive error handling across the application. It covers connection errors, query errors, and recovery mechanisms. Errors are displayed with user-friendly messages, technical details for debugging, actionable hints, and position highlighting for query syntax errors. The system provides auto-reconnect functionality and ensures unsaved queries are never lost.
+This feature implements comprehensive error handling across the application using GPUI's native error propagation and UI patterns. It covers connection errors, query errors, and recovery mechanisms. Errors are displayed with user-friendly messages, technical details for debugging, actionable hints, and position highlighting for query syntax errors. The system provides auto-reconnect functionality and ensures unsaved queries are never lost.
 
 ## Goals
 
 1. Provide user-friendly error messages with actionable hints
 2. Display Postgres error details (SQLSTATE, position, detail, hint)
-3. Highlight error positions in the query editor
+3. Highlight error positions in the native query editor
 4. Implement auto-reconnect with retry UI
 5. Persist unsaved queries to prevent data loss
-6. Enable quick actions (Google error, copy, retry)
+6. Enable quick actions (search error, copy, retry)
 7. Graceful handling of connection drops mid-query
 8. Consistent error structure across all operations
 
 ## Dependencies
 
-- Feature 01: Project Setup (Tauri + Svelte)
-- Feature 02: Local Storage (query persistence)
+- Feature 01: Project Setup (GPUI application)
+- Feature 05: Local Storage (query persistence)
 - Feature 07: Connection Management (reconnection)
-- Feature 11: Query Editor (error highlighting)
+- Feature 12: Query Editor (error highlighting)
 
 ## Technical Specification
 
 ### 28.1 Error Types and Structure
 
-**File: `src-tauri/src/error.rs`**
+**File: `src/error.rs`**
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -86,7 +86,7 @@ pub enum TuskError {
 }
 
 /// Connection-specific errors
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ConnectionError {
     #[error("Cannot connect to server at {host}:{port}")]
     ConnectionRefused { host: String, port: u16 },
@@ -120,7 +120,7 @@ pub enum ConnectionError {
 }
 
 /// Query-specific errors
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum QueryError {
     #[error("Syntax error at position {position}")]
     Syntax { position: u32, message: String },
@@ -156,7 +156,7 @@ pub enum QueryError {
     Deadlock,
 }
 
-/// Serializable error for frontend
+/// User-facing error response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorResponse {
     pub code: String,
@@ -169,13 +169,23 @@ pub struct ErrorResponse {
     pub actions: Vec<ErrorAction>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ErrorSeverity {
     Error,
     Warning,
     Notice,
     Info,
+}
+
+impl ErrorSeverity {
+    pub fn color(&self) -> gpui::Hsla {
+        match self {
+            ErrorSeverity::Error => gpui::hsla(0.0, 0.7, 0.5, 1.0),      // Red
+            ErrorSeverity::Warning => gpui::hsla(0.12, 0.9, 0.5, 1.0),   // Orange
+            ErrorSeverity::Notice => gpui::hsla(0.58, 0.7, 0.5, 1.0),    // Blue
+            ErrorSeverity::Info => gpui::hsla(0.0, 0.0, 0.6, 1.0),       // Gray
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -185,12 +195,11 @@ pub struct ErrorAction {
     pub action_type: ErrorActionType,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ErrorActionType {
     Retry,
     Reconnect,
-    GoogleError,
+    SearchError,
     CopyError,
     EditConnection,
     ViewPosition,
@@ -198,7 +207,7 @@ pub enum ErrorActionType {
 }
 
 impl TuskError {
-    /// Convert to frontend-friendly response
+    /// Convert to user-facing response with actions
     pub fn to_response(&self) -> ErrorResponse {
         match self {
             TuskError::Connection(e) => e.to_response(),
@@ -214,9 +223,9 @@ impl TuskError {
                     recoverable: false,
                     actions: vec![
                         ErrorAction {
-                            id: "google".into(),
+                            id: "search".into(),
                             label: "Search Error".into(),
-                            action_type: ErrorActionType::GoogleError,
+                            action_type: ErrorActionType::SearchError,
                         },
                         ErrorAction {
                             id: "copy".into(),
@@ -485,9 +494,9 @@ impl QueryError {
         }
 
         actions.push(ErrorAction {
-            id: "google".into(),
+            id: "search".into(),
             label: "Search Error".into(),
-            action_type: ErrorActionType::GoogleError,
+            action_type: ErrorActionType::SearchError,
         });
 
         actions.push(ErrorAction {
@@ -598,7 +607,7 @@ impl From<tokio_postgres::Error> for TuskError {
             };
         }
 
-        // Check for connection errors
+        // Check for connection errors by message
         let msg = err.to_string().to_lowercase();
 
         if msg.contains("connection refused") {
@@ -629,28 +638,267 @@ impl From<tokio_postgres::Error> for TuskError {
 
 /// Result type alias
 pub type Result<T> = std::result::Result<T, TuskError>;
+```
 
-/// Serialize error for Tauri commands
-impl Serialize for TuskError {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.to_response().serialize(serializer)
+### 28.2 Error State Management
+
+**File: `src/state/error_state.rs`**
+
+```rust
+use crate::error::{ErrorResponse, ErrorSeverity, ErrorActionType};
+use gpui::Global;
+use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
+
+/// Application error with metadata
+#[derive(Debug, Clone)]
+pub struct AppError {
+    pub id: String,
+    pub response: ErrorResponse,
+    pub connection_id: Option<Uuid>,
+    pub query_id: Option<Uuid>,
+    pub timestamp: u64,
+    pub dismissed: bool,
+}
+
+impl AppError {
+    pub fn new(response: ErrorResponse) -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = format!("error-{}", COUNTER.fetch_add(1, Ordering::SeqCst));
+
+        Self {
+            id,
+            response,
+            connection_id: None,
+            query_id: None,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64,
+            dismissed: false,
+        }
+    }
+
+    pub fn with_connection(mut self, connection_id: Uuid) -> Self {
+        self.connection_id = Some(connection_id);
+        self
+    }
+
+    pub fn with_query(mut self, query_id: Uuid) -> Self {
+        self.query_id = Some(query_id);
+        self
+    }
+}
+
+/// Global error state
+pub struct ErrorState {
+    errors: RwLock<Vec<AppError>>,
+    /// Errors by connection ID for quick lookup
+    by_connection: RwLock<HashMap<Uuid, Vec<String>>>,
+    /// Errors by query ID for quick lookup
+    by_query: RwLock<HashMap<Uuid, Vec<String>>>,
+}
+
+impl Global for ErrorState {}
+
+impl ErrorState {
+    pub fn new() -> Self {
+        Self {
+            errors: RwLock::new(Vec::new()),
+            by_connection: RwLock::new(HashMap::new()),
+            by_query: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// Add a new error
+    pub fn add(&self, error: AppError) -> String {
+        let error_id = error.id.clone();
+
+        // Index by connection if present
+        if let Some(conn_id) = error.connection_id {
+            self.by_connection
+                .write()
+                .entry(conn_id)
+                .or_default()
+                .push(error_id.clone());
+        }
+
+        // Index by query if present
+        if let Some(query_id) = error.query_id {
+            self.by_query
+                .write()
+                .entry(query_id)
+                .or_default()
+                .push(error_id.clone());
+        }
+
+        self.errors.write().push(error);
+        error_id
+    }
+
+    /// Add error from response with context
+    pub fn add_error(
+        &self,
+        response: ErrorResponse,
+        connection_id: Option<Uuid>,
+        query_id: Option<Uuid>,
+    ) -> String {
+        let mut error = AppError::new(response);
+        error.connection_id = connection_id;
+        error.query_id = query_id;
+        self.add(error)
+    }
+
+    /// Get all active (non-dismissed) errors
+    pub fn active_errors(&self) -> Vec<AppError> {
+        self.errors
+            .read()
+            .iter()
+            .filter(|e| !e.dismissed)
+            .cloned()
+            .collect()
+    }
+
+    /// Get the latest error
+    pub fn latest(&self) -> Option<AppError> {
+        self.errors
+            .read()
+            .iter()
+            .filter(|e| !e.dismissed)
+            .last()
+            .cloned()
+    }
+
+    /// Get error by ID
+    pub fn get(&self, error_id: &str) -> Option<AppError> {
+        self.errors
+            .read()
+            .iter()
+            .find(|e| e.id == error_id)
+            .cloned()
+    }
+
+    /// Dismiss an error
+    pub fn dismiss(&self, error_id: &str) {
+        if let Some(error) = self.errors.write().iter_mut().find(|e| e.id == error_id) {
+            error.dismissed = true;
+        }
+    }
+
+    /// Remove an error completely
+    pub fn remove(&self, error_id: &str) {
+        let mut errors = self.errors.write();
+        if let Some(pos) = errors.iter().position(|e| e.id == error_id) {
+            let error = errors.remove(pos);
+
+            // Clean up indexes
+            if let Some(conn_id) = error.connection_id {
+                if let Some(ids) = self.by_connection.write().get_mut(&conn_id) {
+                    ids.retain(|id| id != error_id);
+                }
+            }
+            if let Some(query_id) = error.query_id {
+                if let Some(ids) = self.by_query.write().get_mut(&query_id) {
+                    ids.retain(|id| id != error_id);
+                }
+            }
+        }
+    }
+
+    /// Clear all errors
+    pub fn clear(&self) {
+        self.errors.write().clear();
+        self.by_connection.write().clear();
+        self.by_query.write().clear();
+    }
+
+    /// Clear errors for a specific connection
+    pub fn clear_for_connection(&self, connection_id: Uuid) {
+        let error_ids: Vec<String> = self.by_connection
+            .write()
+            .remove(&connection_id)
+            .unwrap_or_default();
+
+        let mut errors = self.errors.write();
+        errors.retain(|e| !error_ids.contains(&e.id));
+    }
+
+    /// Clear errors for a specific query
+    pub fn clear_for_query(&self, query_id: Uuid) {
+        let error_ids: Vec<String> = self.by_query
+            .write()
+            .remove(&query_id)
+            .unwrap_or_default();
+
+        let mut errors = self.errors.write();
+        errors.retain(|e| !error_ids.contains(&e.id));
+    }
+
+    /// Get errors for a connection
+    pub fn for_connection(&self, connection_id: Uuid) -> Vec<AppError> {
+        let error_ids = self.by_connection
+            .read()
+            .get(&connection_id)
+            .cloned()
+            .unwrap_or_default();
+
+        self.errors
+            .read()
+            .iter()
+            .filter(|e| error_ids.contains(&e.id) && !e.dismissed)
+            .cloned()
+            .collect()
+    }
+
+    /// Get errors for a query
+    pub fn for_query(&self, query_id: Uuid) -> Vec<AppError> {
+        let error_ids = self.by_query
+            .read()
+            .get(&query_id)
+            .cloned()
+            .unwrap_or_default();
+
+        self.errors
+            .read()
+            .iter()
+            .filter(|e| error_ids.contains(&e.id) && !e.dismissed)
+            .cloned()
+            .collect()
+    }
+
+    /// Count active errors by severity
+    pub fn count_by_severity(&self) -> HashMap<ErrorSeverity, usize> {
+        let mut counts = HashMap::new();
+        for error in self.errors.read().iter().filter(|e| !e.dismissed) {
+            *counts.entry(error.response.severity).or_insert(0) += 1;
+        }
+        counts
+    }
+}
+
+impl Default for ErrorState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 ```
 
-### 28.2 Auto-Reconnect Service
+### 28.3 Auto-Reconnect Service
 
-**File: `src-tauri/src/services/reconnect.rs`**
+**File: `src/services/reconnect.rs`**
 
 ```rust
-use crate::services::connection::ConnectionService;
 use crate::error::{Result, TuskError, ConnectionError};
+use crate::services::connection::ConnectionService;
+use gpui::{App, AsyncApp, Context, EventEmitter, Model};
+use parking_lot::RwLock;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
-use tauri::AppHandle;
+use uuid::Uuid;
 
 /// Reconnection configuration
 #[derive(Debug, Clone)]
@@ -672,59 +920,136 @@ impl Default for ReconnectConfig {
     }
 }
 
+/// Reconnection status for UI
+#[derive(Debug, Clone)]
+pub enum ReconnectStatus {
+    Idle,
+    Attempting {
+        attempt: u32,
+        max_attempts: u32,
+        delay_ms: u64,
+    },
+    Success {
+        attempts: u32,
+    },
+    Failed {
+        attempts: u32,
+        error: String,
+    },
+    Exhausted {
+        max_attempts: u32,
+    },
+}
+
+/// Events emitted during reconnection
+#[derive(Debug, Clone)]
+pub enum ReconnectEvent {
+    StatusChanged(Uuid, ReconnectStatus),
+    ConnectionDropped(Uuid, Option<Uuid>), // connection_id, query_id
+}
+
+/// Reconnect service state
+pub struct ReconnectState {
+    status_by_connection: RwLock<std::collections::HashMap<Uuid, ReconnectStatus>>,
+}
+
+impl ReconnectState {
+    pub fn new() -> Self {
+        Self {
+            status_by_connection: RwLock::new(std::collections::HashMap::new()),
+        }
+    }
+
+    pub fn status(&self, connection_id: Uuid) -> ReconnectStatus {
+        self.status_by_connection
+            .read()
+            .get(&connection_id)
+            .cloned()
+            .unwrap_or(ReconnectStatus::Idle)
+    }
+
+    pub fn set_status(&self, connection_id: Uuid, status: ReconnectStatus) {
+        self.status_by_connection.write().insert(connection_id, status);
+    }
+
+    pub fn clear(&self, connection_id: Uuid) {
+        self.status_by_connection.write().remove(&connection_id);
+    }
+}
+
 pub struct ReconnectService {
-    connection_service: ConnectionService,
-    app: AppHandle,
+    connection_service: Arc<ConnectionService>,
+    state: Arc<ReconnectState>,
 }
 
 impl ReconnectService {
-    pub fn new(connection_service: ConnectionService, app: AppHandle) -> Self {
-        Self { connection_service, app }
+    pub fn new(connection_service: Arc<ConnectionService>) -> Self {
+        Self {
+            connection_service,
+            state: Arc::new(ReconnectState::new()),
+        }
+    }
+
+    pub fn state(&self) -> &Arc<ReconnectState> {
+        &self.state
     }
 
     /// Attempt to reconnect with exponential backoff
     pub async fn reconnect(
         &self,
-        connection_id: &str,
+        connection_id: Uuid,
         config: ReconnectConfig,
+        on_status: impl Fn(ReconnectStatus) + Send + 'static,
     ) -> Result<()> {
         let mut attempt = 0;
         let mut delay = config.initial_delay_ms;
+        let mut last_error: Option<String> = None;
 
         while attempt < config.max_attempts {
             attempt += 1;
 
-            // Emit attempt event
-            self.app.emit("reconnect:attempt", serde_json::json!({
-                "connection_id": connection_id,
-                "attempt": attempt,
-                "max_attempts": config.max_attempts,
-                "delay_ms": delay,
-            })).ok();
+            // Update status
+            let status = ReconnectStatus::Attempting {
+                attempt,
+                max_attempts: config.max_attempts,
+                delay_ms: delay,
+            };
+            self.state.set_status(connection_id, status.clone());
+            on_status(status);
 
-            // Wait before attempting
+            // Wait before attempting (skip first attempt)
             if attempt > 1 {
                 sleep(Duration::from_millis(delay)).await;
             }
 
             // Try to reconnect
-            match self.connection_service.connect(connection_id).await {
+            match self.connection_service.reconnect(connection_id).await {
                 Ok(_) => {
                     // Success!
-                    self.app.emit("reconnect:success", serde_json::json!({
-                        "connection_id": connection_id,
-                        "attempts": attempt,
-                    })).ok();
+                    let status = ReconnectStatus::Success { attempts: attempt };
+                    self.state.set_status(connection_id, status.clone());
+                    on_status(status);
+
+                    // Clear status after a delay
+                    tokio::spawn({
+                        let state = self.state.clone();
+                        async move {
+                            sleep(Duration::from_millis(2000)).await;
+                            state.clear(connection_id);
+                        }
+                    });
 
                     return Ok(());
                 }
                 Err(e) => {
-                    // Emit failure event
-                    self.app.emit("reconnect:failed", serde_json::json!({
-                        "connection_id": connection_id,
-                        "attempt": attempt,
-                        "error": e.to_string(),
-                    })).ok();
+                    last_error = Some(e.to_string());
+
+                    let status = ReconnectStatus::Failed {
+                        attempts: attempt,
+                        error: e.to_string(),
+                    };
+                    self.state.set_status(connection_id, status.clone());
+                    on_status(status);
 
                     // Check if error is recoverable
                     if !self.is_recoverable(&e) {
@@ -739,10 +1064,11 @@ impl ReconnectService {
         }
 
         // All attempts exhausted
-        self.app.emit("reconnect:exhausted", serde_json::json!({
-            "connection_id": connection_id,
-            "attempts": config.max_attempts,
-        })).ok();
+        let status = ReconnectStatus::Exhausted {
+            max_attempts: config.max_attempts,
+        };
+        self.state.set_status(connection_id, status.clone());
+        on_status(status);
 
         Err(TuskError::Connection(ConnectionError::ConnectionClosed))
     }
@@ -767,35 +1093,33 @@ impl ReconnectService {
     /// Handle a connection drop during query execution
     pub async fn handle_connection_drop(
         &self,
-        connection_id: &str,
-        query_id: &str,
+        connection_id: Uuid,
+        query_id: Option<Uuid>,
+        on_status: impl Fn(ReconnectStatus) + Send + 'static,
     ) -> Result<()> {
-        // Emit connection drop event
-        self.app.emit("connection:dropped", serde_json::json!({
-            "connection_id": connection_id,
-            "query_id": query_id,
-        })).ok();
-
         // Attempt reconnection
-        self.reconnect(connection_id, ReconnectConfig::default()).await
+        self.reconnect(connection_id, ReconnectConfig::default(), on_status).await
     }
 }
 ```
 
-### 28.3 Query Persistence (Auto-Save)
+### 28.4 Query Persistence Service
 
-**File: `src-tauri/src/services/query_persistence.rs`**
+**File: `src/services/query_persistence.rs`**
 
 ```rust
-use crate::services::storage::StorageService;
 use crate::error::Result;
+use crate::services::storage::StorageService;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
 
+/// Persisted query tab state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedQuery {
-    pub id: String,
-    pub connection_id: Option<String>,
+    pub id: Uuid,
+    pub connection_id: Option<Uuid>,
     pub sql: String,
     pub cursor_position: u32,
     pub file_path: Option<String>,
@@ -803,12 +1127,33 @@ pub struct PersistedQuery {
     pub saved_at: u64,
 }
 
+impl PersistedQuery {
+    pub fn new(id: Uuid, sql: String) -> Self {
+        Self {
+            id,
+            connection_id: None,
+            sql,
+            cursor_position: 0,
+            file_path: None,
+            is_dirty: false,
+            saved_at: Self::now(),
+        }
+    }
+
+    fn now() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
+}
+
 pub struct QueryPersistenceService {
-    storage: StorageService,
+    storage: Arc<StorageService>,
 }
 
 impl QueryPersistenceService {
-    pub fn new(storage: StorageService) -> Self {
+    pub fn new(storage: Arc<StorageService>) -> Self {
         Self { storage }
     }
 
@@ -820,7 +1165,7 @@ impl QueryPersistenceService {
     }
 
     /// Load a persisted query
-    pub async fn load_query(&self, query_id: &str) -> Result<Option<PersistedQuery>> {
+    pub async fn load_query(&self, query_id: Uuid) -> Result<Option<PersistedQuery>> {
         let key = format!("query_tab:{}", query_id);
         match self.storage.get(&key).await? {
             Some(json) => {
@@ -846,7 +1191,7 @@ impl QueryPersistenceService {
     }
 
     /// Delete a persisted query
-    pub async fn delete_query(&self, query_id: &str) -> Result<()> {
+    pub async fn delete_query(&self, query_id: Uuid) -> Result<()> {
         let key = format!("query_tab:{}", query_id);
         self.storage.delete(&key).await
     }
@@ -860,840 +1205,1265 @@ impl QueryPersistenceService {
         Ok(())
     }
 
-    /// Get current timestamp
-    pub fn now() -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64
+    /// Update cursor position only (lightweight update)
+    pub async fn update_cursor(&self, query_id: Uuid, position: u32) -> Result<()> {
+        if let Some(mut query) = self.load_query(query_id).await? {
+            query.cursor_position = position;
+            self.save_query(&query).await?;
+        }
+        Ok(())
+    }
+
+    /// Mark query as dirty/clean
+    pub async fn set_dirty(&self, query_id: Uuid, is_dirty: bool) -> Result<()> {
+        if let Some(mut query) = self.load_query(query_id).await? {
+            query.is_dirty = is_dirty;
+            query.saved_at = PersistedQuery::now() as u64;
+            self.save_query(&query).await?;
+        }
+        Ok(())
     }
 }
 ```
 
-### 28.4 Tauri Commands
+### 28.5 Auto-Save Manager
 
-**File: `src-tauri/src/commands/error.rs`**
-
-```rust
-use crate::error::ErrorResponse;
-use crate::services::reconnect::{ReconnectService, ReconnectConfig};
-use crate::state::AppState;
-use tauri::State;
-
-/// Attempt to reconnect to a connection
-#[tauri::command]
-pub async fn reconnect(
-    state: State<'_, AppState>,
-    connection_id: String,
-    max_attempts: Option<u32>,
-) -> Result<(), ErrorResponse> {
-    let config = ReconnectConfig {
-        max_attempts: max_attempts.unwrap_or(5),
-        ..Default::default()
-    };
-
-    let service = state.reconnect_service.lock().await;
-    service.reconnect(&connection_id, config).await
-        .map_err(|e| e.to_response())
-}
-```
-
-**File: `src-tauri/src/commands/query_persistence.rs`**
+**File: `src/services/auto_save.rs`**
 
 ```rust
 use crate::services::query_persistence::{QueryPersistenceService, PersistedQuery};
-use crate::state::AppState;
-use crate::error::Result;
-use tauri::State;
+use crate::state::tab_state::TabState;
+use gpui::{App, Global};
+use parking_lot::RwLock;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tokio::time::interval;
+use uuid::Uuid;
 
-/// Save query tab
-#[tauri::command]
-pub async fn persist_query(
-    state: State<'_, AppState>,
-    query: PersistedQuery,
-) -> Result<()> {
-    let service = state.query_persistence.lock().await;
-    service.save_query(&query).await
+/// Auto-save configuration
+#[derive(Debug, Clone)]
+pub struct AutoSaveConfig {
+    pub interval_ms: u64,
+    pub enabled: bool,
 }
 
-/// Load all persisted queries
-#[tauri::command]
-pub async fn load_persisted_queries(
-    state: State<'_, AppState>,
-) -> Result<Vec<PersistedQuery>> {
-    let service = state.query_persistence.lock().await;
-    service.load_all_queries().await
+impl Default for AutoSaveConfig {
+    fn default() -> Self {
+        Self {
+            interval_ms: 5000,
+            enabled: true,
+        }
+    }
 }
 
-/// Delete persisted query
-#[tauri::command]
-pub async fn delete_persisted_query(
-    state: State<'_, AppState>,
-    query_id: String,
-) -> Result<()> {
-    let service = state.query_persistence.lock().await;
-    service.delete_query(&query_id).await
+/// Message to the auto-save worker
+enum AutoSaveMessage {
+    SaveNow,
+    Stop,
 }
 
-/// Clear all persisted queries
-#[tauri::command]
-pub async fn clear_persisted_queries(
-    state: State<'_, AppState>,
-) -> Result<()> {
-    let service = state.query_persistence.lock().await;
-    service.clear_all().await
+pub struct AutoSaveManager {
+    persistence: Arc<QueryPersistenceService>,
+    config: RwLock<AutoSaveConfig>,
+    tx: RwLock<Option<mpsc::Sender<AutoSaveMessage>>>,
+}
+
+impl AutoSaveManager {
+    pub fn new(persistence: Arc<QueryPersistenceService>) -> Self {
+        Self {
+            persistence,
+            config: RwLock::new(AutoSaveConfig::default()),
+            tx: RwLock::new(None),
+        }
+    }
+
+    /// Start the auto-save background task
+    pub fn start(&self, tab_state: Arc<TabState>) {
+        let config = self.config.read().clone();
+        if !config.enabled {
+            return;
+        }
+
+        let (tx, mut rx) = mpsc::channel::<AutoSaveMessage>(16);
+        *self.tx.write() = Some(tx);
+
+        let persistence = self.persistence.clone();
+        let interval_ms = config.interval_ms;
+
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_millis(interval_ms));
+
+            loop {
+                tokio::select! {
+                    _ = ticker.tick() => {
+                        // Save all dirty tabs
+                        Self::save_dirty_tabs(&persistence, &tab_state).await;
+                    }
+                    msg = rx.recv() => {
+                        match msg {
+                            Some(AutoSaveMessage::SaveNow) => {
+                                Self::save_dirty_tabs(&persistence, &tab_state).await;
+                            }
+                            Some(AutoSaveMessage::Stop) | None => {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /// Stop auto-save
+    pub fn stop(&self) {
+        if let Some(tx) = self.tx.write().take() {
+            let _ = tx.blocking_send(AutoSaveMessage::Stop);
+        }
+    }
+
+    /// Trigger immediate save
+    pub fn save_now(&self) {
+        if let Some(tx) = self.tx.read().as_ref() {
+            let _ = tx.blocking_send(AutoSaveMessage::SaveNow);
+        }
+    }
+
+    /// Update configuration
+    pub fn set_config(&self, config: AutoSaveConfig) {
+        *self.config.write() = config;
+    }
+
+    /// Save all dirty tabs
+    async fn save_dirty_tabs(
+        persistence: &QueryPersistenceService,
+        tab_state: &TabState,
+    ) {
+        let tabs = tab_state.all_tabs();
+
+        for tab in tabs {
+            if tab.is_dirty {
+                let query = PersistedQuery {
+                    id: tab.id,
+                    connection_id: tab.connection_id,
+                    sql: tab.content.clone(),
+                    cursor_position: tab.cursor_position,
+                    file_path: tab.file_path.clone(),
+                    is_dirty: tab.is_dirty,
+                    saved_at: std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis() as u64,
+                };
+
+                if let Err(e) = persistence.save_query(&query).await {
+                    tracing::error!("Failed to auto-save tab {}: {}", tab.id, e);
+                }
+            }
+        }
+    }
+}
+
+impl Drop for AutoSaveManager {
+    fn drop(&mut self) {
+        self.stop();
+    }
 }
 ```
 
-### 28.5 Svelte Frontend
+### 28.6 Error Display Component
 
-#### Error Store
+**File: `src/ui/components/error_display.rs`**
 
-**File: `src/lib/stores/error.ts`**
+```rust
+use crate::error::{ErrorSeverity, ErrorActionType};
+use crate::state::error_state::{AppError, ErrorState};
+use crate::ui::theme::Theme;
+use gpui::*;
 
-```typescript
-import { writable, derived } from 'svelte/store';
-
-export type ErrorSeverity = 'error' | 'warning' | 'notice' | 'info';
-
-export type ErrorActionType =
-	| 'retry'
-	| 'reconnect'
-	| 'google_error'
-	| 'copy_error'
-	| 'edit_connection'
-	| 'view_position'
-	| 'dismiss';
-
-export interface ErrorAction {
-	id: string;
-	label: string;
-	action_type: ErrorActionType;
+/// Error display component
+pub struct ErrorDisplay {
+    error: AppError,
+    compact: bool,
+    on_action: Box<dyn Fn(ErrorActionType, &AppError) + Send + Sync>,
 }
 
-export interface ErrorResponse {
-	code: string;
-	message: string;
-	detail: string | null;
-	hint: string | null;
-	position: number | null;
-	severity: ErrorSeverity;
-	recoverable: boolean;
-	actions: ErrorAction[];
+impl ErrorDisplay {
+    pub fn new(
+        error: AppError,
+        on_action: impl Fn(ErrorActionType, &AppError) + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            error,
+            compact: false,
+            on_action: Box::new(on_action),
+        }
+    }
+
+    pub fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+
+    fn severity_icon(&self) -> &'static str {
+        match self.error.response.severity {
+            ErrorSeverity::Error => "⊘",
+            ErrorSeverity::Warning => "⚠",
+            ErrorSeverity::Notice => "ℹ",
+            ErrorSeverity::Info => "ℹ",
+        }
+    }
 }
 
-export interface AppError extends ErrorResponse {
-	id: string;
-	timestamp: number;
-	connectionId?: string;
-	queryId?: string;
-	dismissed: boolean;
+impl Render for ErrorDisplay {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let severity_color = self.error.response.severity.color();
+
+        let padding = if self.compact { px(8.0) } else { px(12.0) };
+        let gap = if self.compact { px(8.0) } else { px(12.0) };
+        let icon_size = if self.compact { px(16.0) } else { px(20.0) };
+
+        div()
+            .id(SharedString::from(self.error.id.clone()))
+            .flex()
+            .flex_row()
+            .gap(gap)
+            .p(padding)
+            .bg(severity_color.opacity(0.1))
+            .border_1()
+            .border_color(severity_color.opacity(0.3))
+            .border_l_3()
+            .border_l_color(severity_color)
+            .rounded_lg()
+            .child(
+                // Severity icon
+                div()
+                    .text_size(icon_size)
+                    .text_color(severity_color)
+                    .child(self.severity_icon())
+            )
+            .child(
+                // Content
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        // Header with code and dismiss
+                        div()
+                            .flex()
+                            .flex_row()
+                            .justify_between()
+                            .items_center()
+                            .child(
+                                div()
+                                    .font_family("monospace")
+                                    .text_xs()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(severity_color)
+                                    .child(self.error.response.code.clone())
+                            )
+                            .when(!self.compact, |el| {
+                                let error = self.error.clone();
+                                let on_action = self.on_action.clone();
+                                el.child(
+                                    div()
+                                        .p_1()
+                                        .rounded_sm()
+                                        .cursor_pointer()
+                                        .hover(|s| s.bg(theme.bg_hover))
+                                        .text_color(theme.text_tertiary)
+                                        .on_click(move |_, cx| {
+                                            on_action(ErrorActionType::Dismiss, &error);
+                                        })
+                                        .child("✕")
+                                )
+                            })
+                    )
+                    .child(
+                        // Message
+                        div()
+                            .text_sm()
+                            .text_color(theme.text_primary)
+                            .child(self.error.response.message.clone())
+                    )
+                    .when(!self.compact, |el| {
+                        let mut el = el;
+
+                        // Detail
+                        if let Some(detail) = &self.error.response.detail {
+                            el = el.child(
+                                div()
+                                    .text_sm()
+                                    .text_color(theme.text_secondary)
+                                    .child(format!("Detail: {}", detail))
+                            );
+                        }
+
+                        // Hint
+                        if let Some(hint) = &self.error.response.hint {
+                            el = el.child(
+                                div()
+                                    .text_sm()
+                                    .text_color(theme.text_secondary)
+                                    .child(format!("Hint: {}", hint))
+                            );
+                        }
+
+                        // Position
+                        if let Some(position) = self.error.response.position {
+                            el = el.child(
+                                div()
+                                    .text_xs()
+                                    .font_family("monospace")
+                                    .text_color(theme.text_tertiary)
+                                    .child(format!("Error at position {}", position))
+                            );
+                        }
+
+                        // Actions
+                        if !self.error.response.actions.is_empty() {
+                            el = el.child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .flex_wrap()
+                                    .gap_2()
+                                    .mt_3()
+                                    .children(
+                                        self.error.response.actions.iter().map(|action| {
+                                            let action_type = action.action_type;
+                                            let error = self.error.clone();
+                                            let on_action = self.on_action.clone();
+
+                                            ErrorActionButton::new(
+                                                action.label.clone(),
+                                                action_type,
+                                                move |_, _| {
+                                                    on_action(action_type, &error);
+                                                }
+                                            )
+                                        })
+                                    )
+                            );
+                        }
+
+                        el
+                    })
+            )
+    }
 }
 
-function createErrorStore() {
-	const { subscribe, update, set } = writable<AppError[]>([]);
-
-	let errorId = 0;
-
-	return {
-		subscribe,
-
-		add(error: ErrorResponse, context?: { connectionId?: string; queryId?: string }) {
-			const appError: AppError = {
-				...error,
-				id: `error-${++errorId}`,
-				timestamp: Date.now(),
-				connectionId: context?.connectionId,
-				queryId: context?.queryId,
-				dismissed: false
-			};
-
-			update((errors) => [...errors, appError]);
-			return appError.id;
-		},
-
-		dismiss(errorId: string) {
-			update((errors) => errors.map((e) => (e.id === errorId ? { ...e, dismissed: true } : e)));
-		},
-
-		remove(errorId: string) {
-			update((errors) => errors.filter((e) => e.id !== errorId));
-		},
-
-		clear() {
-			set([]);
-		},
-
-		clearForConnection(connectionId: string) {
-			update((errors) => errors.filter((e) => e.connectionId !== connectionId));
-		},
-
-		clearForQuery(queryId: string) {
-			update((errors) => errors.filter((e) => e.queryId !== queryId));
-		}
-	};
+/// Error action button
+struct ErrorActionButton {
+    label: String,
+    action_type: ErrorActionType,
+    on_click: Box<dyn Fn(&ClickEvent, &mut App) + Send + Sync>,
 }
 
-export const errorStore = createErrorStore();
+impl ErrorActionButton {
+    fn new(
+        label: String,
+        action_type: ErrorActionType,
+        on_click: impl Fn(&ClickEvent, &mut App) + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            label,
+            action_type,
+            on_click: Box::new(on_click),
+        }
+    }
 
-// Active (non-dismissed) errors
-export const activeErrors = derived(errorStore, ($errors) => $errors.filter((e) => !e.dismissed));
+    fn icon(&self) -> &'static str {
+        match self.action_type {
+            ErrorActionType::Retry | ErrorActionType::Reconnect => "↻",
+            ErrorActionType::SearchError => "🔍",
+            ErrorActionType::CopyError => "📋",
+            ErrorActionType::EditConnection => "✎",
+            ErrorActionType::ViewPosition => "→",
+            ErrorActionType::Dismiss => "✕",
+        }
+    }
+}
 
-// Latest error
-export const latestError = derived(activeErrors, ($errors) =>
-	$errors.length > 0 ? $errors[$errors.length - 1] : null
-);
+impl Render for ErrorActionButton {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let on_click = self.on_click.clone();
+
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1()
+            .px_2()
+            .py_1()
+            .rounded_md()
+            .cursor_pointer()
+            .bg(theme.bg_secondary)
+            .hover(|s| s.bg(theme.bg_hover))
+            .text_sm()
+            .text_color(theme.text_secondary)
+            .on_click(move |event, cx| {
+                on_click(event, cx);
+            })
+            .child(self.icon())
+            .child(self.label.clone())
+    }
+}
 ```
 
-#### Error Display Component
+### 28.7 Reconnect Overlay Component
 
-**File: `src/lib/components/error/ErrorDisplay.svelte`**
+**File: `src/ui/components/reconnect_overlay.rs`**
 
-```svelte
-<script lang="ts">
-	import { invoke } from '@tauri-apps/api/core';
-	import { writeText } from '@tauri-apps/plugin-clipboard-manager';
-	import { open } from '@tauri-apps/plugin-shell';
-	import { errorStore, type AppError, type ErrorActionType } from '$lib/stores/error';
-	import { connectionStore } from '$lib/stores/connection';
-	import { queryStore } from '$lib/stores/query';
-	import { dialogStore } from '$lib/stores/dialog';
-	import {
-		AlertCircle,
-		AlertTriangle,
-		Info,
-		X,
-		ExternalLink,
-		Copy,
-		RefreshCw,
-		Edit
-	} from 'lucide-svelte';
-	import Button from '$lib/components/common/Button.svelte';
+```rust
+use crate::services::reconnect::{ReconnectService, ReconnectStatus, ReconnectConfig};
+use crate::ui::theme::Theme;
+use gpui::*;
+use std::sync::Arc;
+use uuid::Uuid;
 
-	export let error: AppError;
-	export let compact = false;
+/// Reconnection overlay shown when connection is lost
+pub struct ReconnectOverlay {
+    connection_id: Uuid,
+    status: ReconnectStatus,
+    reconnect_service: Arc<ReconnectService>,
+    on_dismiss: Option<Box<dyn Fn() + Send + Sync>>,
+}
 
-	const severityIcons = {
-		error: AlertCircle,
-		warning: AlertTriangle,
-		notice: Info,
-		info: Info
-	};
+impl ReconnectOverlay {
+    pub fn new(
+        connection_id: Uuid,
+        reconnect_service: Arc<ReconnectService>,
+    ) -> Self {
+        let status = reconnect_service.state().status(connection_id);
+        Self {
+            connection_id,
+            status,
+            reconnect_service,
+            on_dismiss: None,
+        }
+    }
 
-	const severityColors = {
-		error: 'var(--error-color)',
-		warning: 'var(--warning-color)',
-		notice: 'var(--info-color)',
-		info: 'var(--text-secondary)'
-	};
+    pub fn on_dismiss(mut self, handler: impl Fn() + Send + Sync + 'static) -> Self {
+        self.on_dismiss = Some(Box::new(handler));
+        self
+    }
 
-	$: Icon = severityIcons[error.severity];
-	$: color = severityColors[error.severity];
+    pub fn update_status(&mut self, status: ReconnectStatus) {
+        self.status = status;
+    }
 
-	async function handleAction(actionType: ErrorActionType) {
-		switch (actionType) {
-			case 'retry':
-				if (error.queryId) {
-					queryStore.retry(error.queryId);
-				}
-				errorStore.dismiss(error.id);
-				break;
+    fn is_visible(&self) -> bool {
+        !matches!(self.status, ReconnectStatus::Idle)
+    }
+}
 
-			case 'reconnect':
-				if (error.connectionId) {
-					try {
-						await invoke('reconnect', { connectionId: error.connectionId });
-						errorStore.dismiss(error.id);
-					} catch (e) {
-						// Reconnect failed, error will be shown
-					}
-				}
-				break;
+impl Render for ReconnectOverlay {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
 
-			case 'google_error':
-				const query = encodeURIComponent(`postgres ${error.code} ${error.message}`);
-				await open(`https://www.google.com/search?q=${query}`);
-				break;
+        if !self.is_visible() {
+            return div();
+        }
 
-			case 'copy_error':
-				const errorText = formatErrorForCopy(error);
-				await writeText(errorText);
-				break;
+        div()
+            .absolute()
+            .inset_0()
+            .bg(hsla(0.0, 0.0, 0.0, 0.5))
+            .flex()
+            .items_center()
+            .justify_center()
+            .z_index(1000)
+            .child(
+                div()
+                    .bg(theme.bg_primary)
+                    .rounded_xl()
+                    .p_8()
+                    .text_center()
+                    .max_w(px(400.0))
+                    .shadow_lg()
+                    .child(self.render_content(cx))
+            )
+    }
+}
 
-			case 'edit_connection':
-				if (error.connectionId) {
-					dialogStore.open('connection', { connectionId: error.connectionId, mode: 'edit' });
-				}
-				errorStore.dismiss(error.id);
-				break;
+impl ReconnectOverlay {
+    fn render_content(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
 
-			case 'view_position':
-				if (error.position !== null && error.queryId) {
-					queryStore.setCursorPosition(error.queryId, error.position);
-				}
-				break;
+        match &self.status {
+            ReconnectStatus::Idle => div(),
 
-			case 'dismiss':
-				errorStore.dismiss(error.id);
-				break;
-		}
-	}
+            ReconnectStatus::Attempting { attempt, max_attempts, delay_ms } => {
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_4()
+                    .child(
+                        // Spinning icon
+                        div()
+                            .text_color(theme.primary)
+                            .text_size(px(32.0))
+                            .with_animation(
+                                "spin",
+                                Animation::new(Duration::from_secs(1))
+                                    .repeat()
+                                    .with_easing(Ease::Linear),
+                                |div, progress| {
+                                    div.rotate(progress * std::f32::consts::TAU)
+                                }
+                            )
+                            .child("↻")
+                    )
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.text_primary)
+                            .child("Connection Lost")
+                    )
+                    .child(
+                        div()
+                            .text_color(theme.text_secondary)
+                            .child(format!("Attempting to reconnect... ({}/{})", attempt, max_attempts))
+                    )
+            }
 
-	function formatErrorForCopy(error: AppError): string {
-		let text = `Error: ${error.code}\n${error.message}`;
-		if (error.detail) text += `\nDetail: ${error.detail}`;
-		if (error.hint) text += `\nHint: ${error.hint}`;
-		if (error.position !== null) text += `\nPosition: ${error.position}`;
-		return text;
-	}
+            ReconnectStatus::Success { attempts } => {
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_4()
+                    .child(
+                        div()
+                            .text_color(theme.success)
+                            .text_size(px(32.0))
+                            .child("✓")
+                    )
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.text_primary)
+                            .child("Reconnected!")
+                    )
+                    .child(
+                        div()
+                            .text_color(theme.text_secondary)
+                            .child("Connection restored successfully")
+                    )
+            }
 
-	function dismiss() {
-		errorStore.dismiss(error.id);
-	}
-</script>
+            ReconnectStatus::Failed { attempts, error } => {
+                let connection_id = self.connection_id;
+                let service = self.reconnect_service.clone();
+                let on_dismiss = self.on_dismiss.clone();
 
-<div
-	class="error-display"
-	class:compact
-	class:error={error.severity === 'error'}
-	class:warning={error.severity === 'warning'}
-	style="--severity-color: {color}"
->
-	<div class="error-icon">
-		<svelte:component this={Icon} size={compact ? 16 : 20} />
-	</div>
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_4()
+                    .child(
+                        div()
+                            .text_color(theme.error)
+                            .text_size(px(32.0))
+                            .child("⊘")
+                    )
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.text_primary)
+                            .child("Reconnection Failed")
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(theme.error)
+                            .child(error.clone())
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap_3()
+                            .mt_4()
+                            .child(
+                                Self::button("Dismiss", theme, false, move |_, _| {
+                                    if let Some(on_dismiss) = &on_dismiss {
+                                        on_dismiss();
+                                    }
+                                })
+                            )
+                            .child(
+                                Self::button("Try Again", theme, true, move |_, cx| {
+                                    cx.spawn(|_, _| async move {
+                                        let _ = service.reconnect(
+                                            connection_id,
+                                            ReconnectConfig { max_attempts: 1, ..Default::default() },
+                                            |_| {}
+                                        ).await;
+                                    }).detach();
+                                })
+                            )
+                    )
+            }
 
-	<div class="error-content">
-		<div class="error-header">
-			<span class="error-code">{error.code}</span>
-			{#if !compact}
-				<button class="dismiss-btn" on:click={dismiss} title="Dismiss">
-					<X size={14} />
-				</button>
-			{/if}
-		</div>
+            ReconnectStatus::Exhausted { max_attempts } => {
+                let on_dismiss = self.on_dismiss.clone();
+                let connection_id = self.connection_id;
+                let service = self.reconnect_service.clone();
 
-		<p class="error-message">{error.message}</p>
+                div()
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap_4()
+                    .child(
+                        div()
+                            .text_color(theme.error)
+                            .text_size(px(32.0))
+                            .child("✕")
+                    )
+                    .child(
+                        div()
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(theme.text_primary)
+                            .child("Connection Failed")
+                    )
+                    .child(
+                        div()
+                            .text_color(theme.text_secondary)
+                            .child(format!("Unable to reconnect after {} attempts", max_attempts))
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap_3()
+                            .mt_4()
+                            .child(
+                                Self::button("Dismiss", theme, false, move |_, _| {
+                                    if let Some(on_dismiss) = &on_dismiss {
+                                        on_dismiss();
+                                    }
+                                })
+                            )
+                            .child(
+                                Self::button("Try Again", theme, true, move |_, cx| {
+                                    cx.spawn(|_, _| async move {
+                                        let _ = service.reconnect(
+                                            connection_id,
+                                            ReconnectConfig::default(),
+                                            |_| {}
+                                        ).await;
+                                    }).detach();
+                                })
+                            )
+                    )
+            }
+        }
+    }
 
-		{#if !compact}
-			{#if error.detail}
-				<p class="error-detail">
-					<strong>Detail:</strong>
-					{error.detail}
-				</p>
-			{/if}
+    fn button(
+        label: &str,
+        theme: &Theme,
+        primary: bool,
+        on_click: impl Fn(&ClickEvent, &mut App) + Send + Sync + 'static,
+    ) -> impl IntoElement {
+        let (bg, text) = if primary {
+            (theme.primary, theme.text_on_primary)
+        } else {
+            (theme.bg_secondary, theme.text_secondary)
+        };
 
-			{#if error.hint}
-				<p class="error-hint">
-					<strong>Hint:</strong>
-					{error.hint}
-				</p>
-			{/if}
-
-			{#if error.position !== null}
-				<p class="error-position">
-					Error at position {error.position}
-				</p>
-			{/if}
-
-			{#if error.actions.length > 0}
-				<div class="error-actions">
-					{#each error.actions as action}
-						<Button variant="ghost" size="sm" on:click={() => handleAction(action.action_type)}>
-							{#if action.action_type === 'retry' || action.action_type === 'reconnect'}
-								<RefreshCw size={14} />
-							{:else if action.action_type === 'google_error'}
-								<ExternalLink size={14} />
-							{:else if action.action_type === 'copy_error'}
-								<Copy size={14} />
-							{:else if action.action_type === 'edit_connection'}
-								<Edit size={14} />
-							{/if}
-							{action.label}
-						</Button>
-					{/each}
-				</div>
-			{/if}
-		{/if}
-	</div>
-</div>
-
-<style>
-	.error-display {
-		display: flex;
-		gap: 12px;
-		padding: 12px 16px;
-		background: color-mix(in srgb, var(--severity-color) 10%, var(--bg-primary));
-		border: 1px solid color-mix(in srgb, var(--severity-color) 30%, transparent);
-		border-radius: 8px;
-		border-left: 3px solid var(--severity-color);
-	}
-
-	.error-display.compact {
-		padding: 8px 12px;
-		gap: 8px;
-	}
-
-	.error-icon {
-		color: var(--severity-color);
-		flex-shrink: 0;
-	}
-
-	.error-content {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.error-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 4px;
-	}
-
-	.error-code {
-		font-family: var(--font-mono);
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--severity-color);
-	}
-
-	.dismiss-btn {
-		padding: 4px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		color: var(--text-tertiary);
-		border-radius: 4px;
-	}
-
-	.dismiss-btn:hover {
-		background: var(--bg-hover);
-		color: var(--text-primary);
-	}
-
-	.error-message {
-		font-size: 14px;
-		color: var(--text-primary);
-		margin-bottom: 8px;
-	}
-
-	.compact .error-message {
-		font-size: 13px;
-		margin-bottom: 0;
-	}
-
-	.error-detail,
-	.error-hint {
-		font-size: 13px;
-		color: var(--text-secondary);
-		margin-bottom: 4px;
-	}
-
-	.error-detail strong,
-	.error-hint strong {
-		color: var(--text-primary);
-	}
-
-	.error-position {
-		font-size: 12px;
-		color: var(--text-tertiary);
-		font-family: var(--font-mono);
-		margin-bottom: 8px;
-	}
-
-	.error-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-top: 12px;
-	}
-</style>
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1()
+            .px_4()
+            .py_2()
+            .rounded_md()
+            .cursor_pointer()
+            .bg(bg)
+            .hover(|s| s.opacity(0.9))
+            .text_color(text)
+            .on_click(on_click)
+            .child(label)
+    }
+}
 ```
 
-#### Reconnect Overlay
+### 28.8 Editor Error Highlighting
 
-**File: `src/lib/components/error/ReconnectOverlay.svelte`**
+**File: `src/ui/editor/error_highlight.rs`**
 
-```svelte
-<script lang="ts">
-	import { listen } from '@tauri-apps/api/event';
-	import { invoke } from '@tauri-apps/api/core';
-	import { onMount, onDestroy } from 'svelte';
-	import { Loader, WifiOff, RefreshCw, X } from 'lucide-svelte';
-	import Button from '$lib/components/common/Button.svelte';
+```rust
+use crate::error::ErrorResponse;
+use crate::ui::theme::Theme;
+use gpui::*;
+use std::ops::Range;
 
-	export let connectionId: string;
+/// Error highlight information for the editor
+#[derive(Debug, Clone)]
+pub struct EditorError {
+    pub position: u32,
+    pub message: String,
+    pub code: String,
+    /// Calculated line and column from position
+    pub line: usize,
+    pub column: usize,
+    /// Character range for highlighting
+    pub range: Range<usize>,
+}
 
-	let visible = false;
-	let attempt = 0;
-	let maxAttempts = 5;
-	let status: 'attempting' | 'failed' | 'success' = 'attempting';
-	let errorMessage: string | null = null;
+impl EditorError {
+    /// Create error highlight from error response and source text
+    pub fn from_response(response: &ErrorResponse, source: &str) -> Option<Self> {
+        let position = response.position?;
+        let (line, column) = Self::position_to_line_col(source, position as usize);
+        let range = Self::find_token_range(source, position as usize);
 
-	const unlisten: (() => void)[] = [];
+        Some(Self {
+            position,
+            message: response.message.clone(),
+            code: response.code.clone(),
+            line,
+            column,
+            range,
+        })
+    }
 
-	onMount(async () => {
-		unlisten.push(
-			await listen<{ connection_id: string }>('connection:dropped', (event) => {
-				if (event.payload.connection_id === connectionId) {
-					visible = true;
-					status = 'attempting';
-					attempt = 0;
-				}
-			})
-		);
+    /// Convert character offset to line/column (1-based)
+    fn position_to_line_col(source: &str, offset: usize) -> (usize, usize) {
+        let mut line = 1;
+        let mut col = 1;
 
-		unlisten.push(
-			await listen<{ connection_id: string; attempt: number; max_attempts: number }>(
-				'reconnect:attempt',
-				(event) => {
-					if (event.payload.connection_id === connectionId) {
-						attempt = event.payload.attempt;
-						maxAttempts = event.payload.max_attempts;
-						status = 'attempting';
-					}
-				}
-			)
-		);
+        for (i, ch) in source.chars().enumerate() {
+            if i >= offset {
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
 
-		unlisten.push(
-			await listen<{ connection_id: string; error: string }>('reconnect:failed', (event) => {
-				if (event.payload.connection_id === connectionId) {
-					errorMessage = event.payload.error;
-				}
-			})
-		);
+        (line, col)
+    }
 
-		unlisten.push(
-			await listen<{ connection_id: string }>('reconnect:success', (event) => {
-				if (event.payload.connection_id === connectionId) {
-					status = 'success';
-					setTimeout(() => {
-						visible = false;
-					}, 1500);
-				}
-			})
-		);
+    /// Find the word/token range at the given position
+    fn find_token_range(source: &str, offset: usize) -> Range<usize> {
+        let bytes = source.as_bytes();
+        let len = bytes.len();
 
-		unlisten.push(
-			await listen<{ connection_id: string }>('reconnect:exhausted', (event) => {
-				if (event.payload.connection_id === connectionId) {
-					status = 'failed';
-				}
-			})
-		);
-	});
+        if offset >= len {
+            return offset.saturating_sub(1)..offset;
+        }
 
-	onDestroy(() => {
-		unlisten.forEach((fn) => fn());
-	});
+        // Find start of token
+        let mut start = offset;
+        while start > 0 {
+            let ch = bytes[start - 1] as char;
+            if !ch.is_alphanumeric() && ch != '_' {
+                break;
+            }
+            start -= 1;
+        }
 
-	async function manualReconnect() {
-		status = 'attempting';
-		attempt = 0;
-		errorMessage = null;
+        // Find end of token
+        let mut end = offset;
+        while end < len {
+            let ch = bytes[end] as char;
+            if !ch.is_alphanumeric() && ch != '_' {
+                break;
+            }
+            end += 1;
+        }
 
-		try {
-			await invoke('reconnect', { connectionId, maxAttempts: 1 });
-		} catch (e) {
-			status = 'failed';
-			errorMessage = e instanceof Error ? e.message : String(e);
-		}
-	}
+        // Ensure we have at least one character
+        if start == end {
+            end = (start + 1).min(len);
+        }
 
-	function dismiss() {
-		visible = false;
-	}
-</script>
+        start..end
+    }
+}
 
-{#if visible}
-	<div class="reconnect-overlay">
-		<div class="reconnect-card">
-			{#if status === 'attempting'}
-				<div class="reconnect-icon attempting">
-					<Loader size={32} class="spin" />
-				</div>
-				<h3>Connection Lost</h3>
-				<p>Attempting to reconnect... ({attempt}/{maxAttempts})</p>
-				{#if errorMessage}
-					<p class="error-text">{errorMessage}</p>
-				{/if}
-			{:else if status === 'success'}
-				<div class="reconnect-icon success">
-					<RefreshCw size={32} />
-				</div>
-				<h3>Reconnected!</h3>
-				<p>Connection restored successfully</p>
-			{:else}
-				<div class="reconnect-icon failed">
-					<WifiOff size={32} />
-				</div>
-				<h3>Connection Failed</h3>
-				<p>Unable to reconnect after {maxAttempts} attempts</p>
-				{#if errorMessage}
-					<p class="error-text">{errorMessage}</p>
-				{/if}
-				<div class="reconnect-actions">
-					<Button variant="ghost" on:click={dismiss}>
-						<X size={16} />
-						Dismiss
-					</Button>
-					<Button variant="primary" on:click={manualReconnect}>
-						<RefreshCw size={16} />
-						Try Again
-					</Button>
-				</div>
-			{/if}
-		</div>
-	</div>
-{/if}
+/// Error highlight decoration for rendering
+pub struct ErrorHighlight {
+    pub error: EditorError,
+    pub hover_visible: bool,
+}
 
-<style>
-	.reconnect-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		z-index: 1000;
-		backdrop-filter: blur(4px);
-	}
+impl ErrorHighlight {
+    pub fn new(error: EditorError) -> Self {
+        Self {
+            error,
+            hover_visible: false,
+        }
+    }
+}
 
-	.reconnect-card {
-		background: var(--bg-primary);
-		border-radius: 12px;
-		padding: 32px;
-		text-align: center;
-		max-width: 400px;
-		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-	}
+impl Render for ErrorHighlight {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let error_color = hsla(0.0, 0.7, 0.5, 1.0);
 
-	.reconnect-icon {
-		margin-bottom: 16px;
-	}
+        div()
+            .relative()
+            // Wavy underline effect using gradient
+            .border_b_2()
+            .border_b_color(error_color)
+            // Light background tint
+            .bg(error_color.opacity(0.15))
+            // Hover tooltip
+            .when(self.hover_visible, |el| {
+                el.child(
+                    div()
+                        .absolute()
+                        .bottom_full()
+                        .left_0()
+                        .mb_1()
+                        .z_index(100)
+                        .bg(theme.bg_elevated)
+                        .border_1()
+                        .border_color(theme.border)
+                        .rounded_md()
+                        .shadow_md()
+                        .p_2()
+                        .max_w(px(400.0))
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .child(
+                                    div()
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_sm()
+                                        .text_color(error_color)
+                                        .child(self.error.code.clone())
+                                )
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(theme.text_primary)
+                                        .child(self.error.message.clone())
+                                )
+                        )
+                )
+            })
+    }
+}
 
-	.reconnect-icon.attempting {
-		color: var(--primary-color);
-	}
+/// Error line highlight (full line background)
+pub struct ErrorLineHighlight {
+    pub line: usize,
+}
 
-	.reconnect-icon.success {
-		color: var(--success-color);
-	}
+impl Render for ErrorLineHighlight {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let error_color = hsla(0.0, 0.7, 0.5, 1.0);
 
-	.reconnect-icon.failed {
-		color: var(--error-color);
-	}
+        div()
+            .w_full()
+            .bg(error_color.opacity(0.1))
+    }
+}
 
-	h3 {
-		font-size: 18px;
-		font-weight: 600;
-		margin-bottom: 8px;
-	}
+/// Error gutter marker
+pub struct ErrorGutterMarker {
+    pub line: usize,
+    pub error: EditorError,
+}
 
-	p {
-		color: var(--text-secondary);
-		margin-bottom: 8px;
-	}
+impl Render for ErrorGutterMarker {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let error_color = hsla(0.0, 0.7, 0.5, 1.0);
 
-	.error-text {
-		font-size: 13px;
-		color: var(--error-color);
-	}
-
-	.reconnect-actions {
-		display: flex;
-		gap: 12px;
-		justify-content: center;
-		margin-top: 24px;
-	}
-
-	:global(.spin) {
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-</style>
+        div()
+            .size_2()
+            .rounded_full()
+            .bg(error_color)
+            .cursor_pointer()
+            .hover(|s| s.bg(error_color.opacity(0.8)))
+    }
+}
 ```
 
-#### Editor Error Highlighting
+### 28.9 Error Action Handlers
 
-**File: `src/lib/components/editor/EditorErrorHighlight.ts`**
+**File: `src/ui/handlers/error_actions.rs`**
 
-```typescript
-import type * as monaco from 'monaco-editor';
+```rust
+use crate::error::ErrorActionType;
+use crate::state::error_state::{AppError, ErrorState};
+use crate::state::tab_state::TabState;
+use crate::services::connection::ConnectionService;
+use crate::services::reconnect::ReconnectService;
+use crate::ui::dialogs::connection_dialog::ConnectionDialog;
+use gpui::*;
+use std::sync::Arc;
 
-export interface EditorError {
-	position: number;
-	message: string;
-	code: string;
+/// Handle error action button clicks
+pub struct ErrorActionHandler {
+    error_state: Arc<ErrorState>,
+    tab_state: Arc<TabState>,
+    connection_service: Arc<ConnectionService>,
+    reconnect_service: Arc<ReconnectService>,
 }
 
-export function highlightError(
-	editor: monaco.editor.IStandaloneCodeEditor,
-	model: monaco.editor.ITextModel,
-	error: EditorError
-): monaco.IDisposable[] {
-	const disposables: monaco.IDisposable[] = [];
+impl ErrorActionHandler {
+    pub fn new(
+        error_state: Arc<ErrorState>,
+        tab_state: Arc<TabState>,
+        connection_service: Arc<ConnectionService>,
+        reconnect_service: Arc<ReconnectService>,
+    ) -> Self {
+        Self {
+            error_state,
+            tab_state,
+            connection_service,
+            reconnect_service,
+        }
+    }
 
-	// Convert character position to line/column
-	const pos = model.getPositionAt(error.position);
+    /// Handle an error action
+    pub fn handle(&self, action: ErrorActionType, error: &AppError, cx: &mut App) {
+        match action {
+            ErrorActionType::Retry => {
+                self.handle_retry(error, cx);
+            }
+            ErrorActionType::Reconnect => {
+                self.handle_reconnect(error, cx);
+            }
+            ErrorActionType::SearchError => {
+                self.handle_search_error(error, cx);
+            }
+            ErrorActionType::CopyError => {
+                self.handle_copy_error(error, cx);
+            }
+            ErrorActionType::EditConnection => {
+                self.handle_edit_connection(error, cx);
+            }
+            ErrorActionType::ViewPosition => {
+                self.handle_view_position(error, cx);
+            }
+            ErrorActionType::Dismiss => {
+                self.error_state.dismiss(&error.id);
+            }
+        }
+    }
 
-	// Find the word or token at the error position
-	const wordAtPos = model.getWordAtPosition(pos);
-	const startColumn = wordAtPos ? wordAtPos.startColumn : pos.column;
-	const endColumn = wordAtPos ? wordAtPos.endColumn : pos.column + 1;
+    fn handle_retry(&self, error: &AppError, cx: &mut App) {
+        if let Some(query_id) = error.query_id {
+            // Get the tab and re-execute
+            if let Some(tab) = self.tab_state.get_tab(query_id) {
+                // Emit retry event
+                // The query execution system will handle re-running
+                cx.emit_global(QueryRetryEvent { query_id });
+            }
+        }
+        self.error_state.dismiss(&error.id);
+    }
 
-	// Create decoration for error highlight
-	const decorations = editor.createDecorationsCollection([
-		{
-			range: {
-				startLineNumber: pos.lineNumber,
-				startColumn,
-				endLineNumber: pos.lineNumber,
-				endColumn
-			},
-			options: {
-				isWholeLine: false,
-				className: 'error-highlight',
-				glyphMarginClassName: 'error-glyph',
-				hoverMessage: {
-					value: `**${error.code}**\n\n${error.message}`
-				},
-				overviewRuler: {
-					color: '#ef4444',
-					position: 4 // Right
-				}
-			}
-		}
-	]);
+    fn handle_reconnect(&self, error: &AppError, cx: &mut App) {
+        if let Some(connection_id) = error.connection_id {
+            let service = self.reconnect_service.clone();
+            cx.spawn(|_, _| async move {
+                let _ = service.reconnect(
+                    connection_id,
+                    crate::services::reconnect::ReconnectConfig::default(),
+                    |_| {}
+                ).await;
+            }).detach();
+        }
+        self.error_state.dismiss(&error.id);
+    }
 
-	disposables.push({
-		dispose: () => decorations.clear()
-	});
+    fn handle_search_error(&self, error: &AppError, cx: &mut App) {
+        let query = format!(
+            "postgres {} {}",
+            error.response.code,
+            error.response.message
+        );
+        let encoded = urlencoding::encode(&query);
+        let url = format!("https://www.google.com/search?q={}", encoded);
 
-	// Add line highlight
-	const lineDecorations = editor.createDecorationsCollection([
-		{
-			range: {
-				startLineNumber: pos.lineNumber,
-				startColumn: 1,
-				endLineNumber: pos.lineNumber,
-				endColumn: 1
-			},
-			options: {
-				isWholeLine: true,
-				className: 'error-line',
-				marginClassName: 'error-margin'
-			}
-		}
-	]);
+        // Open in default browser
+        #[cfg(target_os = "macos")]
+        {
+            let _ = std::process::Command::new("open").arg(&url).spawn();
+        }
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("cmd")
+                .args(["/C", "start", &url])
+                .spawn();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = std::process::Command::new("xdg-open").arg(&url).spawn();
+        }
+    }
 
-	disposables.push({
-		dispose: () => lineDecorations.clear()
-	});
+    fn handle_copy_error(&self, error: &AppError, cx: &mut App) {
+        let mut text = format!("Error: {}\n{}", error.response.code, error.response.message);
 
-	// Scroll to error position
-	editor.revealLineInCenter(pos.lineNumber);
+        if let Some(detail) = &error.response.detail {
+            text.push_str(&format!("\nDetail: {}", detail));
+        }
+        if let Some(hint) = &error.response.hint {
+            text.push_str(&format!("\nHint: {}", hint));
+        }
+        if let Some(position) = error.response.position {
+            text.push_str(&format!("\nPosition: {}", position));
+        }
 
-	// Set cursor to error position
-	editor.setPosition(pos);
-	editor.focus();
+        cx.write_to_clipboard(ClipboardItem::new_string(text));
+    }
 
-	return disposables;
+    fn handle_edit_connection(&self, error: &AppError, cx: &mut App) {
+        if let Some(connection_id) = error.connection_id {
+            // Open connection dialog in edit mode
+            cx.emit_global(OpenConnectionDialogEvent {
+                connection_id: Some(connection_id),
+                mode: ConnectionDialogMode::Edit,
+            });
+        }
+        self.error_state.dismiss(&error.id);
+    }
+
+    fn handle_view_position(&self, error: &AppError, cx: &mut App) {
+        if let Some(position) = error.response.position {
+            if let Some(query_id) = error.query_id {
+                // Navigate editor to error position
+                cx.emit_global(NavigateToPositionEvent {
+                    query_id,
+                    position,
+                });
+            }
+        }
+    }
 }
 
-export function clearErrorHighlights(disposables: monaco.IDisposable[]): void {
-	disposables.forEach((d) => d.dispose());
+/// Events for error actions
+#[derive(Debug, Clone)]
+pub struct QueryRetryEvent {
+    pub query_id: uuid::Uuid,
 }
 
-// CSS styles to inject
-export const errorHighlightStyles = `
-  .error-highlight {
-    background-color: rgba(239, 68, 68, 0.3);
-    border-bottom: 2px wavy #ef4444;
-  }
+impl EventEmitter<QueryRetryEvent> for GlobalEvents {}
 
-  .error-line {
-    background-color: rgba(239, 68, 68, 0.1);
-  }
+#[derive(Debug, Clone)]
+pub struct OpenConnectionDialogEvent {
+    pub connection_id: Option<uuid::Uuid>,
+    pub mode: ConnectionDialogMode,
+}
 
-  .error-glyph {
-    background-color: #ef4444;
-    border-radius: 50%;
-    width: 8px !important;
-    height: 8px !important;
-    margin-left: 4px;
-    margin-top: 6px;
-  }
+#[derive(Debug, Clone, Copy)]
+pub enum ConnectionDialogMode {
+    Create,
+    Edit,
+}
 
-  .error-margin {
-    background-color: rgba(239, 68, 68, 0.2);
-  }
-`;
+impl EventEmitter<OpenConnectionDialogEvent> for GlobalEvents {}
+
+#[derive(Debug, Clone)]
+pub struct NavigateToPositionEvent {
+    pub query_id: uuid::Uuid,
+    pub position: u32,
+}
+
+impl EventEmitter<NavigateToPositionEvent> for GlobalEvents {}
+
+/// Global event emitter marker
+pub struct GlobalEvents;
 ```
 
-### 28.6 Query Auto-Save Integration
+### 28.10 Error Toast Component
 
-**File: `src/lib/stores/query.ts`** (add auto-save functionality)
+**File: `src/ui/components/error_toast.rs`**
 
-```typescript
-import { invoke } from '@tauri-apps/api/core';
+```rust
+use crate::error::ErrorSeverity;
+use crate::state::error_state::{AppError, ErrorState};
+use crate::ui::theme::Theme;
+use gpui::*;
+use std::sync::Arc;
+use std::time::Duration;
 
-// Add to query store
-let autoSaveInterval: number | null = null;
-
-export function startAutoSave(intervalMs = 5000) {
-	if (autoSaveInterval) return;
-
-	autoSaveInterval = window.setInterval(async () => {
-		const state = get(queryStore);
-
-		for (const tab of state.tabs) {
-			if (tab.isDirty) {
-				await invoke('persist_query', {
-					query: {
-						id: tab.id,
-						connection_id: tab.connectionId,
-						sql: tab.sql,
-						cursor_position: tab.cursorPosition ?? 0,
-						file_path: tab.filePath,
-						is_dirty: tab.isDirty,
-						saved_at: Date.now()
-					}
-				});
-			}
-		}
-	}, intervalMs);
+/// Toast notification for errors
+pub struct ErrorToast {
+    error: AppError,
+    auto_dismiss_delay: Option<Duration>,
+    on_dismiss: Option<Box<dyn Fn() + Send + Sync>>,
+    on_click: Option<Box<dyn Fn() + Send + Sync>>,
 }
 
-export function stopAutoSave() {
-	if (autoSaveInterval) {
-		window.clearInterval(autoSaveInterval);
-		autoSaveInterval = null;
-	}
+impl ErrorToast {
+    pub fn new(error: AppError) -> Self {
+        Self {
+            error,
+            auto_dismiss_delay: Some(Duration::from_secs(5)),
+            on_dismiss: None,
+            on_click: None,
+        }
+    }
+
+    pub fn auto_dismiss(mut self, delay: Option<Duration>) -> Self {
+        self.auto_dismiss_delay = delay;
+        self
+    }
+
+    pub fn on_dismiss(mut self, handler: impl Fn() + Send + Sync + 'static) -> Self {
+        self.on_dismiss = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_click(mut self, handler: impl Fn() + Send + Sync + 'static) -> Self {
+        self.on_click = Some(Box::new(handler));
+        self
+    }
 }
 
-export async function restoreSession() {
-	const persisted = await invoke<PersistedQuery[]>('load_persisted_queries');
+impl Render for ErrorToast {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<Theme>();
+        let severity_color = self.error.response.severity.color();
 
-	for (const query of persisted) {
-		queryStore.addTab({
-			id: query.id,
-			connectionId: query.connection_id,
-			sql: query.sql,
-			filePath: query.file_path,
-			isDirty: query.is_dirty
-		});
-	}
+        // Set up auto-dismiss timer
+        if let Some(delay) = self.auto_dismiss_delay {
+            let on_dismiss = self.on_dismiss.clone();
+            cx.spawn(|_, _| async move {
+                smol::Timer::after(delay).await;
+                if let Some(dismiss) = on_dismiss {
+                    dismiss();
+                }
+            }).detach();
+        }
+
+        let on_click = self.on_click.clone();
+        let on_dismiss = self.on_dismiss.clone();
+
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_3()
+            .px_4()
+            .py_3()
+            .bg(theme.bg_elevated)
+            .border_1()
+            .border_color(theme.border)
+            .border_l_3()
+            .border_l_color(severity_color)
+            .rounded_lg()
+            .shadow_lg()
+            .cursor_pointer()
+            .on_click(move |_, _| {
+                if let Some(on_click) = &on_click {
+                    on_click();
+                }
+            })
+            .child(
+                // Icon
+                div()
+                    .text_color(severity_color)
+                    .child(match self.error.response.severity {
+                        ErrorSeverity::Error => "⊘",
+                        ErrorSeverity::Warning => "⚠",
+                        ErrorSeverity::Notice | ErrorSeverity::Info => "ℹ",
+                    })
+            )
+            .child(
+                // Content
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_sm()
+                            .text_color(theme.text_primary)
+                            .truncate()
+                            .child(self.error.response.message.clone())
+                    )
+            )
+            .child(
+                // Dismiss button
+                div()
+                    .p_1()
+                    .rounded_sm()
+                    .cursor_pointer()
+                    .hover(|s| s.bg(theme.bg_hover))
+                    .text_color(theme.text_tertiary)
+                    .on_click(move |_, _| {
+                        if let Some(dismiss) = &on_dismiss {
+                            dismiss();
+                        }
+                    })
+                    .child("✕")
+            )
+    }
+}
+
+/// Container for displaying toast notifications
+pub struct ToastContainer {
+    error_state: Arc<ErrorState>,
+    max_visible: usize,
+}
+
+impl ToastContainer {
+    pub fn new(error_state: Arc<ErrorState>) -> Self {
+        Self {
+            error_state,
+            max_visible: 3,
+        }
+    }
+}
+
+impl Render for ToastContainer {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let errors = self.error_state.active_errors();
+        let visible_errors: Vec<_> = errors
+            .into_iter()
+            .rev()
+            .take(self.max_visible)
+            .collect();
+
+        div()
+            .absolute()
+            .bottom_4()
+            .right_4()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .z_index(1000)
+            .children(visible_errors.into_iter().map(|error| {
+                let error_id = error.id.clone();
+                let state = self.error_state.clone();
+
+                ErrorToast::new(error)
+                    .on_dismiss(move || {
+                        state.dismiss(&error_id);
+                    })
+            }))
+    }
 }
 ```
 
@@ -1708,7 +2478,7 @@ export async function restoreSession() {
 2. **Error Actions**
    - [ ] Retry query action
    - [ ] Reconnect action
-   - [ ] Google search for error
+   - [ ] Web search for error
    - [ ] Copy error to clipboard
    - [ ] Edit connection settings
    - [ ] Jump to error position
@@ -1727,81 +2497,159 @@ export async function restoreSession() {
 
 5. **Error Severity**
    - [ ] Error (red) for failures
-   - [ ] Warning (yellow) for alerts
+   - [ ] Warning (orange) for alerts
    - [ ] Notice (blue) for info
    - [ ] Info (gray) for informational
 
 6. **Editor Integration**
    - [ ] Error position highlighting
-   - [ ] Wavy underline at error location
+   - [ ] Underline at error location
    - [ ] Hover tooltip with error details
    - [ ] Line highlight for error line
+   - [ ] Gutter marker for error
 
-## MCP Testing Instructions
+## Testing
 
-### Using Tauri MCP
+### Unit Tests
 
-```typescript
-// Test error handling
-await driver_session({ action: 'start', port: 9223 });
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// Execute invalid SQL
-await webview_keyboard({
-	action: 'type',
-	selector: '.monaco-editor textarea',
-	text: 'SELECT * FROM nonexistent_table'
-});
+    #[test]
+    fn test_error_position_to_line_col() {
+        let source = "SELECT *\nFROM users\nWHERE id = 1";
 
-await webview_keyboard({ action: 'press', key: 'Meta+Enter' });
+        // Position 0 (S) -> line 1, col 1
+        assert_eq!(EditorError::position_to_line_col(source, 0), (1, 1));
 
-// Wait for error
-await webview_wait_for({ type: 'selector', value: '.error-display' });
+        // Position 9 (F) -> line 2, col 1
+        assert_eq!(EditorError::position_to_line_col(source, 9), (2, 1));
 
-// Screenshot error state
-await webview_screenshot({ filePath: 'query-error.png' });
+        // Position 20 (W) -> line 3, col 1
+        assert_eq!(EditorError::position_to_line_col(source, 20), (3, 1));
+    }
 
-// Check error content
-const snapshot = await webview_dom_snapshot({ type: 'accessibility' });
-console.log('Error displayed:', snapshot);
+    #[test]
+    fn test_error_token_range() {
+        let source = "SELECT * FROM users WHERE id = 1";
 
-// Test reconnection
-await ipc_execute_command({
-	command: 'reconnect',
-	args: { connectionId: 'test-conn', maxAttempts: 3 }
-});
+        // Position at "FROM" (14)
+        let range = EditorError::find_token_range(source, 14);
+        assert_eq!(&source[range.clone()], "FROM");
 
-await driver_session({ action: 'stop' });
+        // Position at "users" (19)
+        let range = EditorError::find_token_range(source, 19);
+        assert_eq!(&source[range], "users");
+    }
+
+    #[test]
+    fn test_connection_error_response() {
+        let error = ConnectionError::ConnectionRefused {
+            host: "localhost".into(),
+            port: 5432,
+        };
+        let response = error.to_response();
+
+        assert_eq!(response.code, "ECONNREFUSED");
+        assert!(response.recoverable);
+        assert!(response.actions.iter().any(|a| a.action_type == ErrorActionType::Reconnect));
+    }
+
+    #[test]
+    fn test_query_error_with_position() {
+        let error = QueryError::Syntax {
+            position: 42,
+            message: "syntax error at or near \"FORM\"".into(),
+        };
+        let response = error.to_response();
+
+        assert_eq!(response.code, "SYNTAX_ERROR");
+        assert_eq!(response.position, Some(42));
+        assert!(response.actions.iter().any(|a| a.action_type == ErrorActionType::ViewPosition));
+    }
+
+    #[test]
+    fn test_error_state_management() {
+        let state = ErrorState::new();
+        let conn_id = uuid::Uuid::new_v4();
+
+        let error = AppError::new(ErrorResponse {
+            code: "TEST".into(),
+            message: "Test error".into(),
+            detail: None,
+            hint: None,
+            position: None,
+            severity: ErrorSeverity::Error,
+            recoverable: false,
+            actions: vec![],
+        }).with_connection(conn_id);
+
+        let error_id = state.add(error);
+
+        assert_eq!(state.active_errors().len(), 1);
+        assert_eq!(state.for_connection(conn_id).len(), 1);
+
+        state.dismiss(&error_id);
+        assert_eq!(state.active_errors().len(), 0);
+    }
+}
 ```
 
-### Using Playwright MCP
+### Integration Tests
 
-```typescript
-// Test error display
-await browser_navigate({ url: 'http://localhost:1420' });
+```rust
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use gpui::TestAppContext;
 
-// Type invalid query
-await browser_type({
-	element: 'Query editor',
-	ref: '.monaco-editor textarea',
-	text: 'SELEC * FORM users' // Intentional typos
-});
+    #[gpui::test]
+    async fn test_error_display_renders(cx: &mut TestAppContext) {
+        let error = AppError::new(ErrorResponse {
+            code: "42P01".into(),
+            message: "relation \"users\" does not exist".into(),
+            detail: None,
+            hint: Some("Check the table name".into()),
+            position: Some(15),
+            severity: ErrorSeverity::Error,
+            recoverable: false,
+            actions: vec![
+                ErrorAction {
+                    id: "search".into(),
+                    label: "Search".into(),
+                    action_type: ErrorActionType::SearchError,
+                },
+            ],
+        });
 
-// Execute
-await browser_press_key({ key: 'Meta+Enter' });
+        cx.update(|cx| {
+            let view = cx.new_view(|_| {
+                ErrorDisplay::new(error, |_, _| {})
+            });
 
-// Wait for error
-await browser_wait_for({ text: 'SYNTAX_ERROR' });
+            // Render and verify
+            let element = view.render(cx);
+            // Assert error code, message, hint are present
+        });
+    }
 
-// Verify error actions
-const snapshot = await browser_snapshot();
-console.log('Error actions available');
+    #[gpui::test]
+    async fn test_reconnect_overlay_states(cx: &mut TestAppContext) {
+        let connection_id = uuid::Uuid::new_v4();
 
-// Take screenshot
-await browser_take_screenshot({ filename: 'error-display.png' });
-
-// Test copy error action
-await browser_click({
-	element: 'Copy Error button',
-	ref: '[data-action="copy_error"]'
-});
+        // Test each state
+        for status in [
+            ReconnectStatus::Attempting { attempt: 1, max_attempts: 5, delay_ms: 1000 },
+            ReconnectStatus::Success { attempts: 2 },
+            ReconnectStatus::Failed { attempts: 3, error: "Connection refused".into() },
+            ReconnectStatus::Exhausted { max_attempts: 5 },
+        ] {
+            cx.update(|cx| {
+                // Verify overlay renders correctly for each state
+            });
+        }
+    }
+}
 ```

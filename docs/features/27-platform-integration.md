@@ -2,7 +2,7 @@
 
 ## Overview
 
-This feature implements platform-specific integrations for macOS, Windows, and Linux. Each platform has unique requirements for native menu bars, keyboard shortcuts, credential storage (keychain), window management, file associations, auto-update, and distribution packaging. Tauri v2 provides the foundation, and this feature configures platform-specific behaviors to deliver a native experience on each OS.
+This feature implements platform-specific integrations for macOS, Windows, and Linux using GPUI's native capabilities. Each platform has unique requirements for native menu bars, keyboard shortcuts, credential storage (keychain), window management, file associations, auto-update, and distribution packaging. GPUI provides direct platform API access, and this feature configures platform-specific behaviors to deliver a native experience on each OS.
 
 ## Goals
 
@@ -10,15 +10,15 @@ This feature implements platform-specific integrations for macOS, Windows, and L
 2. Platform-appropriate keyboard shortcuts (Cmd vs Ctrl)
 3. Secure credential storage using OS keychains
 4. Native file dialogs and associations
-5. Auto-update mechanism via Tauri updater
+5. Auto-update mechanism with self-updating binary
 6. Platform-specific distribution packages
 7. Respect system themes and accessibility settings
 8. XDG compliance on Linux
 
 ## Dependencies
 
-- Feature 01: Project Setup (Tauri configuration)
-- Feature 02: Local Storage (config/data paths)
+- Feature 02: Backend Architecture (Rust services)
+- Feature 05: Local Storage (config/data paths)
 - Feature 06: Settings System (theme preferences)
 - Feature 07: Connection Management (credential storage)
 
@@ -26,13 +26,14 @@ This feature implements platform-specific integrations for macOS, Windows, and L
 
 ### 27.1 Platform Detection
 
-**File: `src-tauri/src/platform.rs`**
+**File: `src/platform/mod.rs`**
 
 ```rust
 use std::env;
+use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
     MacOS,
@@ -72,25 +73,43 @@ impl Platform {
         }
     }
 
-    /// Get config directory path
-    pub fn config_dir(&self) -> std::path::PathBuf {
+    /// Get the secondary modifier key name
+    pub fn secondary_modifier(&self) -> &'static str {
         match self {
-            Platform::MacOS => {
-                dirs::home_dir()
-                    .unwrap_or_default()
-                    .join("Library")
-                    .join("Application Support")
-                    .join("Tusk")
-            }
-            Platform::Windows => {
-                dirs::config_dir()
-                    .unwrap_or_default()
-                    .join("Tusk")
-            }
+            Platform::MacOS => "Option",
+            Platform::Windows | Platform::Linux => "Alt",
+        }
+    }
+
+    /// Get GPUI modifier for keybindings
+    pub fn primary_modifier_gpui(&self) -> gpui::Modifiers {
+        match self {
+            Platform::MacOS => gpui::Modifiers {
+                command: true,
+                ..Default::default()
+            },
+            Platform::Windows | Platform::Linux => gpui::Modifiers {
+                control: true,
+                ..Default::default()
+            },
+        }
+    }
+
+    /// Get config directory path
+    pub fn config_dir(&self) -> PathBuf {
+        match self {
+            Platform::MacOS => dirs::home_dir()
+                .unwrap_or_default()
+                .join("Library")
+                .join("Application Support")
+                .join("Tusk"),
+            Platform::Windows => dirs::config_dir()
+                .unwrap_or_default()
+                .join("Tusk"),
             Platform::Linux => {
                 // XDG_CONFIG_HOME or ~/.config
                 env::var("XDG_CONFIG_HOME")
-                    .map(std::path::PathBuf::from)
+                    .map(PathBuf::from)
                     .unwrap_or_else(|_| {
                         dirs::home_dir()
                             .unwrap_or_default()
@@ -102,24 +121,20 @@ impl Platform {
     }
 
     /// Get data directory path
-    pub fn data_dir(&self) -> std::path::PathBuf {
+    pub fn data_dir(&self) -> PathBuf {
         match self {
-            Platform::MacOS => {
-                dirs::home_dir()
-                    .unwrap_or_default()
-                    .join("Library")
-                    .join("Application Support")
-                    .join("Tusk")
-            }
-            Platform::Windows => {
-                dirs::data_local_dir()
-                    .unwrap_or_default()
-                    .join("Tusk")
-            }
+            Platform::MacOS => dirs::home_dir()
+                .unwrap_or_default()
+                .join("Library")
+                .join("Application Support")
+                .join("Tusk"),
+            Platform::Windows => dirs::data_local_dir()
+                .unwrap_or_default()
+                .join("Tusk"),
             Platform::Linux => {
                 // XDG_DATA_HOME or ~/.local/share
                 env::var("XDG_DATA_HOME")
-                    .map(std::path::PathBuf::from)
+                    .map(PathBuf::from)
                     .unwrap_or_else(|_| {
                         dirs::home_dir()
                             .unwrap_or_default()
@@ -132,24 +147,20 @@ impl Platform {
     }
 
     /// Get cache directory path
-    pub fn cache_dir(&self) -> std::path::PathBuf {
+    pub fn cache_dir(&self) -> PathBuf {
         match self {
-            Platform::MacOS => {
-                dirs::home_dir()
-                    .unwrap_or_default()
-                    .join("Library")
-                    .join("Caches")
-                    .join("Tusk")
-            }
-            Platform::Windows => {
-                dirs::cache_dir()
-                    .unwrap_or_default()
-                    .join("Tusk")
-            }
+            Platform::MacOS => dirs::home_dir()
+                .unwrap_or_default()
+                .join("Library")
+                .join("Caches")
+                .join("Tusk"),
+            Platform::Windows => dirs::cache_dir()
+                .unwrap_or_default()
+                .join("Tusk"),
             Platform::Linux => {
                 // XDG_CACHE_HOME or ~/.cache
                 env::var("XDG_CACHE_HOME")
-                    .map(std::path::PathBuf::from)
+                    .map(PathBuf::from)
                     .unwrap_or_else(|_| {
                         dirs::home_dir()
                             .unwrap_or_default()
@@ -159,18 +170,35 @@ impl Platform {
             }
         }
     }
+
+    /// Get log directory path
+    pub fn log_dir(&self) -> PathBuf {
+        match self {
+            Platform::MacOS => dirs::home_dir()
+                .unwrap_or_default()
+                .join("Library")
+                .join("Logs")
+                .join("Tusk"),
+            Platform::Windows => dirs::data_local_dir()
+                .unwrap_or_default()
+                .join("Tusk")
+                .join("logs"),
+            Platform::Linux => self.cache_dir().join("logs"),
+        }
+    }
 }
 
-/// Platform info for frontend
-#[derive(Debug, Clone, Serialize)]
+/// Platform info for UI display
+#[derive(Debug, Clone)]
 pub struct PlatformInfo {
     pub platform: Platform,
     pub os_version: String,
     pub arch: &'static str,
     pub primary_modifier: &'static str,
     pub secondary_modifier: &'static str,
-    pub config_dir: String,
-    pub data_dir: String,
+    pub config_dir: PathBuf,
+    pub data_dir: PathBuf,
+    pub cache_dir: PathBuf,
 }
 
 impl PlatformInfo {
@@ -179,328 +207,521 @@ impl PlatformInfo {
 
         Self {
             platform,
-            os_version: os_info::get().version().to_string(),
+            os_version: Self::get_os_version(),
             arch: std::env::consts::ARCH,
             primary_modifier: platform.primary_modifier(),
-            secondary_modifier: match platform {
-                Platform::MacOS => "Option",
-                _ => "Alt",
-            },
-            config_dir: platform.config_dir().to_string_lossy().to_string(),
-            data_dir: platform.data_dir().to_string_lossy().to_string(),
+            secondary_modifier: platform.secondary_modifier(),
+            config_dir: platform.config_dir(),
+            data_dir: platform.data_dir(),
+            cache_dir: platform.cache_dir(),
+        }
+    }
+
+    fn get_os_version() -> String {
+        #[cfg(target_os = "macos")]
+        {
+            use std::process::Command;
+            Command::new("sw_vers")
+                .arg("-productVersion")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "Unknown".to_string())
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Command;
+            Command::new("cmd")
+                .args(["/C", "ver"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|| "Unknown".to_string())
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            std::fs::read_to_string("/etc/os-release")
+                .ok()
+                .and_then(|content| {
+                    content
+                        .lines()
+                        .find(|l| l.starts_with("PRETTY_NAME="))
+                        .map(|l| l.trim_start_matches("PRETTY_NAME=").trim_matches('"').to_string())
+                })
+                .unwrap_or_else(|| "Linux".to_string())
         }
     }
 }
 ```
 
-### 27.2 Native Menu Bar
+### 27.2 Global Platform State
 
-**File: `src-tauri/src/menu.rs`**
+**File: `src/state/platform_state.rs`**
 
 ```rust
-use tauri::{
-    menu::{Menu, MenuBuilder, MenuItemBuilder, SubmenuBuilder, PredefinedMenuItem},
-    AppHandle, Manager, Wry,
-};
+use crate::platform::{Platform, PlatformInfo};
+use gpui::Global;
+use parking_lot::RwLock;
+use std::sync::Arc;
+
+/// Application-wide platform state
+pub struct PlatformState {
+    inner: Arc<RwLock<PlatformStateInner>>,
+}
+
+struct PlatformStateInner {
+    info: PlatformInfo,
+    dark_mode: bool,
+    high_contrast: bool,
+    reduce_motion: bool,
+}
+
+impl Global for PlatformState {}
+
+impl PlatformState {
+    pub fn new() -> Self {
+        let info = PlatformInfo::current();
+
+        Self {
+            inner: Arc::new(RwLock::new(PlatformStateInner {
+                info,
+                dark_mode: Self::detect_dark_mode(),
+                high_contrast: Self::detect_high_contrast(),
+                reduce_motion: Self::detect_reduce_motion(),
+            })),
+        }
+    }
+
+    pub fn info(&self) -> PlatformInfo {
+        self.inner.read().info.clone()
+    }
+
+    pub fn platform(&self) -> Platform {
+        self.inner.read().info.platform
+    }
+
+    pub fn is_dark_mode(&self) -> bool {
+        self.inner.read().dark_mode
+    }
+
+    pub fn set_dark_mode(&self, dark: bool) {
+        self.inner.write().dark_mode = dark;
+    }
+
+    pub fn is_high_contrast(&self) -> bool {
+        self.inner.read().high_contrast
+    }
+
+    pub fn reduce_motion(&self) -> bool {
+        self.inner.read().reduce_motion
+    }
+
+    pub fn primary_modifier(&self) -> &'static str {
+        self.inner.read().info.primary_modifier
+    }
+
+    pub fn config_dir(&self) -> std::path::PathBuf {
+        self.inner.read().info.config_dir.clone()
+    }
+
+    pub fn data_dir(&self) -> std::path::PathBuf {
+        self.inner.read().info.data_dir.clone()
+    }
+
+    fn detect_dark_mode() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            use std::process::Command;
+            Command::new("defaults")
+                .args(["read", "-g", "AppleInterfaceStyle"])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).contains("Dark"))
+                .unwrap_or(false)
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // Read from Windows registry
+            use winreg::enums::*;
+            use winreg::RegKey;
+
+            RegKey::predef(HKEY_CURRENT_USER)
+                .open_subkey("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize")
+                .and_then(|key| key.get_value::<u32, _>("AppsUseLightTheme"))
+                .map(|v| v == 0) // 0 means dark mode
+                .unwrap_or(false)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            // Check GTK/Qt settings or environment
+            std::env::var("GTK_THEME")
+                .map(|t| t.to_lowercase().contains("dark"))
+                .unwrap_or(false)
+        }
+    }
+
+    fn detect_high_contrast() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            use std::process::Command;
+            Command::new("defaults")
+                .args(["read", "-g", "AppleHighContrastEnabled"])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "1")
+                .unwrap_or(false)
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use winreg::enums::*;
+            use winreg::RegKey;
+
+            RegKey::predef(HKEY_CURRENT_USER)
+                .open_subkey("Control Panel\\Accessibility\\HighContrast")
+                .and_then(|key| key.get_value::<String, _>("Flags"))
+                .map(|f| f.parse::<u32>().unwrap_or(0) & 1 != 0)
+                .unwrap_or(false)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            std::env::var("GTK_THEME")
+                .map(|t| t.to_lowercase().contains("contrast"))
+                .unwrap_or(false)
+        }
+    }
+
+    fn detect_reduce_motion() -> bool {
+        #[cfg(target_os = "macos")]
+        {
+            use std::process::Command;
+            Command::new("defaults")
+                .args(["read", "-g", "ReduceMotion"])
+                .output()
+                .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "1")
+                .unwrap_or(false)
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            false
+        }
+    }
+}
+
+impl Default for PlatformState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+```
+
+### 27.3 Native Menu Bar
+
+**File: `src/platform/menu.rs`**
+
+```rust
 use crate::platform::Platform;
-use crate::error::Result;
+use gpui::*;
 
-/// Build the native application menu
-pub fn build_menu(app: &AppHandle) -> Result<Menu<Wry>> {
-    let platform = Platform::current();
-
-    let menu = MenuBuilder::new(app);
-
-    // App menu (macOS only)
-    #[cfg(target_os = "macos")]
-    let menu = menu.item(&build_app_submenu(app)?);
-
+/// Menu action identifiers
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuAction {
     // File menu
-    let menu = menu.item(&build_file_submenu(app, platform)?);
+    NewQuery,
+    NewConnection,
+    OpenFile,
+    Save,
+    SaveAs,
+    CloseTab,
+    Preferences,
+    Quit,
 
     // Edit menu
-    let menu = menu.item(&build_edit_submenu(app)?);
+    Undo,
+    Redo,
+    Cut,
+    Copy,
+    Paste,
+    SelectAll,
+    Find,
+    Replace,
 
     // Query menu
-    let menu = menu.item(&build_query_submenu(app, platform)?);
+    Execute,
+    ExecuteAll,
+    Cancel,
+    Format,
+    Explain,
+    Comment,
 
     // View menu
-    let menu = menu.item(&build_view_submenu(app, platform)?);
+    ToggleSidebar,
+    FocusEditor,
+    FocusResults,
+    FocusSidebar,
+    ZoomIn,
+    ZoomOut,
+    ZoomReset,
+    Fullscreen,
 
     // Tools menu
-    let menu = menu.item(&build_tools_submenu(app)?);
+    BackupDatabase,
+    RestoreDatabase,
+    ImportWizard,
+    ExportData,
+    ErDiagram,
 
     // Window menu
-    let menu = menu.item(&build_window_submenu(app)?);
+    Minimize,
+    Zoom,
+    NextTab,
+    PreviousTab,
 
     // Help menu
-    let menu = menu.item(&build_help_submenu(app)?);
-
-    menu.build().map_err(Into::into)
+    Documentation,
+    KeyboardShortcuts,
+    CheckUpdates,
+    About,
 }
 
-#[cfg(target_os = "macos")]
-fn build_app_submenu(app: &AppHandle) -> Result<tauri::menu::Submenu<Wry>> {
-    SubmenuBuilder::new(app, "Tusk")
-        .item(&PredefinedMenuItem::about(app, Some("About Tusk"), None)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("preferences", "Preferences...")
-            .accelerator("Cmd+,")
-            .build(app)?)
-        .separator()
-        .item(&PredefinedMenuItem::services(app, None)?)
-        .separator()
-        .item(&PredefinedMenuItem::hide(app, None)?)
-        .item(&PredefinedMenuItem::hide_others(app, None)?)
-        .item(&PredefinedMenuItem::show_all(app, None)?)
-        .separator()
-        .item(&PredefinedMenuItem::quit(app, None)?)
-        .build()
-        .map_err(Into::into)
-}
-
-fn build_file_submenu(app: &AppHandle, platform: Platform) -> Result<tauri::menu::Submenu<Wry>> {
-    let modifier = if platform.is_macos() { "Cmd" } else { "Ctrl" };
-
-    let mut builder = SubmenuBuilder::new(app, "File")
-        .item(&MenuItemBuilder::with_id("new_query", "New Query Tab")
-            .accelerator(&format!("{}+N", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("new_connection", "New Connection...")
-            .accelerator(&format!("{}+Shift+N", modifier))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("open_file", "Open SQL File...")
-            .accelerator(&format!("{}+O", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("save", "Save")
-            .accelerator(&format!("{}+S", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("save_as", "Save As...")
-            .accelerator(&format!("{}+Shift+S", modifier))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("close_tab", "Close Tab")
-            .accelerator(&format!("{}+W", modifier))
-            .build(app)?);
-
-    // Add preferences on Windows/Linux (macOS has it in app menu)
-    if !platform.is_macos() {
-        builder = builder
-            .separator()
-            .item(&MenuItemBuilder::with_id("preferences", "Preferences...")
-                .accelerator(&format!("{}+,", modifier))
-                .build(app)?);
-    }
-
-    // Add exit on Windows/Linux
-    if !platform.is_macos() {
-        builder = builder
-            .separator()
-            .item(&MenuItemBuilder::with_id("exit", "Exit")
-                .accelerator("Alt+F4")
-                .build(app)?);
-    }
-
-    builder.build().map_err(Into::into)
-}
-
-fn build_edit_submenu(app: &AppHandle) -> Result<tauri::menu::Submenu<Wry>> {
-    SubmenuBuilder::new(app, "Edit")
-        .item(&PredefinedMenuItem::undo(app, None)?)
-        .item(&PredefinedMenuItem::redo(app, None)?)
-        .separator()
-        .item(&PredefinedMenuItem::cut(app, None)?)
-        .item(&PredefinedMenuItem::copy(app, None)?)
-        .item(&PredefinedMenuItem::paste(app, None)?)
-        .item(&PredefinedMenuItem::select_all(app, None)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("find", "Find...")
-            .accelerator(if Platform::current().is_macos() { "Cmd+F" } else { "Ctrl+F" })
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("replace", "Replace...")
-            .accelerator(if Platform::current().is_macos() { "Cmd+Option+F" } else { "Ctrl+H" })
-            .build(app)?)
-        .build()
-        .map_err(Into::into)
-}
-
-fn build_query_submenu(app: &AppHandle, platform: Platform) -> Result<tauri::menu::Submenu<Wry>> {
-    let modifier = if platform.is_macos() { "Cmd" } else { "Ctrl" };
-
-    SubmenuBuilder::new(app, "Query")
-        .item(&MenuItemBuilder::with_id("execute", "Execute Statement")
-            .accelerator(&format!("{}+Enter", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("execute_all", "Execute All")
-            .accelerator(&format!("{}+Shift+Enter", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("cancel", "Cancel Query")
-            .accelerator(&format!("{}+.", modifier))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("format", "Format SQL")
-            .accelerator(&format!("{}+Shift+F", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("explain", "Explain Plan")
-            .accelerator(&format!("{}+E", modifier))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("comment", "Toggle Comment")
-            .accelerator(&format!("{}+/", modifier))
-            .build(app)?)
-        .build()
-        .map_err(Into::into)
-}
-
-fn build_view_submenu(app: &AppHandle, platform: Platform) -> Result<tauri::menu::Submenu<Wry>> {
-    let modifier = if platform.is_macos() { "Cmd" } else { "Ctrl" };
-
-    SubmenuBuilder::new(app, "View")
-        .item(&MenuItemBuilder::with_id("toggle_sidebar", "Toggle Sidebar")
-            .accelerator(&format!("{}+B", modifier))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("focus_editor", "Focus Editor")
-            .accelerator(&format!("{}+1", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("focus_results", "Focus Results")
-            .accelerator(&format!("{}+2", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("focus_sidebar", "Focus Sidebar")
-            .accelerator(&format!("{}+0", modifier))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("zoom_in", "Zoom In")
-            .accelerator(&format!("{}+=", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("zoom_out", "Zoom Out")
-            .accelerator(&format!("{}+-", modifier))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("zoom_reset", "Reset Zoom")
-            .accelerator(&format!("{}+0", modifier))
-            .build(app)?)
-        .separator()
-        .item(&PredefinedMenuItem::fullscreen(app, None)?)
-        .build()
-        .map_err(Into::into)
-}
-
-fn build_tools_submenu(app: &AppHandle) -> Result<tauri::menu::Submenu<Wry>> {
-    SubmenuBuilder::new(app, "Tools")
-        .item(&MenuItemBuilder::with_id("backup_db", "Backup Database...")
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("restore_db", "Restore Database...")
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("import_wizard", "Import Wizard...")
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("export_data", "Export Data...")
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("er_diagram", "ER Diagram...")
-            .build(app)?)
-        .build()
-        .map_err(Into::into)
-}
-
-fn build_window_submenu(app: &AppHandle) -> Result<tauri::menu::Submenu<Wry>> {
+/// Build application menus for GPUI
+pub fn build_application_menus(cx: &mut App) -> Menu {
     let platform = Platform::current();
+    let cmd = platform.is_macos();
 
-    let mut builder = SubmenuBuilder::new(app, "Window")
-        .item(&PredefinedMenuItem::minimize(app, None)?);
+    Menu::new("Tusk")
+        // App menu (macOS)
+        .when(platform.is_macos(), |menu| {
+            menu.submenu(
+                Submenu::new("Tusk")
+                    .item(MenuItem::action("About Tusk", MenuAction::About))
+                    .separator()
+                    .item(MenuItem::action("Preferences...", MenuAction::Preferences)
+                        .shortcut(if cmd { "cmd-," } else { "ctrl-," }))
+                    .separator()
+                    .item(MenuItem::os_action("Hide Tusk", OsAction::Hide))
+                    .item(MenuItem::os_action("Hide Others", OsAction::HideOthers))
+                    .item(MenuItem::os_action("Show All", OsAction::ShowAll))
+                    .separator()
+                    .item(MenuItem::action("Quit Tusk", MenuAction::Quit)
+                        .shortcut(if cmd { "cmd-q" } else { "alt-f4" }))
+            )
+        })
+        // File menu
+        .submenu(
+            Submenu::new("File")
+                .item(MenuItem::action("New Query Tab", MenuAction::NewQuery)
+                    .shortcut(if cmd { "cmd-n" } else { "ctrl-n" }))
+                .item(MenuItem::action("New Connection...", MenuAction::NewConnection)
+                    .shortcut(if cmd { "cmd-shift-n" } else { "ctrl-shift-n" }))
+                .separator()
+                .item(MenuItem::action("Open SQL File...", MenuAction::OpenFile)
+                    .shortcut(if cmd { "cmd-o" } else { "ctrl-o" }))
+                .item(MenuItem::action("Save", MenuAction::Save)
+                    .shortcut(if cmd { "cmd-s" } else { "ctrl-s" }))
+                .item(MenuItem::action("Save As...", MenuAction::SaveAs)
+                    .shortcut(if cmd { "cmd-shift-s" } else { "ctrl-shift-s" }))
+                .separator()
+                .item(MenuItem::action("Close Tab", MenuAction::CloseTab)
+                    .shortcut(if cmd { "cmd-w" } else { "ctrl-w" }))
+                .when(!platform.is_macos(), |submenu| {
+                    submenu
+                        .separator()
+                        .item(MenuItem::action("Preferences...", MenuAction::Preferences)
+                            .shortcut("ctrl-,"))
+                        .separator()
+                        .item(MenuItem::action("Exit", MenuAction::Quit)
+                            .shortcut("alt-f4"))
+                })
+        )
+        // Edit menu
+        .submenu(
+            Submenu::new("Edit")
+                .item(MenuItem::action("Undo", MenuAction::Undo)
+                    .shortcut(if cmd { "cmd-z" } else { "ctrl-z" }))
+                .item(MenuItem::action("Redo", MenuAction::Redo)
+                    .shortcut(if cmd { "cmd-shift-z" } else { "ctrl-y" }))
+                .separator()
+                .item(MenuItem::action("Cut", MenuAction::Cut)
+                    .shortcut(if cmd { "cmd-x" } else { "ctrl-x" }))
+                .item(MenuItem::action("Copy", MenuAction::Copy)
+                    .shortcut(if cmd { "cmd-c" } else { "ctrl-c" }))
+                .item(MenuItem::action("Paste", MenuAction::Paste)
+                    .shortcut(if cmd { "cmd-v" } else { "ctrl-v" }))
+                .item(MenuItem::action("Select All", MenuAction::SelectAll)
+                    .shortcut(if cmd { "cmd-a" } else { "ctrl-a" }))
+                .separator()
+                .item(MenuItem::action("Find...", MenuAction::Find)
+                    .shortcut(if cmd { "cmd-f" } else { "ctrl-f" }))
+                .item(MenuItem::action("Replace...", MenuAction::Replace)
+                    .shortcut(if cmd { "cmd-alt-f" } else { "ctrl-h" }))
+        )
+        // Query menu
+        .submenu(
+            Submenu::new("Query")
+                .item(MenuItem::action("Execute Statement", MenuAction::Execute)
+                    .shortcut(if cmd { "cmd-enter" } else { "ctrl-enter" }))
+                .item(MenuItem::action("Execute All", MenuAction::ExecuteAll)
+                    .shortcut(if cmd { "cmd-shift-enter" } else { "ctrl-shift-enter" }))
+                .item(MenuItem::action("Cancel Query", MenuAction::Cancel)
+                    .shortcut(if cmd { "cmd-." } else { "ctrl-." }))
+                .separator()
+                .item(MenuItem::action("Format SQL", MenuAction::Format)
+                    .shortcut(if cmd { "cmd-shift-f" } else { "ctrl-shift-f" }))
+                .item(MenuItem::action("Explain Plan", MenuAction::Explain)
+                    .shortcut(if cmd { "cmd-e" } else { "ctrl-e" }))
+                .separator()
+                .item(MenuItem::action("Toggle Comment", MenuAction::Comment)
+                    .shortcut(if cmd { "cmd-/" } else { "ctrl-/" }))
+        )
+        // View menu
+        .submenu(
+            Submenu::new("View")
+                .item(MenuItem::action("Toggle Sidebar", MenuAction::ToggleSidebar)
+                    .shortcut(if cmd { "cmd-b" } else { "ctrl-b" }))
+                .separator()
+                .item(MenuItem::action("Focus Editor", MenuAction::FocusEditor)
+                    .shortcut(if cmd { "cmd-1" } else { "ctrl-1" }))
+                .item(MenuItem::action("Focus Results", MenuAction::FocusResults)
+                    .shortcut(if cmd { "cmd-2" } else { "ctrl-2" }))
+                .item(MenuItem::action("Focus Sidebar", MenuAction::FocusSidebar)
+                    .shortcut(if cmd { "cmd-0" } else { "ctrl-0" }))
+                .separator()
+                .item(MenuItem::action("Zoom In", MenuAction::ZoomIn)
+                    .shortcut(if cmd { "cmd-=" } else { "ctrl-=" }))
+                .item(MenuItem::action("Zoom Out", MenuAction::ZoomOut)
+                    .shortcut(if cmd { "cmd--" } else { "ctrl--" }))
+                .item(MenuItem::action("Reset Zoom", MenuAction::ZoomReset)
+                    .shortcut(if cmd { "cmd-0" } else { "ctrl-0" }))
+                .separator()
+                .item(MenuItem::action("Toggle Fullscreen", MenuAction::Fullscreen)
+                    .shortcut(if cmd { "cmd-ctrl-f" } else { "f11" }))
+        )
+        // Tools menu
+        .submenu(
+            Submenu::new("Tools")
+                .item(MenuItem::action("Backup Database...", MenuAction::BackupDatabase))
+                .item(MenuItem::action("Restore Database...", MenuAction::RestoreDatabase))
+                .separator()
+                .item(MenuItem::action("Import Wizard...", MenuAction::ImportWizard))
+                .item(MenuItem::action("Export Data...", MenuAction::ExportData))
+                .separator()
+                .item(MenuItem::action("ER Diagram...", MenuAction::ErDiagram))
+        )
+        // Window menu
+        .submenu(
+            Submenu::new("Window")
+                .item(MenuItem::action("Minimize", MenuAction::Minimize)
+                    .shortcut(if cmd { "cmd-m" } else { "" }))
+                .when(platform.is_macos(), |submenu| {
+                    submenu.item(MenuItem::action("Zoom", MenuAction::Zoom))
+                })
+                .separator()
+                .item(MenuItem::action("Next Tab", MenuAction::NextTab)
+                    .shortcut(if cmd { "cmd-shift-]" } else { "ctrl-tab" }))
+                .item(MenuItem::action("Previous Tab", MenuAction::PreviousTab)
+                    .shortcut(if cmd { "cmd-shift-[" } else { "ctrl-shift-tab" }))
+        )
+        // Help menu
+        .submenu(
+            Submenu::new("Help")
+                .item(MenuItem::action("Documentation", MenuAction::Documentation))
+                .item(MenuItem::action("Keyboard Shortcuts", MenuAction::KeyboardShortcuts))
+                .separator()
+                .item(MenuItem::action("Check for Updates...", MenuAction::CheckUpdates))
+                .when(!platform.is_macos(), |submenu| {
+                    submenu
+                        .separator()
+                        .item(MenuItem::action("About Tusk", MenuAction::About))
+                })
+        )
+}
 
-    #[cfg(target_os = "macos")]
-    {
-        builder = builder.item(&PredefinedMenuItem::zoom(app, None)?);
+/// Handle menu actions
+impl MenuAction {
+    pub fn handle(self, cx: &mut App) {
+        match self {
+            // These are handled by the global action system
+            MenuAction::Quit => cx.quit(),
+            MenuAction::Minimize => {
+                if let Some(window) = cx.active_window() {
+                    window.minimize();
+                }
+            }
+            MenuAction::Fullscreen => {
+                if let Some(window) = cx.active_window() {
+                    window.toggle_fullscreen();
+                }
+            }
+            // Other actions are dispatched as GPUI actions
+            _ => {
+                cx.dispatch_action(Box::new(self));
+            }
+        }
+    }
+}
+
+impl gpui::Action for MenuAction {
+    fn name(&self) -> &'static str {
+        match self {
+            MenuAction::NewQuery => "tusk::new_query",
+            MenuAction::NewConnection => "tusk::new_connection",
+            MenuAction::OpenFile => "tusk::open_file",
+            MenuAction::Save => "tusk::save",
+            MenuAction::SaveAs => "tusk::save_as",
+            MenuAction::CloseTab => "tusk::close_tab",
+            MenuAction::Preferences => "tusk::preferences",
+            MenuAction::Execute => "tusk::execute",
+            MenuAction::ExecuteAll => "tusk::execute_all",
+            MenuAction::Cancel => "tusk::cancel",
+            MenuAction::Format => "tusk::format",
+            MenuAction::Explain => "tusk::explain",
+            MenuAction::Comment => "tusk::comment",
+            MenuAction::ToggleSidebar => "tusk::toggle_sidebar",
+            MenuAction::FocusEditor => "tusk::focus_editor",
+            MenuAction::FocusResults => "tusk::focus_results",
+            MenuAction::FocusSidebar => "tusk::focus_sidebar",
+            MenuAction::ZoomIn => "tusk::zoom_in",
+            MenuAction::ZoomOut => "tusk::zoom_out",
+            MenuAction::ZoomReset => "tusk::zoom_reset",
+            MenuAction::BackupDatabase => "tusk::backup",
+            MenuAction::RestoreDatabase => "tusk::restore",
+            MenuAction::ImportWizard => "tusk::import",
+            MenuAction::ExportData => "tusk::export",
+            MenuAction::ErDiagram => "tusk::er_diagram",
+            MenuAction::NextTab => "tusk::next_tab",
+            MenuAction::PreviousTab => "tusk::previous_tab",
+            MenuAction::Documentation => "tusk::documentation",
+            MenuAction::KeyboardShortcuts => "tusk::keyboard_shortcuts",
+            MenuAction::CheckUpdates => "tusk::check_updates",
+            MenuAction::About => "tusk::about",
+            _ => "tusk::unknown",
+        }
     }
 
-    builder = builder
-        .separator()
-        .item(&MenuItemBuilder::with_id("next_tab", "Next Tab")
-            .accelerator(if platform.is_macos() { "Cmd+Shift+]" } else { "Ctrl+Tab" })
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("prev_tab", "Previous Tab")
-            .accelerator(if platform.is_macos() { "Cmd+Shift+[" } else { "Ctrl+Shift+Tab" })
-            .build(app)?);
-
-    builder.build().map_err(Into::into)
-}
-
-fn build_help_submenu(app: &AppHandle) -> Result<tauri::menu::Submenu<Wry>> {
-    SubmenuBuilder::new(app, "Help")
-        .item(&MenuItemBuilder::with_id("documentation", "Documentation")
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("keyboard_shortcuts", "Keyboard Shortcuts")
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("check_updates", "Check for Updates...")
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("about", "About Tusk")
-            .build(app)?)
-        .build()
-        .map_err(Into::into)
-}
-
-/// Handle menu item clicks
-pub fn handle_menu_event(app: &AppHandle, event_id: &str) {
-    match event_id {
-        "preferences" => {
-            app.emit("menu:preferences", ()).ok();
-        }
-        "new_query" => {
-            app.emit("menu:new-query", ()).ok();
-        }
-        "new_connection" => {
-            app.emit("menu:new-connection", ()).ok();
-        }
-        "execute" => {
-            app.emit("menu:execute", ()).ok();
-        }
-        "execute_all" => {
-            app.emit("menu:execute-all", ()).ok();
-        }
-        "cancel" => {
-            app.emit("menu:cancel", ()).ok();
-        }
-        "format" => {
-            app.emit("menu:format", ()).ok();
-        }
-        "toggle_sidebar" => {
-            app.emit("menu:toggle-sidebar", ()).ok();
-        }
-        "backup_db" => {
-            app.emit("menu:backup", ()).ok();
-        }
-        "restore_db" => {
-            app.emit("menu:restore", ()).ok();
-        }
-        "import_wizard" => {
-            app.emit("menu:import", ()).ok();
-        }
-        "er_diagram" => {
-            app.emit("menu:er-diagram", ()).ok();
-        }
-        "check_updates" => {
-            app.emit("menu:check-updates", ()).ok();
-        }
-        "about" => {
-            app.emit("menu:about", ()).ok();
-        }
-        _ => {}
+    fn debug_name() -> &'static str
+    where
+        Self: Sized,
+    {
+        "MenuAction"
     }
 }
 ```
 
-### 27.3 Credential Storage (Keychain)
+### 27.4 Credential Storage (Keychain)
 
-**File: `src-tauri/src/services/keychain.rs`**
+**File: `src/services/keychain.rs`**
 
 ```rust
-use keyring::Entry;
 use crate::error::{Result, TuskError};
 use crate::platform::Platform;
+use keyring::Entry;
 
 const SERVICE_NAME: &str = "tusk-postgres-client";
 
@@ -574,15 +795,16 @@ impl KeychainService {
         match entry.get_password() {
             Ok(passphrase) => Ok(Some(passphrase)),
             Err(keyring::Error::NoEntry) => Ok(None),
-            Err(e) => Err(TuskError::Keychain(format!("Failed to retrieve SSH passphrase: {}", e))),
+            Err(e) => Err(TuskError::Keychain(format!(
+                "Failed to retrieve SSH passphrase: {}",
+                e
+            ))),
         }
     }
 
     /// Check if keychain is available
     pub fn is_available(&self) -> bool {
-        // Try to create a test entry
-        let test_entry = Entry::new(SERVICE_NAME, "test-availability");
-        test_entry.is_ok()
+        Entry::new(SERVICE_NAME, "test-availability").is_ok()
     }
 
     /// Get keychain backend name for display
@@ -606,730 +828,1074 @@ impl Default for KeychainService {
 }
 ```
 
-**File: `src-tauri/src/commands/keychain.rs`**
+### 27.5 Auto-Update Service
+
+**File: `src/services/updater.rs`**
 
 ```rust
-use crate::services::keychain::KeychainService;
-use crate::error::Result;
-use tauri::State;
-
-/// Store password in keychain
-#[tauri::command]
-pub async fn keychain_store(
-    connection_id: String,
-    password: String,
-) -> Result<()> {
-    let service = KeychainService::new();
-    service.store_password(&connection_id, &password)
-}
-
-/// Get password from keychain
-#[tauri::command]
-pub async fn keychain_get(
-    connection_id: String,
-) -> Result<Option<String>> {
-    let service = KeychainService::new();
-    service.get_password(&connection_id)
-}
-
-/// Delete password from keychain
-#[tauri::command]
-pub async fn keychain_delete(
-    connection_id: String,
-) -> Result<()> {
-    let service = KeychainService::new();
-    service.delete_password(&connection_id)
-}
-
-/// Check if keychain is available
-#[tauri::command]
-pub async fn keychain_available() -> bool {
-    let service = KeychainService::new();
-    service.is_available()
-}
-
-/// Get keychain backend name
-#[tauri::command]
-pub async fn keychain_backend() -> String {
-    let service = KeychainService::new();
-    service.backend_name().to_string()
-}
-```
-
-### 27.4 Auto-Update Configuration
-
-**File: `src-tauri/tauri.conf.json`** (updater section)
-
-```json
-{
-	"plugins": {
-		"updater": {
-			"active": true,
-			"endpoints": ["https://releases.tusk-app.dev/{{target}}/{{arch}}/{{current_version}}"],
-			"dialog": true,
-			"pubkey": "YOUR_PUBLIC_KEY_HERE",
-			"windows": {
-				"installMode": "passive"
-			}
-		}
-	}
-}
-```
-
-**File: `src-tauri/src/services/updater.rs`**
-
-```rust
-use tauri::{AppHandle, Manager};
-use tauri_plugin_updater::UpdaterExt;
 use crate::error::{Result, TuskError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize)]
+const UPDATE_URL: &str = "https://releases.tusk-app.dev";
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
     pub version: String,
     pub notes: String,
     pub pub_date: String,
     pub download_url: String,
+    pub signature: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateCheckResult {
     pub available: bool,
     pub current_version: String,
     pub update: Option<UpdateInfo>,
 }
 
-pub struct UpdateService {
-    app: AppHandle,
+#[derive(Debug, Clone)]
+pub struct UpdateProgress {
+    pub downloaded: u64,
+    pub total: u64,
+    pub percentage: f32,
 }
 
+pub struct UpdateService;
+
 impl UpdateService {
-    pub fn new(app: AppHandle) -> Self {
-        Self { app }
+    /// Check for available updates
+    pub async fn check_for_updates() -> Result<UpdateCheckResult> {
+        let current_version = env!("CARGO_PKG_VERSION").to_string();
+        let target = Self::get_target();
+        let arch = std::env::consts::ARCH;
+
+        let url = format!(
+            "{}/{}/{}/{}",
+            UPDATE_URL, target, arch, current_version
+        );
+
+        let response = reqwest::get(&url).await
+            .map_err(|e| TuskError::Update(format!("Failed to check for updates: {}", e)))?;
+
+        if response.status() == 204 {
+            // No update available
+            return Ok(UpdateCheckResult {
+                available: false,
+                current_version,
+                update: None,
+            });
+        }
+
+        if !response.status().is_success() {
+            return Err(TuskError::Update(format!(
+                "Update server returned status: {}",
+                response.status()
+            )));
+        }
+
+        let update: UpdateInfo = response.json().await
+            .map_err(|e| TuskError::Update(format!("Failed to parse update info: {}", e)))?;
+
+        Ok(UpdateCheckResult {
+            available: true,
+            current_version,
+            update: Some(update),
+        })
     }
 
-    /// Check for available updates
-    pub async fn check_for_updates(&self) -> Result<UpdateCheckResult> {
-        let current_version = self.app.package_info().version.to_string();
+    /// Download update with progress callback
+    pub async fn download_update<F>(
+        update: &UpdateInfo,
+        progress_callback: F,
+    ) -> Result<PathBuf>
+    where
+        F: Fn(UpdateProgress) + Send + 'static,
+    {
+        let response = reqwest::get(&update.download_url).await
+            .map_err(|e| TuskError::Update(format!("Failed to start download: {}", e)))?;
 
-        let updater = self.app.updater()
-            .map_err(|e| TuskError::Update(format!("Failed to get updater: {}", e)))?;
+        let total = response.content_length().unwrap_or(0);
+        let mut downloaded: u64 = 0;
 
-        match updater.check().await {
-            Ok(Some(update)) => {
-                Ok(UpdateCheckResult {
-                    available: true,
-                    current_version,
-                    update: Some(UpdateInfo {
-                        version: update.version.clone(),
-                        notes: update.body.clone().unwrap_or_default(),
-                        pub_date: update.date.map(|d| d.to_string()).unwrap_or_default(),
-                        download_url: String::new(), // Not exposed by tauri-plugin-updater
-                    }),
-                })
+        // Download to temp file
+        let temp_dir = std::env::temp_dir();
+        let file_name = format!("tusk-update-{}.bin", update.version);
+        let download_path = temp_dir.join(&file_name);
+
+        let mut file = tokio::fs::File::create(&download_path).await
+            .map_err(|e| TuskError::Update(format!("Failed to create temp file: {}", e)))?;
+
+        let mut stream = response.bytes_stream();
+        use futures_util::StreamExt;
+        use tokio::io::AsyncWriteExt;
+
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk
+                .map_err(|e| TuskError::Update(format!("Download error: {}", e)))?;
+
+            file.write_all(&chunk).await
+                .map_err(|e| TuskError::Update(format!("Write error: {}", e)))?;
+
+            downloaded += chunk.len() as u64;
+
+            progress_callback(UpdateProgress {
+                downloaded,
+                total,
+                percentage: if total > 0 {
+                    (downloaded as f32 / total as f32) * 100.0
+                } else {
+                    0.0
+                },
+            });
+        }
+
+        file.flush().await
+            .map_err(|e| TuskError::Update(format!("Failed to flush file: {}", e)))?;
+
+        // Verify signature
+        Self::verify_signature(&download_path, &update.signature)?;
+
+        Ok(download_path)
+    }
+
+    /// Install the downloaded update
+    pub fn install_update(download_path: &PathBuf) -> Result<()> {
+        let current_exe = std::env::current_exe()
+            .map_err(|e| TuskError::Update(format!("Failed to get current exe: {}", e)))?;
+
+        #[cfg(target_os = "macos")]
+        {
+            // macOS: Replace app bundle
+            Self::install_macos_update(download_path, &current_exe)?;
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            // Windows: Run installer or replace exe
+            Self::install_windows_update(download_path)?;
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            // Linux: Replace binary
+            Self::install_linux_update(download_path, &current_exe)?;
+        }
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn install_macos_update(download_path: &PathBuf, current_exe: &PathBuf) -> Result<()> {
+        use std::process::Command;
+
+        // Get the app bundle path
+        let app_path = current_exe
+            .ancestors()
+            .find(|p| p.extension().map_or(false, |e| e == "app"))
+            .ok_or_else(|| TuskError::Update("Could not find app bundle".into()))?;
+
+        // Create a script to replace the app after exit
+        let script = format!(
+            r#"#!/bin/bash
+sleep 2
+rm -rf "{}"
+unzip -o "{}" -d "$(dirname "{}")"
+open "{}"
+rm "{}"
+"#,
+            app_path.display(),
+            download_path.display(),
+            app_path.display(),
+            app_path.display(),
+            download_path.display()
+        );
+
+        let script_path = std::env::temp_dir().join("tusk-update.sh");
+        std::fs::write(&script_path, script)
+            .map_err(|e| TuskError::Update(format!("Failed to write update script: {}", e)))?;
+
+        Command::new("chmod")
+            .args(["+x", &script_path.to_string_lossy()])
+            .status()
+            .map_err(|e| TuskError::Update(format!("Failed to chmod: {}", e)))?;
+
+        Command::new("bash")
+            .arg(&script_path)
+            .spawn()
+            .map_err(|e| TuskError::Update(format!("Failed to run update script: {}", e)))?;
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    fn install_windows_update(download_path: &PathBuf) -> Result<()> {
+        use std::process::Command;
+
+        // Run the NSIS/MSI installer
+        Command::new(download_path)
+            .arg("/S") // Silent install
+            .spawn()
+            .map_err(|e| TuskError::Update(format!("Failed to run installer: {}", e)))?;
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    fn install_linux_update(download_path: &PathBuf, current_exe: &PathBuf) -> Result<()> {
+        use std::process::Command;
+
+        // Create update script
+        let script = format!(
+            r#"#!/bin/bash
+sleep 2
+cp "{}" "{}"
+chmod +x "{}"
+"{}"
+rm "{}"
+"#,
+            download_path.display(),
+            current_exe.display(),
+            current_exe.display(),
+            current_exe.display(),
+            download_path.display()
+        );
+
+        let script_path = std::env::temp_dir().join("tusk-update.sh");
+        std::fs::write(&script_path, script)
+            .map_err(|e| TuskError::Update(format!("Failed to write update script: {}", e)))?;
+
+        Command::new("chmod")
+            .args(["+x", &script_path.to_string_lossy()])
+            .status()
+            .map_err(|e| TuskError::Update(format!("Failed to chmod: {}", e)))?;
+
+        Command::new("bash")
+            .arg(&script_path)
+            .spawn()
+            .map_err(|e| TuskError::Update(format!("Failed to run update script: {}", e)))?;
+
+        Ok(())
+    }
+
+    fn verify_signature(file_path: &PathBuf, _signature: &str) -> Result<()> {
+        // TODO: Implement signature verification using ed25519
+        // For now, just check file exists and has content
+        let metadata = std::fs::metadata(file_path)
+            .map_err(|e| TuskError::Update(format!("Failed to read download: {}", e)))?;
+
+        if metadata.len() == 0 {
+            return Err(TuskError::Update("Downloaded file is empty".into()));
+        }
+
+        Ok(())
+    }
+
+    fn get_target() -> &'static str {
+        #[cfg(target_os = "macos")]
+        { "darwin" }
+
+        #[cfg(target_os = "windows")]
+        { "windows" }
+
+        #[cfg(target_os = "linux")]
+        { "linux" }
+    }
+}
+```
+
+### 27.6 Update Dialog Component
+
+**File: `src/ui/dialogs/update_dialog.rs`**
+
+```rust
+use crate::services::updater::{UpdateCheckResult, UpdateInfo, UpdateProgress, UpdateService};
+use crate::ui::components::{Button, Icon, IconName, Modal, ProgressBar};
+use gpui::*;
+
+pub struct UpdateDialog {
+    state: UpdateState,
+    result: Option<UpdateCheckResult>,
+    progress: Option<UpdateProgress>,
+    error: Option<String>,
+    focus_handle: FocusHandle,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum UpdateState {
+    Checking,
+    NoUpdate,
+    UpdateAvailable,
+    Downloading,
+    ReadyToInstall,
+    Error,
+}
+
+pub enum UpdateDialogEvent {
+    Close,
+    InstallAndRestart,
+}
+
+impl EventEmitter<UpdateDialogEvent> for UpdateDialog {}
+
+impl UpdateDialog {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let dialog = Self {
+            state: UpdateState::Checking,
+            result: None,
+            progress: None,
+            error: None,
+            focus_handle: cx.focus_handle(),
+        };
+
+        // Start checking for updates
+        cx.spawn(|this, mut cx| async move {
+            match UpdateService::check_for_updates().await {
+                Ok(result) => {
+                    let _ = this.update(&mut cx, |this, cx| {
+                        this.result = Some(result.clone());
+                        this.state = if result.available {
+                            UpdateState::UpdateAvailable
+                        } else {
+                            UpdateState::NoUpdate
+                        };
+                        cx.notify();
+                    });
+                }
+                Err(e) => {
+                    let _ = this.update(&mut cx, |this, cx| {
+                        this.error = Some(e.to_string());
+                        this.state = UpdateState::Error;
+                        cx.notify();
+                    });
+                }
             }
-            Ok(None) => {
-                Ok(UpdateCheckResult {
-                    available: false,
-                    current_version,
-                    update: None,
-                })
+        }).detach();
+
+        dialog
+    }
+
+    fn download_update(&mut self, cx: &mut Context<Self>) {
+        let Some(ref result) = self.result else { return };
+        let Some(ref update) = result.update else { return };
+
+        self.state = UpdateState::Downloading;
+        self.progress = Some(UpdateProgress {
+            downloaded: 0,
+            total: 0,
+            percentage: 0.0,
+        });
+
+        let update = update.clone();
+
+        cx.spawn(|this, mut cx| async move {
+            let progress_callback = {
+                let this = this.clone();
+                let cx = cx.clone();
+                move |progress: UpdateProgress| {
+                    let _ = this.update(&mut cx.clone(), |this, cx| {
+                        this.progress = Some(progress);
+                        cx.notify();
+                    });
+                }
+            };
+
+            match UpdateService::download_update(&update, progress_callback).await {
+                Ok(path) => {
+                    let _ = this.update(&mut cx, |this, cx| {
+                        this.state = UpdateState::ReadyToInstall;
+                        cx.notify();
+                    });
+
+                    // Store path for installation
+                    // In real impl, store this somewhere accessible
+                }
+                Err(e) => {
+                    let _ = this.update(&mut cx, |this, cx| {
+                        this.error = Some(e.to_string());
+                        this.state = UpdateState::Error;
+                        cx.notify();
+                    });
+                }
             }
-            Err(e) => {
-                Err(TuskError::Update(format!("Update check failed: {}", e)))
+        }).detach();
+
+        cx.notify();
+    }
+
+    fn install_and_restart(&mut self, cx: &mut Context<Self>) {
+        // In real impl, get the download path and install
+        // For now, just emit the event
+        cx.emit(UpdateDialogEvent::InstallAndRestart);
+    }
+
+    fn close(&mut self, cx: &mut Context<Self>) {
+        cx.emit(UpdateDialogEvent::Close);
+    }
+
+    fn check_again(&mut self, cx: &mut Context<Self>) {
+        self.state = UpdateState::Checking;
+        self.error = None;
+        self.result = None;
+
+        cx.spawn(|this, mut cx| async move {
+            match UpdateService::check_for_updates().await {
+                Ok(result) => {
+                    let _ = this.update(&mut cx, |this, cx| {
+                        this.result = Some(result.clone());
+                        this.state = if result.available {
+                            UpdateState::UpdateAvailable
+                        } else {
+                            UpdateState::NoUpdate
+                        };
+                        cx.notify();
+                    });
+                }
+                Err(e) => {
+                    let _ = this.update(&mut cx, |this, cx| {
+                        this.error = Some(e.to_string());
+                        this.state = UpdateState::Error;
+                        cx.notify();
+                    });
+                }
             }
+        }).detach();
+
+        cx.notify();
+    }
+}
+
+impl Render for UpdateDialog {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let content = match self.state {
+            UpdateState::Checking => self.render_checking(cx),
+            UpdateState::NoUpdate => self.render_no_update(cx),
+            UpdateState::UpdateAvailable => self.render_update_available(cx),
+            UpdateState::Downloading => self.render_downloading(cx),
+            UpdateState::ReadyToInstall => self.render_ready_to_install(cx),
+            UpdateState::Error => self.render_error(cx),
+        };
+
+        Modal::new("update-dialog")
+            .title("Software Update")
+            .width(px(450.0))
+            .child(content)
+            .footer(self.render_footer(cx))
+    }
+}
+
+impl UpdateDialog {
+    fn render_checking(&self, _cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .py(px(32.0))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(12.0))
+            .child(
+                Icon::new(IconName::Loader)
+                    .size(px(32.0))
+                    .class("animate-spin")
+            )
+            .child(
+                div()
+                    .text_color(rgb(0x6b7280))
+                    .child("Checking for updates...")
+            )
+    }
+
+    fn render_no_update(&self, _cx: &Context<Self>) -> impl IntoElement {
+        let version = self.result
+            .as_ref()
+            .map(|r| r.current_version.clone())
+            .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+
+        div()
+            .py(px(32.0))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(12.0))
+            .child(
+                Icon::new(IconName::CheckCircle)
+                    .size(px(32.0))
+                    .color(rgb(0x10b981))
+            )
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .child("You're up to date!")
+            )
+            .child(
+                div()
+                    .text_color(rgb(0x6b7280))
+                    .child(format!("Version {}", version))
+            )
+    }
+
+    fn render_update_available(&self, _cx: &Context<Self>) -> impl IntoElement {
+        let result = self.result.as_ref().unwrap();
+        let update = result.update.as_ref().unwrap();
+
+        div()
+            .p(px(16.0))
+            .flex()
+            .flex_col()
+            .gap(px(16.0))
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Update Available")
+            )
+            .child(
+                div()
+                    .text_color(rgb(0x6b7280))
+                    .child(format!(
+                        "Version {} is available (you have {})",
+                        update.version, result.current_version
+                    ))
+            )
+            .when(!update.notes.is_empty(), |this| {
+                this.child(
+                    div()
+                        .bg(rgb(0xf9fafb))
+                        .rounded_md()
+                        .p(px(12.0))
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::MEDIUM)
+                                .mb(px(8.0))
+                                .child("Release Notes:")
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(0x6b7280))
+                                .max_h(px(150.0))
+                                .overflow_y_auto()
+                                .whitespace_pre_wrap()
+                                .child(update.notes.clone())
+                        )
+                )
+            })
+    }
+
+    fn render_downloading(&self, _cx: &Context<Self>) -> impl IntoElement {
+        let progress = self.progress.as_ref().map(|p| p.percentage).unwrap_or(0.0);
+
+        div()
+            .p(px(16.0))
+            .flex()
+            .flex_col()
+            .gap(px(16.0))
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Downloading Update...")
+            )
+            .child(ProgressBar::new(progress))
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(rgb(0x6b7280))
+                    .text_center()
+                    .child(format!("{:.0}%", progress))
+            )
+    }
+
+    fn render_ready_to_install(&self, _cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .py(px(32.0))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(12.0))
+            .child(
+                Icon::new(IconName::Download)
+                    .size(px(32.0))
+                    .color(rgb(0x3b82f6))
+            )
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .child("Ready to Install")
+            )
+            .child(
+                div()
+                    .text_color(rgb(0x6b7280))
+                    .text_center()
+                    .child("The update has been downloaded. Click Install to apply the update and restart Tusk.")
+            )
+    }
+
+    fn render_error(&self, _cx: &Context<Self>) -> impl IntoElement {
+        let error = self.error.as_deref().unwrap_or("Unknown error");
+
+        div()
+            .py(px(32.0))
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap(px(12.0))
+            .child(
+                Icon::new(IconName::XCircle)
+                    .size(px(32.0))
+                    .color(rgb(0xef4444))
+            )
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM)
+                    .child("Update Failed")
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(rgb(0x6b7280))
+                    .text_center()
+                    .child(error.to_string())
+            )
+    }
+
+    fn render_footer(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .justify_end()
+            .gap(px(8.0))
+            .children(match self.state {
+                UpdateState::Checking => vec![],
+                UpdateState::NoUpdate => vec![
+                    Button::ghost()
+                        .label("Close")
+                        .on_click(cx.listener(|this, _, cx| this.close(cx)))
+                        .into_any_element(),
+                    Button::primary()
+                        .label("Check Again")
+                        .on_click(cx.listener(|this, _, cx| this.check_again(cx)))
+                        .into_any_element(),
+                ],
+                UpdateState::UpdateAvailable => vec![
+                    Button::ghost()
+                        .label("Later")
+                        .on_click(cx.listener(|this, _, cx| this.close(cx)))
+                        .into_any_element(),
+                    Button::primary()
+                        .icon(IconName::Download)
+                        .label("Download Update")
+                        .on_click(cx.listener(|this, _, cx| this.download_update(cx)))
+                        .into_any_element(),
+                ],
+                UpdateState::Downloading => vec![],
+                UpdateState::ReadyToInstall => vec![
+                    Button::ghost()
+                        .label("Later")
+                        .on_click(cx.listener(|this, _, cx| this.close(cx)))
+                        .into_any_element(),
+                    Button::primary()
+                        .label("Install and Restart")
+                        .on_click(cx.listener(|this, _, cx| this.install_and_restart(cx)))
+                        .into_any_element(),
+                ],
+                UpdateState::Error => vec![
+                    Button::ghost()
+                        .label("Close")
+                        .on_click(cx.listener(|this, _, cx| this.close(cx)))
+                        .into_any_element(),
+                    Button::primary()
+                        .label("Try Again")
+                        .on_click(cx.listener(|this, _, cx| this.check_again(cx)))
+                        .into_any_element(),
+                ],
+            })
+    }
+}
+
+impl FocusableView for UpdateDialog {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+```
+
+### 27.7 About Dialog Component
+
+**File: `src/ui/dialogs/about_dialog.rs`**
+
+```rust
+use crate::platform::PlatformInfo;
+use crate::state::PlatformState;
+use crate::ui::components::{Button, Modal};
+use gpui::*;
+
+pub struct AboutDialog {
+    focus_handle: FocusHandle,
+}
+
+pub enum AboutDialogEvent {
+    Close,
+}
+
+impl EventEmitter<AboutDialogEvent> for AboutDialog {}
+
+impl AboutDialog {
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            focus_handle: cx.focus_handle(),
         }
     }
 
-    /// Download and install update
-    pub async fn install_update(&self) -> Result<()> {
-        let updater = self.app.updater()
-            .map_err(|e| TuskError::Update(format!("Failed to get updater: {}", e)))?;
+    fn close(&mut self, cx: &mut Context<Self>) {
+        cx.emit(AboutDialogEvent::Close);
+    }
+}
 
-        let update = updater.check().await
-            .map_err(|e| TuskError::Update(format!("Update check failed: {}", e)))?
-            .ok_or_else(|| TuskError::Update("No update available".into()))?;
+impl Render for AboutDialog {
+    fn render(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+        let platform_state = cx.global::<PlatformState>();
+        let info = platform_state.info();
 
-        // Emit progress events
-        let app = self.app.clone();
-        update.download_and_install(
-            move |chunk_length, content_length| {
-                let progress = content_length.map(|total| {
-                    (chunk_length as f64 / total as f64 * 100.0) as u32
-                }).unwrap_or(0);
+        let version = env!("CARGO_PKG_VERSION");
+        let authors = env!("CARGO_PKG_AUTHORS");
 
-                app.emit("update:progress", progress).ok();
-            },
-            || {
-                // Download complete
-            }
-        ).await.map_err(|e| TuskError::Update(format!("Update install failed: {}", e)))?;
+        Modal::new("about-dialog")
+            .title("")
+            .width(px(400.0))
+            .child(
+                div()
+                    .p(px(24.0))
+                    .flex()
+                    .flex_col()
+                    .items_center()
+                    .gap(px(16.0))
+                    // App icon
+                    .child(
+                        div()
+                            .w(px(80.0))
+                            .h(px(80.0))
+                            .rounded_xl()
+                            .bg(rgb(0x3b82f6))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .child(
+                                div()
+                                    .text_4xl()
+                                    .text_color(rgb(0xffffff))
+                                    .child("🐘")
+                            )
+                    )
+                    // App name
+                    .child(
+                        div()
+                            .text_2xl()
+                            .font_weight(FontWeight::BOLD)
+                            .child("Tusk")
+                    )
+                    // Version
+                    .child(
+                        div()
+                            .text_color(rgb(0x6b7280))
+                            .child(format!("Version {}", version))
+                    )
+                    // Description
+                    .child(
+                        div()
+                            .text_center()
+                            .text_color(rgb(0x6b7280))
+                            .child("A fast, free, native PostgreSQL client")
+                    )
+                    // System info
+                    .child(
+                        div()
+                            .w_full()
+                            .mt(px(8.0))
+                            .p(px(12.0))
+                            .bg(rgb(0xf9fafb))
+                            .rounded_md()
+                            .text_xs()
+                            .text_color(rgb(0x6b7280))
+                            .flex()
+                            .flex_col()
+                            .gap(px(4.0))
+                            .child(format!("Platform: {:?}", info.platform))
+                            .child(format!("OS: {}", info.os_version))
+                            .child(format!("Architecture: {}", info.arch))
+                    )
+                    // Links
+                    .child(
+                        div()
+                            .flex()
+                            .gap(px(16.0))
+                            .mt(px(8.0))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(0x3b82f6))
+                                    .cursor_pointer()
+                                    .child("GitHub")
+                            )
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(0x3b82f6))
+                                    .cursor_pointer()
+                                    .child("Website")
+                            )
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(0x3b82f6))
+                                    .cursor_pointer()
+                                    .child("License")
+                            )
+                    )
+                    // Copyright
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(rgb(0x9ca3af))
+                            .mt(px(8.0))
+                            .child("© 2024 Tusk. All rights reserved.")
+                    )
+            )
+            .footer(
+                div()
+                    .flex()
+                    .justify_center()
+                    .child(
+                        Button::ghost()
+                            .label("Close")
+                            .on_click(cx.listener(|this, _, cx| this.close(cx)))
+                    )
+            )
+    }
+}
 
+impl FocusableView for AboutDialog {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+```
+
+### 27.8 Keyboard Shortcut Display
+
+**File: `src/ui/components/shortcut.rs`**
+
+```rust
+use crate::platform::Platform;
+use gpui::*;
+
+/// Component to display keyboard shortcuts with platform-appropriate modifiers
+pub struct Shortcut {
+    keys: Vec<String>,
+}
+
+impl Shortcut {
+    pub fn new(shortcut: &str) -> Self {
+        let platform = Platform::current();
+        let keys = Self::parse_shortcut(shortcut, &platform);
+
+        Self { keys }
+    }
+
+    fn parse_shortcut(shortcut: &str, platform: &Platform) -> Vec<String> {
+        shortcut
+            .split('+')
+            .map(|key| {
+                match key.to_lowercase().as_str() {
+                    "cmd" | "meta" | "command" => {
+                        if platform.is_macos() {
+                            "⌘".to_string()
+                        } else {
+                            "Ctrl".to_string()
+                        }
+                    }
+                    "ctrl" | "control" => {
+                        if platform.is_macos() {
+                            "⌃".to_string()
+                        } else {
+                            "Ctrl".to_string()
+                        }
+                    }
+                    "alt" | "option" => {
+                        if platform.is_macos() {
+                            "⌥".to_string()
+                        } else {
+                            "Alt".to_string()
+                        }
+                    }
+                    "shift" => {
+                        if platform.is_macos() {
+                            "⇧".to_string()
+                        } else {
+                            "Shift".to_string()
+                        }
+                    }
+                    "enter" | "return" => "↵".to_string(),
+                    "backspace" => "⌫".to_string(),
+                    "delete" => "⌦".to_string(),
+                    "escape" | "esc" => "Esc".to_string(),
+                    "tab" => "⇥".to_string(),
+                    "space" => "Space".to_string(),
+                    "up" => "↑".to_string(),
+                    "down" => "↓".to_string(),
+                    "left" => "←".to_string(),
+                    "right" => "→".to_string(),
+                    other => other.to_uppercase(),
+                }
+            })
+            .collect()
+    }
+}
+
+impl IntoElement for Shortcut {
+    type Element = Div;
+
+    fn into_element(self) -> Self::Element {
+        let platform = Platform::current();
+
+        div()
+            .flex()
+            .items_center()
+            .gap(px(if platform.is_macos() { 2.0 } else { 4.0 }))
+            .children(
+                self.keys.iter().enumerate().map(|(i, key)| {
+                    if platform.is_macos() {
+                        // macOS style: symbols without separators
+                        div()
+                            .text_xs()
+                            .text_color(rgb(0x9ca3af))
+                            .child(key.clone())
+                    } else {
+                        // Windows/Linux style: keys with + separators
+                        div()
+                            .flex()
+                            .items_center()
+                            .when(i > 0, |this| {
+                                this.child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(0xd1d5db))
+                                        .mx(px(2.0))
+                                        .child("+")
+                                )
+                            })
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(0x9ca3af))
+                                    .px(px(4.0))
+                                    .py(px(1.0))
+                                    .bg(rgb(0xf3f4f6))
+                                    .rounded(px(3.0))
+                                    .border_1()
+                                    .border_color(rgb(0xe5e7eb))
+                                    .child(key.clone())
+                            )
+                    }
+                })
+            )
+    }
+}
+```
+
+### 27.9 File Associations Handler
+
+**File: `src/platform/file_handler.rs`**
+
+```rust
+use crate::error::Result;
+use std::path::PathBuf;
+
+/// Handle file open requests
+pub struct FileHandler;
+
+impl FileHandler {
+    /// Handle opening a file
+    pub fn open_file(path: PathBuf) -> Result<String> {
+        // Read the SQL file
+        let content = std::fs::read_to_string(&path)?;
+        Ok(content)
+    }
+
+    /// Check if a file is a supported SQL file
+    pub fn is_sql_file(path: &PathBuf) -> bool {
+        path.extension()
+            .map(|ext| {
+                let ext = ext.to_string_lossy().to_lowercase();
+                ext == "sql" || ext == "pgsql"
+            })
+            .unwrap_or(false)
+    }
+
+    /// Register file associations (platform-specific)
+    #[cfg(target_os = "macos")]
+    pub fn register_file_associations() -> Result<()> {
+        // macOS handles this via Info.plist CFBundleDocumentTypes
+        // Nothing to do at runtime
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn register_file_associations() -> Result<()> {
+        use winreg::enums::*;
+        use winreg::RegKey;
+
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
+        // Register .sql extension
+        let (sql_key, _) = hkcu.create_subkey("Software\\Classes\\.sql")?;
+        sql_key.set_value("", &"Tusk.SQLFile")?;
+
+        // Register .pgsql extension
+        let (pgsql_key, _) = hkcu.create_subkey("Software\\Classes\\.pgsql")?;
+        pgsql_key.set_value("", &"Tusk.SQLFile")?;
+
+        // Register the file type
+        let (type_key, _) = hkcu.create_subkey("Software\\Classes\\Tusk.SQLFile")?;
+        type_key.set_value("", &"SQL File")?;
+
+        let exe_path = std::env::current_exe()?.to_string_lossy().to_string();
+
+        let (command_key, _) = hkcu.create_subkey("Software\\Classes\\Tusk.SQLFile\\shell\\open\\command")?;
+        command_key.set_value("", &format!("\"{}\" \"%1\"", exe_path))?;
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn register_file_associations() -> Result<()> {
+        // Linux uses .desktop files and xdg-mime
+        // This is typically handled during package installation
+        // Runtime registration is not typical
         Ok(())
     }
 }
 ```
 
-**File: `src-tauri/src/commands/updater.rs`**
+### 27.10 Module Organization
+
+**File: `src/platform/mod.rs`**
 
 ```rust
-use crate::services::updater::{UpdateService, UpdateCheckResult};
-use crate::error::Result;
-use tauri::{AppHandle, State};
+mod menu;
+mod file_handler;
 
-/// Check for updates
-#[tauri::command]
-pub async fn check_updates(app: AppHandle) -> Result<UpdateCheckResult> {
-    let service = UpdateService::new(app);
-    service.check_for_updates().await
-}
+pub use menu::{build_application_menus, MenuAction};
+pub use file_handler::FileHandler;
 
-/// Install available update
-#[tauri::command]
-pub async fn install_update(app: AppHandle) -> Result<()> {
-    let service = UpdateService::new(app);
-    service.install_update().await
-}
-```
+use std::env;
+use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 
-### 27.5 Tauri Configuration
-
-**File: `src-tauri/tauri.conf.json`**
-
-```json
-{
-	"$schema": "https://schema.tauri.app/config/2",
-	"productName": "Tusk",
-	"version": "0.1.0",
-	"identifier": "dev.tusk.postgres",
-	"build": {
-		"beforeDevCommand": "npm run dev",
-		"devUrl": "http://localhost:1420",
-		"beforeBuildCommand": "npm run build",
-		"frontendDist": "../dist"
-	},
-	"app": {
-		"withGlobalTauri": false,
-		"windows": [
-			{
-				"title": "Tusk",
-				"width": 1280,
-				"height": 800,
-				"minWidth": 800,
-				"minHeight": 600,
-				"center": true,
-				"resizable": true,
-				"fullscreen": false,
-				"decorations": true,
-				"transparent": false,
-				"titleBarStyle": "Visible"
-			}
-		],
-		"security": {
-			"csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:"
-		}
-	},
-	"bundle": {
-		"active": true,
-		"targets": "all",
-		"icon": [
-			"icons/32x32.png",
-			"icons/128x128.png",
-			"icons/128x128@2x.png",
-			"icons/icon.icns",
-			"icons/icon.ico"
-		],
-		"resources": [],
-		"copyright": "© 2024 Tusk",
-		"category": "DeveloperTool",
-		"shortDescription": "Fast, native Postgres client",
-		"longDescription": "Tusk is a fast, free, native Postgres client built with Tauri. It aims to be a complete replacement for pgAdmin and DBeaver for Postgres-only workflows.",
-		"macOS": {
-			"entitlements": null,
-			"exceptionDomain": "",
-			"frameworks": [],
-			"providerShortName": null,
-			"signingIdentity": null,
-			"minimumSystemVersion": "10.15"
-		},
-		"windows": {
-			"certificateThumbprint": null,
-			"digestAlgorithm": "sha256",
-			"timestampUrl": "",
-			"wix": {
-				"language": "en-US"
-			},
-			"nsis": {
-				"installerIcon": "icons/icon.ico",
-				"headerImage": "icons/header.bmp",
-				"sidebarImage": "icons/sidebar.bmp",
-				"license": "LICENSE",
-				"installMode": "currentUser",
-				"languages": ["English"],
-				"displayLanguageSelector": false
-			}
-		},
-		"linux": {
-			"appimage": {
-				"bundleMediaFramework": false
-			},
-			"deb": {
-				"depends": ["libssl3", "libwebkit2gtk-4.1-0"]
-			},
-			"rpm": {
-				"depends": ["openssl", "webkit2gtk4.1"]
-			}
-		}
-	}
-}
-```
-
-### 27.6 Frontend Platform Integration
-
-**File: `src/lib/stores/platform.ts`**
-
-```typescript
-import { writable, derived } from 'svelte/store';
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-
-export type Platform = 'macos' | 'windows' | 'linux';
-
-export interface PlatformInfo {
-	platform: Platform;
-	os_version: string;
-	arch: string;
-	primary_modifier: string;
-	secondary_modifier: string;
-	config_dir: string;
-	data_dir: string;
-}
-
-function createPlatformStore() {
-	const { subscribe, set } = writable<PlatformInfo | null>(null);
-
-	return {
-		subscribe,
-
-		async init() {
-			const info = await invoke<PlatformInfo>('get_platform_info');
-			set(info);
-			return info;
-		}
-	};
-}
-
-export const platformStore = createPlatformStore();
-
-// Derived helpers
-export const platform = derived(platformStore, ($p) => $p?.platform ?? 'linux');
-export const isMac = derived(platform, ($p) => $p === 'macos');
-export const isWindows = derived(platform, ($p) => $p === 'windows');
-export const isLinux = derived(platform, ($p) => $p === 'linux');
-export const primaryMod = derived(platformStore, ($p) => $p?.primary_modifier ?? 'Ctrl');
-export const secondaryMod = derived(platformStore, ($p) => $p?.secondary_modifier ?? 'Alt');
-
-// Format shortcut for display
-export function formatShortcut(shortcut: string): string {
-	let info: PlatformInfo | null = null;
-	platformStore.subscribe((p) => (info = p))();
-
-	if (!info) return shortcut;
-
-	// Replace generic modifiers with platform-specific ones
-	return shortcut
-		.replace(/Mod\+/g, `${info.primary_modifier}+`)
-		.replace(/Alt\+/g, `${info.secondary_modifier}+`);
-}
-```
-
-**File: `src/lib/services/menu.ts`**
-
-```typescript
-import { listen } from '@tauri-apps/api/event';
-import { goto } from '$app/navigation';
-import { queryStore } from '$lib/stores/query';
-import { uiStore } from '$lib/stores/ui';
-import { dialogStore } from '$lib/stores/dialog';
-
-export async function setupMenuListeners() {
-	// File menu
-	listen('menu:new-query', () => {
-		queryStore.createTab();
-	});
-
-	listen('menu:new-connection', () => {
-		dialogStore.open('connection');
-	});
-
-	listen('menu:preferences', () => {
-		goto('/settings');
-	});
-
-	// Query menu
-	listen('menu:execute', () => {
-		queryStore.executeCurrent();
-	});
-
-	listen('menu:execute-all', () => {
-		queryStore.executeAll();
-	});
-
-	listen('menu:cancel', () => {
-		queryStore.cancelCurrent();
-	});
-
-	listen('menu:format', () => {
-		queryStore.formatCurrent();
-	});
-
-	// View menu
-	listen('menu:toggle-sidebar', () => {
-		uiStore.toggleSidebar();
-	});
-
-	// Tools menu
-	listen('menu:backup', () => {
-		dialogStore.open('backup');
-	});
-
-	listen('menu:restore', () => {
-		dialogStore.open('restore');
-	});
-
-	listen('menu:import', () => {
-		dialogStore.open('import');
-	});
-
-	listen('menu:er-diagram', () => {
-		dialogStore.open('er-diagram');
-	});
-
-	// Help menu
-	listen('menu:check-updates', () => {
-		dialogStore.open('update-check');
-	});
-
-	listen('menu:about', () => {
-		dialogStore.open('about');
-	});
-}
-```
-
-**File: `src/lib/components/dialogs/UpdateDialog.svelte`**
-
-```svelte
-<script lang="ts">
-	import { invoke } from '@tauri-apps/api/core';
-	import { listen } from '@tauri-apps/api/event';
-	import { onMount, onDestroy } from 'svelte';
-	import Dialog from '$lib/components/common/Dialog.svelte';
-	import Button from '$lib/components/common/Button.svelte';
-	import { Download, CheckCircle, XCircle, Loader } from 'lucide-svelte';
-
-	export let open = false;
-
-	interface UpdateInfo {
-		version: string;
-		notes: string;
-		pub_date: string;
-	}
-
-	interface UpdateCheckResult {
-		available: boolean;
-		current_version: string;
-		update: UpdateInfo | null;
-	}
-
-	let checking = false;
-	let installing = false;
-	let result: UpdateCheckResult | null = null;
-	let error: string | null = null;
-	let progress = 0;
-
-	let unlistenProgress: (() => void) | null = null;
-
-	onMount(async () => {
-		unlistenProgress = await listen<number>('update:progress', (event) => {
-			progress = event.payload;
-		});
-	});
-
-	onDestroy(() => {
-		unlistenProgress?.();
-	});
-
-	async function checkForUpdates() {
-		checking = true;
-		error = null;
-
-		try {
-			result = await invoke<UpdateCheckResult>('check_updates');
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-		} finally {
-			checking = false;
-		}
-	}
-
-	async function installUpdate() {
-		installing = true;
-		progress = 0;
-		error = null;
-
-		try {
-			await invoke('install_update');
-			// App will restart automatically
-		} catch (e) {
-			error = e instanceof Error ? e.message : String(e);
-			installing = false;
-		}
-	}
-
-	$: if (open && !result && !checking) {
-		checkForUpdates();
-	}
-
-	function close() {
-		open = false;
-		result = null;
-		error = null;
-		progress = 0;
-	}
-</script>
-
-<Dialog bind:open title="Software Update" on:close={close}>
-	<div class="update-content">
-		{#if checking}
-			<div class="status">
-				<Loader class="spin" size={32} />
-				<p>Checking for updates...</p>
-			</div>
-		{:else if error}
-			<div class="status error">
-				<XCircle size={32} />
-				<p>Failed to check for updates</p>
-				<span class="error-text">{error}</span>
-			</div>
-		{:else if result}
-			{#if result.available && result.update}
-				<div class="update-available">
-					<h3>Update Available</h3>
-					<p class="version-info">
-						Version {result.update.version} is available (you have {result.current_version})
-					</p>
-
-					{#if result.update.notes}
-						<div class="release-notes">
-							<h4>Release Notes:</h4>
-							<div class="notes-content">{result.update.notes}</div>
-						</div>
-					{/if}
-
-					{#if installing}
-						<div class="progress-container">
-							<div class="progress-bar" style="width: {progress}%"></div>
-							<span class="progress-text">{progress}%</span>
-						</div>
-						<p class="installing-text">Downloading and installing update...</p>
-					{/if}
-				</div>
-			{:else}
-				<div class="status success">
-					<CheckCircle size={32} />
-					<p>You're up to date!</p>
-					<span class="version">Version {result.current_version}</span>
-				</div>
-			{/if}
-		{/if}
-	</div>
-
-	<svelte:fragment slot="footer">
-		{#if result?.available && !installing}
-			<Button variant="ghost" on:click={close}>Later</Button>
-			<Button variant="primary" on:click={installUpdate}>
-				<Download size={16} />
-				Install Update
-			</Button>
-		{:else if !checking && !installing}
-			<Button variant="ghost" on:click={close}>Close</Button>
-			<Button variant="primary" on:click={checkForUpdates}>Check Again</Button>
-		{/if}
-	</svelte:fragment>
-</Dialog>
-
-<style>
-	.update-content {
-		min-height: 150px;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.status {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 12px;
-		padding: 32px;
-		text-align: center;
-	}
-
-	.status.error {
-		color: var(--error-color);
-	}
-
-	.status.success {
-		color: var(--success-color);
-	}
-
-	.error-text {
-		color: var(--text-secondary);
-		font-size: 13px;
-	}
-
-	.version {
-		color: var(--text-secondary);
-	}
-
-	.update-available h3 {
-		margin-bottom: 8px;
-	}
-
-	.version-info {
-		color: var(--text-secondary);
-		margin-bottom: 16px;
-	}
-
-	.release-notes {
-		background: var(--bg-secondary);
-		border-radius: 6px;
-		padding: 12px;
-		margin-bottom: 16px;
-	}
-
-	.release-notes h4 {
-		font-size: 13px;
-		margin-bottom: 8px;
-	}
-
-	.notes-content {
-		font-size: 13px;
-		color: var(--text-secondary);
-		max-height: 150px;
-		overflow-y: auto;
-		white-space: pre-wrap;
-	}
-
-	.progress-container {
-		height: 8px;
-		background: var(--bg-tertiary);
-		border-radius: 4px;
-		overflow: hidden;
-		position: relative;
-	}
-
-	.progress-bar {
-		height: 100%;
-		background: var(--primary-color);
-		transition: width 0.3s ease;
-	}
-
-	.progress-text {
-		position: absolute;
-		right: 8px;
-		top: 50%;
-		transform: translateY(-50%);
-		font-size: 11px;
-		color: var(--text-secondary);
-	}
-
-	.installing-text {
-		text-align: center;
-		margin-top: 8px;
-		color: var(--text-secondary);
-		font-size: 13px;
-	}
-
-	:global(.spin) {
-		animation: spin 1s linear infinite;
-	}
-
-	@keyframes spin {
-		from {
-			transform: rotate(0deg);
-		}
-		to {
-			transform: rotate(360deg);
-		}
-	}
-</style>
-```
-
-### 27.7 File Associations
-
-**File: `src-tauri/tauri.conf.json`** (additional bundle config)
-
-```json
-{
-	"bundle": {
-		"fileAssociations": [
-			{
-				"ext": ["sql"],
-				"name": "SQL File",
-				"description": "SQL Script File",
-				"role": "Editor",
-				"mimeType": "application/sql"
-			},
-			{
-				"ext": ["pgsql"],
-				"name": "PostgreSQL File",
-				"description": "PostgreSQL Script File",
-				"role": "Editor",
-				"mimeType": "application/x-postgresql"
-			}
-		]
-	}
-}
-```
-
-**File: `src-tauri/src/main.rs`** (file open handler)
-
-```rust
-fn main() {
-    tauri::Builder::default()
-        .setup(|app| {
-            // Handle file open on startup (macOS double-click)
-            #[cfg(target_os = "macos")]
-            {
-                let handle = app.handle().clone();
-                app.listen_global("tauri://file-drop", move |event| {
-                    if let Some(paths) = event.payload() {
-                        // Emit to frontend
-                        handle.emit("file:open", paths).ok();
-                    }
-                });
-            }
-
-            Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-}
-```
-
-### 27.8 Platform Command
-
-**File: `src-tauri/src/commands/platform.rs`**
-
-```rust
-use crate::platform::PlatformInfo;
-
-/// Get platform information
-#[tauri::command]
-pub fn get_platform_info() -> PlatformInfo {
-    PlatformInfo::current()
-}
+// Platform enum and PlatformInfo from section 27.1
 ```
 
 ## Acceptance Criteria
@@ -1338,7 +1904,7 @@ pub fn get_platform_info() -> PlatformInfo {
    - [ ] Native menu bar on macOS with app menu
    - [ ] File/Edit/Query/View/Tools/Window/Help menus
    - [ ] Platform-appropriate keyboard shortcuts displayed
-   - [ ] Menu actions emit events to frontend
+   - [ ] Menu actions dispatch GPUI actions
 
 2. **Keyboard Shortcuts**
    - [ ] Cmd modifier on macOS
@@ -1374,64 +1940,114 @@ pub fn get_platform_info() -> PlatformInfo {
    - [ ] Windows: MSI/NSIS installer
    - [ ] Linux: AppImage, .deb, .rpm
 
-## MCP Testing Instructions
+## Testing Instructions
 
-### Using Tauri MCP
+### Unit Tests
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_platform_detection() {
+        let platform = Platform::current();
+
+        #[cfg(target_os = "macos")]
+        assert!(platform.is_macos());
+
+        #[cfg(target_os = "windows")]
+        assert!(platform.is_windows());
+
+        #[cfg(target_os = "linux")]
+        assert!(platform.is_linux());
+    }
+
+    #[test]
+    fn test_modifier_keys() {
+        let platform = Platform::current();
+
+        if platform.is_macos() {
+            assert_eq!(platform.primary_modifier(), "Cmd");
+            assert_eq!(platform.secondary_modifier(), "Option");
+        } else {
+            assert_eq!(platform.primary_modifier(), "Ctrl");
+            assert_eq!(platform.secondary_modifier(), "Alt");
+        }
+    }
+
+    #[test]
+    fn test_config_dir() {
+        let platform = Platform::current();
+        let config_dir = platform.config_dir();
+
+        assert!(config_dir.to_string_lossy().contains("tusk") ||
+                config_dir.to_string_lossy().contains("Tusk"));
+    }
+
+    #[test]
+    fn test_keychain_service() {
+        let service = KeychainService::new();
+
+        // Test availability
+        let available = service.is_available();
+        println!("Keychain available: {}", available);
+
+        if available {
+            // Store and retrieve
+            service.store_password("test-conn", "test-pass").unwrap();
+            let retrieved = service.get_password("test-conn").unwrap();
+            assert_eq!(retrieved, Some("test-pass".to_string()));
+
+            // Delete
+            service.delete_password("test-conn").unwrap();
+            let after_delete = service.get_password("test-conn").unwrap();
+            assert_eq!(after_delete, None);
+        }
+    }
+
+    #[test]
+    fn test_shortcut_parsing() {
+        let shortcut = Shortcut::new("Cmd+Shift+N");
+
+        // On macOS: ⌘⇧N
+        // On Windows/Linux: Ctrl+Shift+N
+        assert!(!shortcut.keys.is_empty());
+    }
+}
+```
+
+### Integration Tests with Tauri MCP
 
 ```typescript
 // Test platform-specific functionality
 await driver_session({ action: 'start', port: 9223 });
 
-// Get platform info
-const state = await ipc_get_backend_state({});
-console.log('Platform:', state.platform);
+// Get platform info (via GPUI state)
+const snapshot = await webview_dom_snapshot({ type: 'accessibility' });
+console.log('Platform UI rendered');
 
-// Test keychain
-await ipc_execute_command({
-	command: 'keychain_store',
-	args: { connectionId: 'test', password: 'secret123' }
+// Test keyboard shortcuts (execute query)
+await webview_keyboard({
+  action: 'press',
+  key: 'Enter',
+  modifiers: ['Meta'] // or 'Control' on Windows/Linux
 });
 
-const password = await ipc_execute_command({
-	command: 'keychain_get',
-	args: { connectionId: 'test' }
-});
-console.log('Retrieved password:', password ? 'yes' : 'no');
+// Verify query execution
+await webview_wait_for({ type: 'text', value: 'rows' });
 
-// Check for updates
-const updateResult = await ipc_execute_command({
-	command: 'check_updates'
+// Test menu-triggered actions
+await webview_keyboard({
+  action: 'press',
+  key: ',',
+  modifiers: ['Meta'] // Opens preferences
 });
-console.log('Update available:', updateResult.available);
+await webview_wait_for({ type: 'selector', value: '#settings-dialog' });
 
-// Test menu events
-await ipc_emit_event({ eventName: 'menu:new-query' });
-await webview_wait_for({ type: 'selector', value: '.query-tab' });
+// Screenshot the about dialog
+await webview_click({ selector: '[data-testid="menu-about"]' });
+await webview_screenshot({ filePath: 'about-dialog.png' });
 
 await driver_session({ action: 'stop' });
-```
-
-### Using Playwright MCP
-
-```typescript
-// Test keyboard shortcuts
-await browser_navigate({ url: 'http://localhost:1420' });
-
-// Execute query with keyboard shortcut
-await browser_type({
-	element: 'Query editor',
-	ref: '.monaco-editor textarea',
-	text: 'SELECT 1'
-});
-
-// Platform-specific execute shortcut
-await browser_press_key({ key: 'Meta+Enter' }); // macOS
-// await browser_press_key({ key: 'Control+Enter' }); // Windows/Linux
-
-// Verify execution
-await browser_wait_for({ text: '1 row' });
-
-// Test settings shortcut
-await browser_press_key({ key: 'Meta+,' });
-await browser_wait_for({ text: 'Settings' });
 ```
