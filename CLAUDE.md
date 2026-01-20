@@ -240,6 +240,9 @@ All errors should include:
 
 ## Active Technologies
 
+- Rust 1.75+ (backend), TypeScript 5.5+ (frontend) + Tauri v2, tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, thiserror, tracing, directories (002-backend-architecture)
+- SQLite (rusqlite) for local metadata; PostgreSQL for user databases (via tokio-postgres) (002-backend-architecture)
+
 - TypeScript 5.5+ (frontend), Rust 1.75+ (backend) + Tauri v2, Svelte 5, Vite, TailwindCSS, Monaco Editor, TanStack Table, @xyflow/svelte (frontend); tokio-postgres, deadpool-postgres, rusqlite, keyring, russh, serde (backend) (001-project-init)
 - N/A (project scaffolding only; SQLite for metadata in future features) (001-project-init)
 
