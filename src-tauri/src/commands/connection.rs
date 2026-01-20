@@ -1,19 +1,32 @@
 // Connection commands - Phase 6 (User Story 4)
 
 use crate::error::TuskError;
-use crate::models::{ActiveConnection, ConnectionConfig, ConnectionTestResult};
+use crate::models::{ActiveConnection, ConnectionConfig, ConnectionTestResult, SshAuthMethod};
 use crate::services::connection::ConnectionService;
 use crate::state::AppState;
 use tauri::State;
 use uuid::Uuid;
 
 /// Test a connection configuration without saving.
+///
+/// For SSH tunnel connections, the appropriate SSH credentials should be provided:
+/// - For password auth: pass the SSH password in `ssh_password`
+/// - For key file auth with encrypted key: pass the passphrase in `ssh_key_passphrase`
+/// - For agent auth: no SSH credentials needed
 #[tauri::command]
 pub async fn test_connection(
     config: ConnectionConfig,
     password: String,
+    ssh_password: Option<String>,
+    ssh_key_passphrase: Option<String>,
 ) -> ConnectionTestResult {
-    ConnectionService::test_connection(&config, &password).await
+    ConnectionService::test_connection(
+        &config,
+        &password,
+        ssh_password.as_deref(),
+        ssh_key_passphrase.as_deref(),
+    )
+    .await
 }
 
 /// Establish a connection pool for a saved configuration.
@@ -39,19 +52,46 @@ pub async fn connect(
             "The connection configuration may have been deleted",
         ))?;
 
-    // Get the password from keychain
-    let password = state
+    // Get the credential service
+    let credentials = state
         .credentials
         .as_ref()
-        .ok_or_else(|| TuskError::initialization("Credential service not initialized"))?
+        .ok_or_else(|| TuskError::initialization("Credential service not initialized"))?;
+
+    // Get the database password from keychain
+    let password = credentials
         .get_password(&uuid)?
         .ok_or_else(|| TuskError::credential_with_hint(
             "Password not found in keychain",
             "The password may not have been saved. Edit the connection and re-enter the password.",
         ))?;
 
+    // Get SSH credentials if SSH tunnel is configured
+    let (ssh_password, ssh_key_passphrase) = if let Some(ref tunnel) = config.ssh_tunnel {
+        match &tunnel.auth_method {
+            SshAuthMethod::Password => {
+                let ssh_pass = credentials.get_ssh_password(&uuid)?;
+                (ssh_pass, None)
+            }
+            SshAuthMethod::KeyFile { .. } => {
+                let passphrase = credentials.get_ssh_key_passphrase(&uuid)?;
+                (None, passphrase)
+            }
+            SshAuthMethod::Agent => (None, None),
+        }
+    } else {
+        (None, None)
+    };
+
     // Connect using the service
-    let pool_id = ConnectionService::connect(&state, &config, &password).await?;
+    let pool_id = ConnectionService::connect(
+        &state,
+        &config,
+        &password,
+        ssh_password.as_deref(),
+        ssh_key_passphrase.as_deref(),
+    )
+    .await?;
 
     Ok(pool_id.to_string())
 }

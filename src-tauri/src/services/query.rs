@@ -1,15 +1,20 @@
 // Query service - Phase 7 (User Story 5)
 
 use crate::error::{TuskError, TuskResult};
-use crate::models::{ActiveQuery, Column, QueryResult, Row};
+use crate::models::{ActiveQuery, Column, QueryResult, Row, SslMode};
 use crate::services::connection::ConnectionService;
 use crate::state::{AppState, QueryHandle};
 use chrono::Utc;
+use native_tls::TlsConnector;
+use postgres_native_tls::MakeTlsConnector;
 use serde_json::Value as JsonValue;
+use std::sync::Arc;
 use std::time::Instant;
 use tauri::State;
 use tokio::select;
+use tokio::sync::Mutex;
 use tokio_postgres::types::Type;
+use tokio_postgres::NoTls;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -38,11 +43,16 @@ impl QueryService {
         let query_id = query_id.unwrap_or_else(Uuid::new_v4);
         let start = Instant::now();
 
-        // Get the connection pool
+        // Get the connection pool and SSL mode
         let pool = ConnectionService::get_pool(state, &connection_id).await?;
+        let ssl_mode = ConnectionService::get_ssl_mode(state, &connection_id).await?;
 
-        // Create cancellation token
+        // Create cancellation token for the Rust future
         let cancel_token = CancellationToken::new();
+
+        // Placeholder for the PostgreSQL cancel token (will be set once we get a client)
+        let pg_cancel_token: Arc<Mutex<Option<tokio_postgres::CancelToken>>> =
+            Arc::new(Mutex::new(None));
 
         // Register the query for cancellation
         let handle = QueryHandle {
@@ -51,6 +61,8 @@ impl QueryService {
             sql: truncate_sql(sql, 100),
             started_at: start,
             cancel_token: cancel_token.clone(),
+            pg_cancel_token: None, // Will be updated once we get a client
+            ssl_mode,
         };
 
         {
@@ -59,7 +71,15 @@ impl QueryService {
         }
 
         // Execute the query with cancellation support
-        let result = Self::execute_with_cancellation(&pool, sql, query_id, cancel_token.clone()).await;
+        let result = Self::execute_with_cancellation(
+            state,
+            &pool,
+            sql,
+            query_id,
+            cancel_token.clone(),
+            pg_cancel_token.clone(),
+        )
+        .await;
 
         // Remove from active queries
         {
@@ -95,10 +115,12 @@ impl QueryService {
 
     /// Execute the query with cancellation support.
     async fn execute_with_cancellation(
+        state: &State<'_, AppState>,
         pool: &deadpool_postgres::Pool,
         sql: &str,
         query_id: Uuid,
         cancel_token: CancellationToken,
+        pg_cancel_token_holder: Arc<Mutex<Option<tokio_postgres::CancelToken>>>,
     ) -> TuskResult<(Vec<Column>, Vec<Row>)> {
         // Get a client from the pool
         let client = pool.get().await.map_err(|e| {
@@ -107,6 +129,21 @@ impl QueryService {
                 "The connection may have been closed. Try reconnecting.",
             )
         })?;
+
+        // Get the PostgreSQL cancel token from the client and store it
+        let pg_cancel_token = client.cancel_token();
+        {
+            let mut holder = pg_cancel_token_holder.lock().await;
+            *holder = Some(pg_cancel_token.clone());
+        }
+
+        // Also update the QueryHandle with the cancel token
+        {
+            let mut queries = state.active_queries.write().await;
+            if let Some(handle) = queries.get_mut(&query_id) {
+                handle.pg_cancel_token = Some(pg_cancel_token);
+            }
+        }
 
         // Execute with cancellation support
         select! {
@@ -141,13 +178,17 @@ impl QueryService {
                 }
             }
             _ = cancel_token.cancelled() => {
-                tracing::info!("Query {} was cancelled", query_id);
+                tracing::info!("Query {} was cancelled (future dropped)", query_id);
                 Err(TuskError::QueryCancelled)
             }
         }
     }
 
     /// Cancel a running query.
+    ///
+    /// This function performs two types of cancellation:
+    /// 1. Drops the Rust future via the CancellationToken
+    /// 2. Sends a cancellation request to the PostgreSQL server to stop the query there
     ///
     /// # Arguments
     ///
@@ -158,18 +199,71 @@ impl QueryService {
     ///
     /// Returns `Ok(())` if cancellation was triggered, error if query not found.
     pub async fn cancel(state: &State<'_, AppState>, query_id: &Uuid) -> TuskResult<()> {
-        let queries = state.active_queries.read().await;
+        // Get the query handle info we need
+        let (cancel_token, pg_cancel_token, ssl_mode) = {
+            let queries = state.active_queries.read().await;
+            if let Some(handle) = queries.get(query_id) {
+                (
+                    handle.cancel_token.clone(),
+                    handle.pg_cancel_token.clone(),
+                    handle.ssl_mode,
+                )
+            } else {
+                return Err(TuskError::Internal(format!(
+                    "Query not found or already completed: {}",
+                    query_id
+                )));
+            }
+        };
 
-        if let Some(handle) = queries.get(query_id) {
-            handle.cancel_token.cancel();
-            tracing::info!("Cancellation requested for query: {}", query_id);
-            Ok(())
+        // Cancel the Rust future
+        cancel_token.cancel();
+        tracing::info!("Cancellation requested for query: {}", query_id);
+
+        // Send cancellation to PostgreSQL server if we have the token
+        if let Some(pg_token) = pg_cancel_token {
+            tracing::debug!("Sending cancel request to PostgreSQL server for query: {}", query_id);
+
+            // Create TLS connector based on SSL mode
+            let cancel_result = match ssl_mode {
+                SslMode::Disable => pg_token.cancel_query(NoTls).await,
+                SslMode::Prefer | SslMode::Require => {
+                    // For cancel requests, accept invalid certs since we're not sending sensitive data
+                    let connector = TlsConnector::builder()
+                        .danger_accept_invalid_certs(true)
+                        .build()
+                        .map_err(|e| TuskError::Internal(format!("TLS error: {}", e)))?;
+                    let tls = MakeTlsConnector::new(connector);
+                    pg_token.cancel_query(tls).await
+                }
+                SslMode::VerifyCa | SslMode::VerifyFull => {
+                    // For strict SSL modes, use default verification
+                    let connector = TlsConnector::builder()
+                        .build()
+                        .map_err(|e| TuskError::Internal(format!("TLS error: {}", e)))?;
+                    let tls = MakeTlsConnector::new(connector);
+                    pg_token.cancel_query(tls).await
+                }
+            };
+
+            if let Err(e) = cancel_result {
+                // Log but don't fail - the Rust future was already cancelled
+                tracing::warn!(
+                    "Failed to send cancel request to PostgreSQL for query {}: {}",
+                    query_id,
+                    e
+                );
+            } else {
+                tracing::info!("Cancel request sent to PostgreSQL server for query: {}", query_id);
+            }
         } else {
-            Err(TuskError::Internal(format!(
-                "Query not found or already completed: {}",
+            tracing::debug!(
+                "No PostgreSQL cancel token available for query {} (query may not have started yet)",
                 query_id
-            )))
+            );
         }
+
+        Ok(())
     }
 
     /// Get all currently executing queries.
@@ -206,11 +300,14 @@ impl QueryService {
 }
 
 /// Truncate SQL for logging/display.
+/// Uses char-aware truncation to avoid panics on multi-byte UTF-8.
 fn truncate_sql(sql: &str, max_len: usize) -> String {
-    if sql.len() <= max_len {
+    let char_count = sql.chars().count();
+    if char_count <= max_len {
         sql.to_string()
     } else {
-        format!("{}...", &sql[..max_len])
+        let truncated: String = sql.chars().take(max_len).collect();
+        format!("{}...", truncated)
     }
 }
 

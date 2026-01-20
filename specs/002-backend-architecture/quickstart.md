@@ -131,11 +131,16 @@ cd src-tauri && cargo build
 
 ### Phase 7: Connection Service
 
-**Files**: `src-tauri/src/services/connection.rs`
+**Files**: `src-tauri/src/services/connection.rs`, `src-tauri/src/services/ssh_tunnel.rs`
 
 1. Create connection pool factory
 2. Implement SSL/TLS configuration
-3. Add SSH tunnel support (basic structure, full implementation in later feature)
+3. Implement full SSH tunnel support:
+   - Password authentication
+   - Private key file authentication (with passphrase support)
+   - SSH agent authentication (using russh's Signer trait)
+   - Automatic tunnel establishment on connect
+   - Tunnel cleanup on disconnect
 4. Implement connect/disconnect lifecycle
 
 **Verification**:
@@ -220,6 +225,7 @@ src-tauri/src/
 │   ├── storage.rs          # SQLite operations
 │   ├── credentials.rs      # OS keychain operations
 │   ├── connection.rs       # Connection pool management
+│   ├── ssh_tunnel.rs       # SSH tunnel support (russh)
 │   └── query.rs            # Query execution, cancellation
 └── models/
     ├── mod.rs

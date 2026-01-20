@@ -39,8 +39,12 @@ pub struct QueryHandle {
     pub sql: String,
     /// When the query started
     pub started_at: std::time::Instant,
-    /// Cancel token for stopping the query
+    /// Cancel token for stopping the Rust future
     pub cancel_token: tokio_util::sync::CancellationToken,
+    /// PostgreSQL cancel token for canceling the query on the server
+    pub pg_cancel_token: Option<tokio_postgres::CancelToken>,
+    /// SSL mode for the connection (needed for cancel_query)
+    pub ssl_mode: crate::models::SslMode,
 }
 
 impl AppState {
