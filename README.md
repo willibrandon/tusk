@@ -6,7 +6,7 @@ Tusk aims to be a complete replacement for pgAdmin and DBeaver for PostgreSQL wo
 
 ## Status
 
-**Early Development** - Project initialization complete. The application builds and runs on macOS, Windows, and Linux with a themed window.
+**Early Development** - Backend services implemented. The application builds and runs on macOS, Windows, and Linux with connection pooling, local storage, credential management, and structured logging.
 
 ## Goals
 
@@ -68,7 +68,8 @@ sudo apt install -y \
     libxcb-render0-dev \
     libxcb-shm0-dev \
     libvulkan-dev \
-    libasound2-dev
+    libasound2-dev \
+    libdbus-1-dev
 ```
 
 **Windows:**
@@ -124,7 +125,7 @@ RUST_LOG=tusk=debug cargo run
 tusk/
 ├── crates/
 │   ├── tusk/           # Main application binary
-│   ├── tusk_core/      # Shared types and error handling
+│   ├── tusk_core/      # Backend services, models, and state management
 │   └── tusk_ui/        # UI components and theming
 ├── assets/
 │   ├── fonts/          # JetBrains Mono font files
