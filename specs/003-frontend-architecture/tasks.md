@@ -212,13 +212,13 @@
 
 ### Implementation for User Story 9
 
-- [ ] T069 [US9] Create `crates/tusk_ui/src/select.rs` with Select<T> struct implementing Render/Focusable/EventEmitter<SelectEvent<T>>
-- [ ] T070 [US9] Implement SelectOption<T> struct (value, label, disabled) in `crates/tusk_ui/src/select.rs`
-- [ ] T071 [US9] Implement Select::render() with closed state showing selected value or placeholder in `crates/tusk_ui/src/select.rs`
-- [ ] T072 [US9] Implement Select dropdown popover rendering when open in `crates/tusk_ui/src/select.rs`
-- [ ] T073 [US9] Implement Select keyboard navigation (Open, Close, SelectNext, SelectPrevious, Confirm) actions in `crates/tusk_ui/src/select.rs`
-- [ ] T074 [US9] Implement SelectEvent emission (Changed, Opened, Closed) in `crates/tusk_ui/src/select.rs`
-- [ ] T075 [US9] Add key_context("Select") and key_context("SelectPopover") for keyboard handling in `crates/tusk_ui/src/select.rs`
+- [x] T069 [US9] Create `crates/tusk_ui/src/select.rs` with Select<T> struct implementing Render/Focusable/EventEmitter<SelectEvent<T>>
+- [x] T070 [US9] Implement SelectOption<T> struct (value, label, disabled) in `crates/tusk_ui/src/select.rs`
+- [x] T071 [US9] Implement Select::render() with closed state showing selected value or placeholder in `crates/tusk_ui/src/select.rs`
+- [x] T072 [US9] Implement Select dropdown popover rendering when open in `crates/tusk_ui/src/select.rs`
+- [x] T073 [US9] Implement Select keyboard navigation (Open, Close, SelectNext, SelectPrevious, Confirm) actions in `crates/tusk_ui/src/select.rs`
+- [x] T074 [US9] Implement SelectEvent emission (Changed, Opened, Closed) in `crates/tusk_ui/src/select.rs`
+- [x] T075 [US9] Add key_context("Select") and key_context("SelectPopover") for keyboard handling in `crates/tusk_ui/src/select.rs`
 
 **Checkpoint**: User Story 9 complete - dropdowns work with full keyboard navigation
 
