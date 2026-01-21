@@ -25,10 +25,10 @@ Based on plan.md structure:
 
 **Purpose**: Add new dependencies and create module structure
 
-- [ ] T001 Add new dependencies to crates/tusk_core/Cargo.toml (tokio, tokio-postgres, deadpool-postgres, rusqlite, keyring, uuid, chrono, dirs, tracing-appender, tokio-util)
-- [ ] T002 [P] Create services module structure in crates/tusk_core/src/services/mod.rs
-- [ ] T003 [P] Create models module structure in crates/tusk_core/src/models/mod.rs
-- [ ] T004 Update crates/tusk_core/src/lib.rs to export new modules (services, models, state, logging)
+- [X] T001 Add new dependencies to crates/tusk_core/Cargo.toml (tokio, tokio-postgres, deadpool-postgres, rusqlite, keyring, uuid, chrono, dirs, tracing-appender, tokio-util)
+- [X] T002 [P] Create services module structure in crates/tusk_core/src/services/mod.rs
+- [X] T003 [P] Create models module structure in crates/tusk_core/src/models/mod.rs
+- [X] T004 Update crates/tusk_core/src/lib.rs to export new modules (services, models, state, logging)
 
 ---
 
@@ -38,15 +38,15 @@ Based on plan.md structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement data directory initialization with OS-appropriate paths in crates/tusk_core/src/services/storage.rs (FR-025, FR-026, FR-027, FR-027a)
-- [ ] T006 Implement SQLite database schema and migrations in crates/tusk_core/src/services/storage.rs
-- [ ] T007 Implement LocalStorage struct with thread-safe connection handling in crates/tusk_core/src/services/storage.rs
-- [ ] T008 Implement connection CRUD operations (save, load, load_all, delete, update_last_connected) in crates/tusk_core/src/services/storage.rs
-- [ ] T009 Implement SSH tunnel CRUD operations in crates/tusk_core/src/services/storage.rs
-- [ ] T010 Implement query history operations (add, load, search, clear) in crates/tusk_core/src/services/storage.rs
-- [ ] T011 Implement saved queries operations in crates/tusk_core/src/services/storage.rs
-- [ ] T012 Implement UI state persistence operations in crates/tusk_core/src/services/storage.rs
-- [ ] T013 Implement default_data_dir() and init_data_dir() helper functions in crates/tusk_core/src/services/storage.rs
+- [X] T005 Implement data directory initialization with OS-appropriate paths in crates/tusk_core/src/services/storage.rs (FR-025, FR-026, FR-027, FR-027a)
+- [X] T006 Implement SQLite database schema and migrations in crates/tusk_core/src/services/storage.rs
+- [X] T007 Implement LocalStorage struct with thread-safe connection handling in crates/tusk_core/src/services/storage.rs
+- [X] T008 Implement connection CRUD operations (save, load, load_all, delete, update_last_connected) in crates/tusk_core/src/services/storage.rs
+- [X] T009 Implement SSH tunnel CRUD operations in crates/tusk_core/src/services/storage.rs
+- [X] T010 Implement query history operations (add, load, search, clear) in crates/tusk_core/src/services/storage.rs
+- [X] T011 Implement saved queries operations in crates/tusk_core/src/services/storage.rs
+- [X] T012 Implement UI state persistence operations in crates/tusk_core/src/services/storage.rs
+- [X] T013 Implement default_data_dir() and init_data_dir() helper functions in crates/tusk_core/src/services/storage.rs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
