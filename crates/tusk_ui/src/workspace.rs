@@ -15,13 +15,13 @@ use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::icon::IconName;
 use crate::key_bindings::{
     ActivateTab1, ActivateTab2, ActivateTab3, ActivateTab4, ActivateTab5, ActivateTab6,
-    ActivateTab7, ActivateTab8, ActivateTab9, CloseActiveTab, FocusNextPane, FocusPreviousPane,
-    FocusResults, FocusSchemaBrowser, NewQueryTab, NextTab, PreviousTab, SplitDown, SplitRight,
-    ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
+    ActivateTab7, ActivateTab8, ActivateTab9, CloseActiveTab, ClosePane, FocusNextPane,
+    FocusPreviousPane, FocusResults, FocusSchemaBrowser, NewQueryTab, NextTab, PreviousTab,
+    SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
 };
 use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::layout::spacing;
-use crate::pane::{Pane, PaneGroup, PaneGroupEvent, TabItem};
+use crate::pane::{Pane, PaneGroup, PaneGroupEvent, PaneLayout, TabItem};
 use crate::panel::{DockPosition, Focusable};
 use crate::panels::SchemaBrowserPanel;
 use crate::status_bar::StatusBar;
@@ -114,13 +114,6 @@ pub struct WorkspaceState {
     pub bottom_dock_visible: bool,
     /// Serialized pane layout.
     pub pane_layout: PaneLayout,
-}
-
-/// Serialized pane layout for persistence.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PaneLayout {
-    /// Layout structure (simplified for now).
-    pub structure: String,
 }
 
 impl Default for WorkspaceState {
@@ -414,6 +407,16 @@ impl Workspace {
         });
     }
 
+    /// Close the active pane.
+    ///
+    /// If this is the last pane, the pane remains but its tabs are closed.
+    pub fn close_active_pane(&mut self, cx: &mut Context<Self>) {
+        let active_pane = self.center.read(cx).active_pane().clone();
+        self.center.update(cx, |pane_group, cx| {
+            pane_group.close_pane(active_pane, cx);
+        });
+    }
+
     /// Activate next tab in active pane.
     pub fn next_tab(&mut self, cx: &mut Context<Self>) {
         self.center.update(cx, |pane_group, cx| {
@@ -527,6 +530,9 @@ impl Workspace {
         let left_size: f32 = left_dock.size().into();
         let bottom_size: f32 = bottom_dock.size().into();
 
+        // Get pane layout from center pane group
+        let pane_layout = self.center.read(cx).layout();
+
         WorkspaceState {
             left_dock_size: left_size,
             left_dock_visible: left_dock.is_visible(),
@@ -534,7 +540,7 @@ impl Workspace {
             right_dock_visible,
             bottom_dock_size: bottom_size,
             bottom_dock_visible: bottom_dock.is_visible(),
-            pane_layout: PaneLayout::default(),
+            pane_layout,
         }
     }
 
@@ -697,6 +703,9 @@ impl Render for Workspace {
             }))
             .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
                 this.focus_previous_pane(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ClosePane, _window, cx| {
+                this.close_active_pane(cx);
             }))
             .on_action(cx.listener(|this, _: &NewQueryTab, _window, cx| {
                 this.new_query_tab(cx);

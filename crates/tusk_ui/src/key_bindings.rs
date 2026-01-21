@@ -143,7 +143,7 @@ pub fn register_key_bindings(cx: &mut App) {
         KeyBinding::new("cmd-j", ToggleBottomDock, Some("Workspace")),
         // Pane management
         KeyBinding::new("cmd-\\", SplitRight, Some("Workspace")),
-        KeyBinding::new("cmd-shift-\\", SplitDown, Some("Workspace")),
+        KeyBinding::new("cmd-|", SplitDown, Some("Workspace")),
         KeyBinding::new("cmd-k cmd-right", FocusNextPane, Some("Workspace")),
         KeyBinding::new("cmd-k cmd-left", FocusPreviousPane, Some("Workspace")),
         KeyBinding::new("cmd-k cmd-w", ClosePane, Some("Workspace")),

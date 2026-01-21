@@ -171,13 +171,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Implement PaneGroup::split() creating new Pane and updating PaneNode to Split in `crates/tusk_ui/src/pane.rs`
-- [ ] T055 [US4] Implement PaneGroup::close_pane() collapsing Split to Single when one child remains in `crates/tusk_ui/src/pane.rs`
-- [ ] T056 [US4] Implement PaneGroup::resize_split() to adjust ratios between split panes in `crates/tusk_ui/src/pane.rs`
-- [ ] T057 [US4] Implement PaneGroup::render() with recursive PaneNode rendering and Resizer between splits in `crates/tusk_ui/src/pane.rs`
-- [ ] T058 [US4] Wire SplitRight (Cmd+\) and SplitDown (Cmd+Shift+\) action handlers in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T059 [US4] Implement FocusNextPane and FocusPreviousPane action handlers in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T060 [US4] Add pane layout persistence to WorkspaceState (PaneLayout enum: Single/Split) in `crates/tusk_ui/src/workspace.rs`
+- [x] T054 [US4] Implement PaneGroup::split() creating new Pane and updating PaneNode to Split in `crates/tusk_ui/src/pane.rs`
+- [x] T055 [US4] Implement PaneGroup::close_pane() collapsing Split to Single when one child remains in `crates/tusk_ui/src/pane.rs`
+- [x] T056 [US4] Implement PaneGroup::resize_split() to adjust ratios between split panes in `crates/tusk_ui/src/pane.rs`
+- [x] T057 [US4] Implement PaneGroup::render() with recursive PaneNode rendering and Resizer between splits in `crates/tusk_ui/src/pane.rs`
+- [x] T058 [US4] Wire SplitRight (Cmd+\) and SplitDown (Cmd+Shift+\) action handlers in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T059 [US4] Implement FocusNextPane and FocusPreviousPane action handlers in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T060 [US4] Add pane layout persistence to WorkspaceState (PaneLayout enum: Single/Split) in `crates/tusk_ui/src/workspace.rs`
 
 **Checkpoint**: User Story 4 complete - pane splitting works with resize and navigation
 

@@ -693,6 +693,77 @@ impl PaneNode {
             }
         }
     }
+
+    /// Convert to a serializable PaneLayout structure.
+    ///
+    /// This creates a tree representation that can be serialized to JSON
+    /// for workspace state persistence.
+    pub fn to_layout(&self) -> PaneLayout {
+        match self {
+            PaneNode::Single(_) => PaneLayout::Single,
+            PaneNode::Split {
+                axis,
+                children,
+                ratios,
+            } => PaneLayout::Split {
+                axis: (*axis).into(),
+                children: children.iter().map(|child| child.to_layout()).collect(),
+                ratios: ratios.iter().copied().collect(),
+            },
+        }
+    }
+}
+
+/// Serializable pane layout for persistence.
+///
+/// This mirrors PaneNode but without Entity references, allowing
+/// serialization to/from JSON for workspace state persistence.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum PaneLayout {
+    /// A single pane (leaf node).
+    Single,
+    /// A split containing multiple child layouts.
+    Split {
+        /// The axis of the split.
+        axis: SerializedAxis,
+        /// The child layouts.
+        children: Vec<PaneLayout>,
+        /// The ratios for each child (must sum to 1.0).
+        ratios: Vec<f32>,
+    },
+}
+
+impl Default for PaneLayout {
+    fn default() -> Self {
+        PaneLayout::Single
+    }
+}
+
+/// Serializable axis enum.
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub enum SerializedAxis {
+    /// Horizontal split (children side by side).
+    Horizontal,
+    /// Vertical split (children stacked).
+    Vertical,
+}
+
+impl From<Axis> for SerializedAxis {
+    fn from(axis: Axis) -> Self {
+        match axis {
+            Axis::Horizontal => SerializedAxis::Horizontal,
+            Axis::Vertical => SerializedAxis::Vertical,
+        }
+    }
+}
+
+impl From<SerializedAxis> for Axis {
+    fn from(axis: SerializedAxis) -> Self {
+        match axis {
+            SerializedAxis::Horizontal => Axis::Horizontal,
+            SerializedAxis::Vertical => Axis::Vertical,
+        }
+    }
 }
 
 // ============================================================================
@@ -760,6 +831,11 @@ impl PaneGroup {
     /// Get all panes in the group.
     pub fn panes(&self) -> Vec<Entity<Pane>> {
         self.root.panes()
+    }
+
+    /// Get the current layout for serialization/persistence.
+    pub fn layout(&self) -> PaneLayout {
+        self.root.to_layout()
     }
 
     /// Split the active pane along an axis.
@@ -876,26 +952,34 @@ impl PaneGroup {
     }
 
     /// Focus the next pane.
-    pub fn focus_next_pane(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn focus_next_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let panes = self.panes();
         if let Some(pos) = panes
             .iter()
             .position(|p| p.entity_id() == self.active_pane.entity_id())
         {
             let next = (pos + 1) % panes.len();
-            self.set_active_pane(panes[next].clone(), cx);
+            let next_pane = panes[next].clone();
+            self.set_active_pane(next_pane.clone(), cx);
+            // Actually focus the pane's focus handle
+            let focus_handle = next_pane.read(cx).focus_handle.clone();
+            focus_handle.focus(window, cx);
         }
     }
 
     /// Focus the previous pane.
-    pub fn focus_previous_pane(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn focus_previous_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let panes = self.panes();
         if let Some(pos) = panes
             .iter()
             .position(|p| p.entity_id() == self.active_pane.entity_id())
         {
             let prev = if pos == 0 { panes.len() - 1 } else { pos - 1 };
-            self.set_active_pane(panes[prev].clone(), cx);
+            let prev_pane = panes[prev].clone();
+            self.set_active_pane(prev_pane.clone(), cx);
+            // Actually focus the pane's focus handle
+            let focus_handle = prev_pane.read(cx).focus_handle.clone();
+            focus_handle.focus(window, cx);
         }
     }
 
