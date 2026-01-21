@@ -1,0 +1,551 @@
+//! Workspace component - the main application shell.
+//!
+//! The Workspace is the root component that manages the overall layout including
+//! docks (left, right, bottom) and the center pane group.
+
+use gpui::{
+    canvas, div, prelude::*, px, App, Axis, Bounds, Context, DragMoveEvent, Entity, EventEmitter,
+    FocusHandle, KeyContext, Pixels, Point, Render, Subscription, Window,
+};
+use serde::{Deserialize, Serialize};
+
+use crate::dock::{Dock, DockEvent, DraggedDock};
+use crate::key_bindings::{
+    CloseActiveTab, FocusNextPane, FocusPreviousPane, NextTab, PreviousTab, SplitDown, SplitRight,
+    ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
+};
+use crate::layout::sizes::STATUS_BAR_HEIGHT;
+use crate::pane::{Pane, PaneGroup, PaneGroupEvent, TabItem};
+use crate::panel::{DockPosition, Focusable};
+use crate::TuskTheme;
+
+/// Events emitted by the workspace.
+#[derive(Debug, Clone)]
+pub enum WorkspaceEvent {
+    /// Dock visibility changed.
+    DockToggled {
+        position: DockPosition,
+        visible: bool,
+    },
+    /// Active pane changed.
+    ActivePaneChanged { pane: Entity<Pane> },
+    /// Layout changed (split, close, resize).
+    LayoutChanged,
+}
+
+/// Persisted workspace state for restoration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceState {
+    /// Left dock size in pixels.
+    pub left_dock_size: f32,
+    /// Left dock visibility.
+    pub left_dock_visible: bool,
+    /// Right dock size in pixels (if enabled).
+    pub right_dock_size: Option<f32>,
+    /// Right dock visibility (if enabled).
+    pub right_dock_visible: Option<bool>,
+    /// Bottom dock size in pixels.
+    pub bottom_dock_size: f32,
+    /// Bottom dock visibility.
+    pub bottom_dock_visible: bool,
+    /// Serialized pane layout.
+    pub pane_layout: PaneLayout,
+}
+
+/// Serialized pane layout for persistence.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PaneLayout {
+    /// Layout structure (simplified for now).
+    pub structure: String,
+}
+
+impl Default for WorkspaceState {
+    fn default() -> Self {
+        Self {
+            left_dock_size: 250.0,
+            left_dock_visible: true,
+            right_dock_size: None,
+            right_dock_visible: None,
+            bottom_dock_size: 200.0,
+            bottom_dock_visible: true,
+            pane_layout: PaneLayout::default(),
+        }
+    }
+}
+
+/// The main workspace component.
+///
+/// Manages the overall application layout including:
+/// - Left dock (schema browser, etc.)
+/// - Right dock (optional, for secondary panels)
+/// - Bottom dock (results, messages, etc.)
+/// - Center pane group (query editors)
+pub struct Workspace {
+    /// Left dock entity.
+    left_dock: Entity<Dock>,
+    /// Right dock entity (optional).
+    right_dock: Option<Entity<Dock>>,
+    /// Bottom dock entity.
+    bottom_dock: Entity<Dock>,
+    /// Center pane group.
+    center: Entity<PaneGroup>,
+    /// Focus handle for the workspace.
+    focus_handle: FocusHandle,
+    /// Subscriptions to child component events.
+    _subscriptions: Vec<Subscription>,
+    /// Current bounds of the workspace (for drag calculations).
+    bounds: Bounds<Pixels>,
+    /// Previous dock drag coordinates (to avoid duplicate processing).
+    previous_dock_drag_coordinates: Option<Point<Pixels>>,
+}
+
+impl Workspace {
+    /// Create a new workspace with default layout.
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let focus_handle = cx.focus_handle();
+
+        // Create docks
+        let left_dock = cx.new(|cx| Dock::new(DockPosition::Left, cx));
+        let bottom_dock = cx.new(|cx| Dock::new(DockPosition::Bottom, cx));
+
+        // Create center pane group with one initial pane
+        let center = cx.new(|cx| PaneGroup::new(window, cx));
+
+        // Subscribe to dock events
+        let mut subscriptions = Vec::new();
+
+        subscriptions.push(cx.subscribe(&left_dock, |_this, _dock, event: &DockEvent, cx| {
+            if let DockEvent::VisibilityChanged { visible } = event {
+                cx.emit(WorkspaceEvent::DockToggled {
+                    position: DockPosition::Left,
+                    visible: *visible,
+                });
+            }
+            cx.emit(WorkspaceEvent::LayoutChanged);
+            cx.notify();
+        }));
+
+        subscriptions.push(cx.subscribe(
+            &bottom_dock,
+            |_this, _dock, event: &DockEvent, cx| {
+                if let DockEvent::VisibilityChanged { visible } = event {
+                    cx.emit(WorkspaceEvent::DockToggled {
+                        position: DockPosition::Bottom,
+                        visible: *visible,
+                    });
+                }
+                cx.emit(WorkspaceEvent::LayoutChanged);
+                cx.notify();
+            },
+        ));
+
+        // Subscribe to center pane group events
+        subscriptions.push(cx.subscribe(
+            &center,
+            |_this, _pane_group, event: &PaneGroupEvent, cx| {
+                if let PaneGroupEvent::ActivePaneChanged { pane } = event {
+                    cx.emit(WorkspaceEvent::ActivePaneChanged { pane: pane.clone() });
+                }
+                cx.emit(WorkspaceEvent::LayoutChanged);
+                cx.notify();
+            },
+        ));
+
+        Self {
+            left_dock,
+            right_dock: None,
+            bottom_dock,
+            center,
+            focus_handle,
+            _subscriptions: subscriptions,
+            bounds: Bounds::default(),
+            previous_dock_drag_coordinates: None,
+        }
+    }
+
+    /// Get the left dock entity.
+    pub fn left_dock(&self) -> &Entity<Dock> {
+        &self.left_dock
+    }
+
+    /// Get the right dock entity (if present).
+    pub fn right_dock(&self) -> Option<&Entity<Dock>> {
+        self.right_dock.as_ref()
+    }
+
+    /// Get the bottom dock entity.
+    pub fn bottom_dock(&self) -> &Entity<Dock> {
+        &self.bottom_dock
+    }
+
+    /// Get the center pane group.
+    pub fn center(&self) -> &Entity<PaneGroup> {
+        &self.center
+    }
+
+    /// Get the active pane from the center pane group.
+    pub fn active_pane(&self, cx: &App) -> Entity<Pane> {
+        self.center.read(cx).active_pane().clone()
+    }
+
+    /// Toggle dock visibility by position.
+    pub fn toggle_dock(&mut self, position: DockPosition, cx: &mut Context<Self>) {
+        match position {
+            DockPosition::Left => {
+                self.left_dock.update(cx, |dock, cx| {
+                    dock.toggle_visibility(cx);
+                });
+            }
+            DockPosition::Right => {
+                if let Some(right_dock) = &self.right_dock {
+                    right_dock.update(cx, |dock, cx| {
+                        dock.toggle_visibility(cx);
+                    });
+                }
+            }
+            DockPosition::Bottom => {
+                self.bottom_dock.update(cx, |dock, cx| {
+                    dock.toggle_visibility(cx);
+                });
+            }
+        }
+    }
+
+    /// Open a new tab in the active pane.
+    pub fn open_tab(&mut self, item: TabItem, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            let active_pane = pane_group.active_pane();
+            active_pane.update(cx, |pane, cx| {
+                pane.add_tab(item, cx);
+            });
+        });
+    }
+
+    /// Split the active pane along the given axis.
+    pub fn split_pane(&mut self, axis: Axis, window: &mut Window, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            pane_group.split_active_pane(axis, window, cx);
+        });
+    }
+
+    /// Close the active tab.
+    pub fn close_active_tab(&mut self, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            let active_pane = pane_group.active_pane();
+            active_pane.update(cx, |pane, cx| {
+                pane.close_active_tab(cx);
+            });
+        });
+    }
+
+    /// Focus the next pane.
+    pub fn focus_next_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            pane_group.focus_next_pane(window, cx);
+        });
+    }
+
+    /// Focus the previous pane.
+    pub fn focus_previous_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            pane_group.focus_previous_pane(window, cx);
+        });
+    }
+
+    /// Activate next tab in active pane.
+    pub fn next_tab(&mut self, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            let active_pane = pane_group.active_pane();
+            active_pane.update(cx, |pane, cx| {
+                pane.activate_next_tab(cx);
+            });
+        });
+    }
+
+    /// Activate previous tab in active pane.
+    pub fn previous_tab(&mut self, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            let active_pane = pane_group.active_pane();
+            active_pane.update(cx, |pane, cx| {
+                pane.activate_previous_tab(cx);
+            });
+        });
+    }
+
+    /// Resize the left dock to the given size.
+    pub fn resize_left_dock(&mut self, size: Pixels, cx: &mut Context<Self>) {
+        self.left_dock.update(cx, |dock, cx| {
+            dock.set_size(size, cx);
+        });
+    }
+
+    /// Resize the right dock to the given size.
+    pub fn resize_right_dock(&mut self, size: Pixels, cx: &mut Context<Self>) {
+        if let Some(right_dock) = &self.right_dock {
+            right_dock.update(cx, |dock, cx| {
+                dock.set_size(size, cx);
+            });
+        }
+    }
+
+    /// Resize the bottom dock to the given size.
+    pub fn resize_bottom_dock(&mut self, size: Pixels, cx: &mut Context<Self>) {
+        self.bottom_dock.update(cx, |dock, cx| {
+            dock.set_size(size, cx);
+        });
+    }
+
+    /// Save workspace state to storage.
+    pub fn save_state(&self, cx: &App) -> WorkspaceState {
+        let left_dock = self.left_dock.read(cx);
+        let bottom_dock = self.bottom_dock.read(cx);
+
+        let (right_dock_size, right_dock_visible) = self
+            .right_dock
+            .as_ref()
+            .map(|dock| {
+                let d = dock.read(cx);
+                let size: f32 = d.size().into();
+                (Some(size), Some(d.is_visible()))
+            })
+            .unwrap_or((None, None));
+
+        let left_size: f32 = left_dock.size().into();
+        let bottom_size: f32 = bottom_dock.size().into();
+
+        WorkspaceState {
+            left_dock_size: left_size,
+            left_dock_visible: left_dock.is_visible(),
+            right_dock_size,
+            right_dock_visible,
+            bottom_dock_size: bottom_size,
+            bottom_dock_visible: bottom_dock.is_visible(),
+            pane_layout: PaneLayout::default(),
+        }
+    }
+
+    /// Restore workspace state from storage.
+    pub fn restore_state(&mut self, state: WorkspaceState, cx: &mut Context<Self>) {
+        self.left_dock.update(cx, |dock, cx| {
+            dock.set_size(px(state.left_dock_size), cx);
+            dock.set_visible(state.left_dock_visible, cx);
+        });
+
+        self.bottom_dock.update(cx, |dock, cx| {
+            dock.set_size(px(state.bottom_dock_size), cx);
+            dock.set_visible(state.bottom_dock_visible, cx);
+        });
+
+        if let Some(right_dock) = &self.right_dock {
+            if let (Some(size), Some(visible)) = (state.right_dock_size, state.right_dock_visible) {
+                right_dock.update(cx, |dock, cx| {
+                    dock.set_size(px(size), cx);
+                    dock.set_visible(visible, cx);
+                });
+            }
+        }
+    }
+
+    /// Add a right dock (optional feature).
+    pub fn add_right_dock(&mut self, cx: &mut Context<Self>) {
+        if self.right_dock.is_none() {
+            let right_dock = cx.new(|cx| Dock::new(DockPosition::Right, cx));
+
+            self._subscriptions
+                .push(cx.subscribe(&right_dock, |_this, _dock, event: &DockEvent, cx| {
+                    if let DockEvent::VisibilityChanged { visible } = event {
+                        cx.emit(WorkspaceEvent::DockToggled {
+                            position: DockPosition::Right,
+                            visible: *visible,
+                        });
+                    }
+                    cx.emit(WorkspaceEvent::LayoutChanged);
+                    cx.notify();
+                }));
+
+            self.right_dock = Some(right_dock);
+            cx.notify();
+        }
+    }
+
+    /// Build the key context for this workspace.
+    fn dispatch_context() -> KeyContext {
+        let mut context = KeyContext::new_with_defaults();
+        context.add("Workspace");
+        context
+    }
+
+    /// Render the status bar.
+    fn render_status_bar(&self, cx: &App) -> impl IntoElement {
+        let theme = cx.global::<TuskTheme>();
+
+        div()
+            .h(STATUS_BAR_HEIGHT)
+            .w_full()
+            .flex()
+            .items_center()
+            .px(px(12.0))
+            .bg(theme.colors.status_bar_background)
+            .border_t_1()
+            .border_color(theme.colors.border)
+            .text_color(theme.colors.text_muted)
+            .text_size(px(12.0))
+            .child("Ready")
+    }
+}
+
+impl EventEmitter<WorkspaceEvent> for Workspace {}
+
+impl Focusable for Workspace {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl Render for Workspace {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<TuskTheme>();
+        let dispatch_context = Self::dispatch_context();
+
+        // Get entity handle for bounds tracking canvas
+        let this = cx.entity().clone();
+
+        // Main workspace container
+        div()
+            .key_context(dispatch_context)
+            .track_focus(&self.focus_handle)
+            .size_full()
+            .relative()
+            .flex()
+            .flex_col()
+            .bg(theme.colors.background)
+            .text_color(theme.colors.text)
+            // Track bounds using canvas element (Zed's pattern)
+            .child({
+                canvas(
+                    {
+                        let this = this.clone();
+                        move |bounds, _window, cx| {
+                            this.update(cx, |workspace, _cx| {
+                                workspace.bounds = bounds;
+                            });
+                        }
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full()
+            })
+            // Handle dock resize via drag move
+            .on_drag_move(cx.listener(
+                |this, e: &DragMoveEvent<DraggedDock>, _window, cx| {
+                    // Avoid processing duplicate coordinates
+                    if this.previous_dock_drag_coordinates != Some(e.event.position) {
+                        this.previous_dock_drag_coordinates = Some(e.event.position);
+
+                        match e.drag(cx).0 {
+                            DockPosition::Left => {
+                                // Left dock: width = mouse X position relative to workspace left
+                                let new_size = e.event.position.x - this.bounds.left();
+                                this.resize_left_dock(new_size, cx);
+                            }
+                            DockPosition::Right => {
+                                // Right dock: width = workspace right edge - mouse X position
+                                let new_size = this.bounds.right() - e.event.position.x;
+                                this.resize_right_dock(new_size, cx);
+                            }
+                            DockPosition::Bottom => {
+                                // Bottom dock: height = workspace bottom edge - mouse Y position
+                                let new_size = this.bounds.bottom() - e.event.position.y;
+                                this.resize_bottom_dock(new_size, cx);
+                            }
+                        }
+                    }
+                },
+            ))
+            // Register action handlers
+            .on_action(cx.listener(|this, _: &ToggleLeftDock, _window, cx| {
+                this.toggle_dock(DockPosition::Left, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ToggleRightDock, _window, cx| {
+                this.toggle_dock(DockPosition::Right, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ToggleBottomDock, _window, cx| {
+                this.toggle_dock(DockPosition::Bottom, cx);
+            }))
+            .on_action(cx.listener(|this, _: &CloseActiveTab, _window, cx| {
+                this.close_active_tab(cx);
+            }))
+            .on_action(cx.listener(|this, _: &NextTab, _window, cx| {
+                this.next_tab(cx);
+            }))
+            .on_action(cx.listener(|this, _: &PreviousTab, _window, cx| {
+                this.previous_tab(cx);
+            }))
+            .on_action(cx.listener(|this, _: &SplitRight, window, cx| {
+                this.split_pane(Axis::Horizontal, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &SplitDown, window, cx| {
+                this.split_pane(Axis::Vertical, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &FocusNextPane, window, cx| {
+                this.focus_next_pane(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
+                this.focus_previous_pane(window, cx);
+            }))
+            // Main content area (horizontal: left dock | center | right dock)
+            .child(
+                div()
+                    .flex_1()
+                    .flex()
+                    .overflow_hidden()
+                    // Left dock
+                    .child(self.left_dock.clone())
+                    // Center content (vertical: panes | bottom dock)
+                    .child(
+                        div()
+                            .flex_1()
+                            .flex()
+                            .flex_col()
+                            .overflow_hidden()
+                            // Center pane group
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .overflow_hidden()
+                                    .child(self.center.clone()),
+                            )
+                            // Bottom dock
+                            .child(self.bottom_dock.clone()),
+                    )
+                    // Right dock (if present)
+                    .children(self.right_dock.clone()),
+            )
+            // Status bar
+            .child(self.render_status_bar(cx))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_workspace_state_default() {
+        let state = WorkspaceState::default();
+        assert_eq!(state.left_dock_size, 250.0);
+        assert!(state.left_dock_visible);
+        assert_eq!(state.bottom_dock_size, 200.0);
+        assert!(state.bottom_dock_visible);
+        assert!(state.right_dock_size.is_none());
+    }
+
+    #[test]
+    fn test_workspace_state_serialization() {
+        let state = WorkspaceState::default();
+        let json = serde_json::to_string(&state).unwrap();
+        let deserialized: WorkspaceState = serde_json::from_str(&json).unwrap();
+        assert_eq!(state.left_dock_size, deserialized.left_dock_size);
+    }
+}

@@ -53,8 +53,10 @@ fn main() {
         };
 
         // Open the main window
-        cx.open_window(window_options, |_window, cx| cx.new(|_| TuskApp::new()))
-            .expect("Failed to open window");
+        cx.open_window(window_options, |window, cx| {
+            cx.new(|cx| TuskApp::new(window, cx))
+        })
+        .expect("Failed to open window");
 
         // Activate the application (bring to front)
         cx.activate(true);

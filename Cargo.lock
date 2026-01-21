@@ -5656,6 +5656,12 @@ dependencies = [
  "core-graphics 0.24.0",
  "core-text",
  "gpui",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "tusk_core",
+ "uuid",
 ]
 
 [[package]]

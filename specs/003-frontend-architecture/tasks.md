@@ -24,11 +24,11 @@
 
 **Purpose**: Project initialization, dependencies, and core utilities
 
-- [ ] T001 Update `crates/tusk_ui/Cargo.toml` with dependencies: smallvec, uuid, parking_lot, serde, tusk_core
-- [ ] T002 [P] Extend `crates/tusk_ui/src/theme.rs` with additional colors per research.md (tab_bar_background, panel_background, list_active_selection_background, element_background, elevated_surface_background, etc.)
-- [ ] T003 [P] Create `crates/tusk_ui/src/layout.rs` with layout utilities (h_flex, v_flex wrappers, spacing constants)
-- [ ] T004 [P] Create `crates/tusk_ui/src/spinner.rs` with Spinner component implementing RenderOnce and animation via with_animation()
-- [ ] T005 Rename `crates/tusk_ui/src/icons.rs` to `crates/tusk_ui/src/icon.rs` and expand with full IconName enum (ChevronRight, ChevronDown, Database, Table, Column, Key, etc.) and IconSize enum per contracts/components.md
+- [x] T001 Update `crates/tusk_ui/Cargo.toml` with dependencies: smallvec, uuid, parking_lot, serde, tusk_core
+- [x] T002 [P] Extend `crates/tusk_ui/src/theme.rs` with additional colors per research.md (tab_bar_background, panel_background, list_active_selection_background, element_background, elevated_surface_background, etc.)
+- [x] T003 [P] Create `crates/tusk_ui/src/layout.rs` with layout utilities (h_flex, v_flex wrappers, spacing constants)
+- [x] T004 [P] Create `crates/tusk_ui/src/spinner.rs` with Spinner component implementing RenderOnce and animation via with_animation()
+- [x] T005 Rename `crates/tusk_ui/src/icons.rs` to `crates/tusk_ui/src/icon.rs` and expand with full IconName enum (ChevronRight, ChevronDown, Database, Table, Column, Key, etc.) and IconSize enum per contracts/components.md
 
 **Checkpoint**: Core utilities ready. Foundation for all components established.
 
