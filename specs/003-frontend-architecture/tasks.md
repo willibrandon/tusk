@@ -268,15 +268,15 @@
 
 ### Implementation for User Story 7
 
-- [ ] T086 [US7] Create `crates/tusk_ui/src/modal.rs` with Modal struct implementing Render/Focusable/EventEmitter<ModalEvent>
-- [ ] T087 [US7] Implement ModalAction struct (label, variant, disabled, handler) in `crates/tusk_ui/src/modal.rs`
-- [ ] T088 [US7] Implement Modal::render() with backdrop, header (title), body (children), footer (actions) in `crates/tusk_ui/src/modal.rs`
-- [ ] T089 [US7] Implement ModalLayer global struct with show(), dismiss(), has_modal() in `crates/tusk_ui/src/modal.rs`
-- [ ] T090 [US7] Implement Modal focus trapping (Tab cycles within modal) in `crates/tusk_ui/src/modal.rs`
-- [ ] T091 [US7] Implement Modal Escape key handling via Dismiss action in `crates/tusk_ui/src/modal.rs`
-- [ ] T092 [US7] Implement Modal backdrop click to close (when closable=true) in `crates/tusk_ui/src/modal.rs`
-- [ ] T093 [US7] Register ModalLayer as Global in app initialization in `crates/tusk/src/app.rs`
-- [ ] T094 [US7] Integrate ModalLayer rendering in Workspace (render modals above all content) in `crates/tusk_ui/src/workspace.rs`
+- [x] T086 [US7] Create `crates/tusk_ui/src/modal.rs` with Modal struct implementing Render/Focusable/EventEmitter<ModalEvent>
+- [x] T087 [US7] Implement ModalAction struct (label, variant, disabled, handler) in `crates/tusk_ui/src/modal.rs`
+- [x] T088 [US7] Implement Modal::render() with backdrop, header (title), body (children), footer (actions) in `crates/tusk_ui/src/modal.rs`
+- [x] T089 [US7] Implement ModalLayer global struct with show(), dismiss(), has_modal() in `crates/tusk_ui/src/modal.rs`
+- [x] T090 [US7] Implement Modal focus trapping (Tab cycles within modal) in `crates/tusk_ui/src/modal.rs`
+- [x] T091 [US7] Implement Modal Escape key handling via Dismiss action in `crates/tusk_ui/src/modal.rs`
+- [x] T092 [US7] Implement Modal backdrop click to close (when closable=true) in `crates/tusk_ui/src/modal.rs`
+- [x] T093 [US7] Register ModalLayer as Global in app initialization in `crates/tusk/src/app.rs`
+- [x] T094 [US7] Integrate ModalLayer rendering in Workspace (render modals above all content) in `crates/tusk_ui/src/workspace.rs`
 
 **Checkpoint**: User Story 7 complete - modals work with focus trapping and keyboard dismissal
 

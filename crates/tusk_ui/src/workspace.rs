@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::icon::IconName;
+use crate::modal::ModalLayer;
 use crate::key_bindings::{
     ActivateTab1, ActivateTab2, ActivateTab3, ActivateTab4, ActivateTab5, ActivateTab6,
     ActivateTab7, ActivateTab8, ActivateTab9, CloseActiveTab, ClosePane, FocusNextPane,
@@ -829,6 +830,8 @@ impl Render for Workspace {
             )
             // Status bar
             .child(self.render_status_bar(cx))
+            // Modal layer (T094) - rendered above all content
+            .children(cx.try_global::<ModalLayer>().and_then(|layer| layer.render()))
     }
 }
 
