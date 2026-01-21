@@ -371,6 +371,12 @@ impl SchemaBrowserPanel {
                     });
                 }
             }
+            TextInputEvent::Submitted(_) => {
+                // Could focus the tree on submit
+            }
+            TextInputEvent::Focus | TextInputEvent::Blur => {
+                // Focus/blur events - no action needed for filter input
+            }
         }
     }
 

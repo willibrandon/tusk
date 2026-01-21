@@ -191,14 +191,14 @@
 
 ### Implementation for User Story 6
 
-- [ ] T061 [US6] Add hover state styling to Button component in `crates/tusk_ui/src/button.rs` using on_hover()
-- [ ] T062 [US6] Add disabled state styling and interaction blocking to Button in `crates/tusk_ui/src/button.rs`
-- [ ] T063 [US6] Add loading state with Spinner to Button in `crates/tusk_ui/src/button.rs`
-- [ ] T064 [US6] Create `crates/tusk_ui/src/input.rs` with TextInput struct implementing Render/Focusable/EventEmitter<TextInputEvent>
-- [ ] T065 [US6] Implement TextInput::render() with text display, cursor, placeholder, and focus ring in `crates/tusk_ui/src/input.rs`
-- [ ] T066 [US6] Implement TextInput keyboard handling (character input, backspace, enter for submit) in `crates/tusk_ui/src/input.rs`
-- [ ] T067 [US6] Implement TextInputEvent emission (Changed, Submitted, Focus, Blur) in `crates/tusk_ui/src/input.rs`
-- [ ] T068 [US6] Add focus ring styling to all interactive components (Button, TextInput) meeting WCAG 2.1 AA contrast requirements
+- [x] T061 [US6] Add hover state styling to Button component in `crates/tusk_ui/src/button.rs` using on_hover()
+- [x] T062 [US6] Add disabled state styling and interaction blocking to Button in `crates/tusk_ui/src/button.rs`
+- [x] T063 [US6] Add loading state with Spinner to Button in `crates/tusk_ui/src/button.rs`
+- [x] T064 [US6] Create `crates/tusk_ui/src/input.rs` with TextInput struct implementing Render/Focusable/EventEmitter<TextInputEvent>
+- [x] T065 [US6] Implement TextInput::render() with text display, cursor, placeholder, and focus ring in `crates/tusk_ui/src/input.rs`
+- [x] T066 [US6] Implement TextInput keyboard handling (character input, backspace, enter for submit) in `crates/tusk_ui/src/input.rs`
+- [x] T067 [US6] Implement TextInputEvent emission (Changed, Submitted, Focus, Blur) in `crates/tusk_ui/src/input.rs`
+- [x] T068 [US6] Add focus ring styling to all interactive components (Button, TextInput) meeting WCAG 2.1 AA contrast requirements
 
 **Checkpoint**: User Story 6 complete - buttons and inputs work with full accessibility support
 

@@ -5,8 +5,8 @@ use std::ops::Range;
 use gpui::{
     actions, div, fill, point, prelude::*, px, relative, size, App, Bounds, Context, ElementId,
     ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable,
-    GlobalElementId, KeyBinding, LayoutId, Pixels, ShapedLine, SharedString, Style, TextRun,
-    UTF16Selection, Window,
+    GlobalElementId, KeyBinding, LayoutId, Pixels, ShapedLine, SharedString, Style, Subscription,
+    TextRun, UTF16Selection, Window,
 };
 use unicode_segmentation::*;
 
@@ -25,6 +25,7 @@ actions!(
         SelectAll,
         Home,
         End,
+        Submit,
     ]
 );
 
@@ -40,6 +41,7 @@ pub fn register_text_input_bindings(cx: &mut App) {
         KeyBinding::new("cmd-a", SelectAll, Some("TextInput")),
         KeyBinding::new("home", Home, Some("TextInput")),
         KeyBinding::new("end", End, Some("TextInput")),
+        KeyBinding::new("enter", Submit, Some("TextInput")),
     ]);
 }
 
@@ -48,6 +50,12 @@ pub fn register_text_input_bindings(cx: &mut App) {
 pub enum TextInputEvent {
     /// The text content changed.
     Changed(String),
+    /// The user submitted the input (pressed Enter).
+    Submitted(String),
+    /// The input gained focus.
+    Focus,
+    /// The input lost focus.
+    Blur,
 }
 
 /// A simple single-line text input component.
@@ -60,10 +68,17 @@ pub struct TextInput {
     marked_range: Option<Range<usize>>,
     last_layout: Option<ShapedLine>,
     last_bounds: Option<Bounds<Pixels>>,
+    #[allow(dead_code)]
+    focus_subscription: Option<Subscription>,
+    #[allow(dead_code)]
+    blur_subscription: Option<Subscription>,
 }
 
 impl TextInput {
     /// Create a new text input.
+    ///
+    /// Note: Focus and blur subscriptions are set up in `subscribe_to_focus()` which must be
+    /// called after the entity is created and a window is available.
     pub fn new(placeholder: impl Into<SharedString>, cx: &mut Context<Self>) -> Self {
         Self {
             focus_handle: cx.focus_handle(),
@@ -74,6 +89,31 @@ impl TextInput {
             marked_range: None,
             last_layout: None,
             last_bounds: None,
+            focus_subscription: None,
+            blur_subscription: None,
+        }
+    }
+
+    /// Subscribe to focus and blur events.
+    ///
+    /// This should be called after the entity is created, typically in the first render.
+    pub fn subscribe_to_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.focus_subscription.is_none() {
+            let focus_sub = cx.on_focus(&self.focus_handle, window, |this, _window, cx| {
+                cx.emit(TextInputEvent::Focus);
+                cx.notify();
+                let _ = this;
+            });
+            self.focus_subscription = Some(focus_sub);
+        }
+
+        if self.blur_subscription.is_none() {
+            let blur_sub = cx.on_blur(&self.focus_handle, window, |this, _window, cx| {
+                cx.emit(TextInputEvent::Blur);
+                cx.notify();
+                let _ = this;
+            });
+            self.blur_subscription = Some(blur_sub);
         }
     }
 
@@ -134,6 +174,10 @@ impl TextInput {
 
     fn end(&mut self, _: &End, _: &mut Window, cx: &mut Context<Self>) {
         self.move_to(self.content.len(), cx);
+    }
+
+    fn submit(&mut self, _: &Submit, _: &mut Window, cx: &mut Context<Self>) {
+        cx.emit(TextInputEvent::Submitted(self.content.clone()));
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
@@ -527,6 +571,9 @@ impl gpui::Element for TextInputElement {
 
 impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Subscribe to focus/blur events on first render
+        self.subscribe_to_focus(window, cx);
+
         let theme = cx.global::<TuskTheme>();
         let is_focused = self.focus_handle.is_focused(window);
 
@@ -544,6 +591,7 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::select_all))
             .on_action(cx.listener(Self::home))
             .on_action(cx.listener(Self::end))
+            .on_action(cx.listener(Self::submit))
             .h(px(24.0))
             .w_full()
             .px(px(8.0))

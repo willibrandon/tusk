@@ -1,8 +1,8 @@
 //! Button component with variants and sizes.
 
 use gpui::{
-    div, prelude::*, px, App, ClickEvent, CursorStyle, ElementId, Hsla, IntoElement, Pixels,
-    RenderOnce, SharedString, Window,
+    div, prelude::*, px, App, ClickEvent, CursorStyle, ElementId, FocusHandle, Hsla, IntoElement,
+    Pixels, RenderOnce, SharedString, Window,
 };
 
 use crate::icon::{Icon, IconName, IconSize};
@@ -93,6 +93,10 @@ pub enum IconPosition {
 }
 
 /// A button component with customizable variant, size, and icon.
+///
+/// Buttons support optional focus handling for keyboard navigation. When a focus handle
+/// is provided via `track_focus()`, the button will display a visible focus ring when
+/// focused, meeting WCAG 2.1 AA accessibility requirements.
 #[derive(IntoElement)]
 pub struct Button {
     id: ElementId,
@@ -103,6 +107,7 @@ pub struct Button {
     size: ButtonSize,
     disabled: bool,
     loading: bool,
+    focus_handle: Option<FocusHandle>,
     on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
 }
 
@@ -118,6 +123,7 @@ impl Button {
             size: ButtonSize::default(),
             disabled: false,
             loading: false,
+            focus_handle: None,
             on_click: None,
         }
     }
@@ -167,6 +173,16 @@ impl Button {
     /// Set the loading state.
     pub fn loading(mut self, loading: bool) -> Self {
         self.loading = loading;
+        self
+    }
+
+    /// Track focus for keyboard navigation.
+    ///
+    /// When a focus handle is provided, the button will:
+    /// - Be included in tab order
+    /// - Show a visible focus ring when focused (WCAG 2.1 AA compliant)
+    pub fn track_focus(mut self, focus_handle: &FocusHandle) -> Self {
+        self.focus_handle = Some(focus_handle.clone());
         self
     }
 
@@ -221,6 +237,7 @@ impl RenderOnce for Button {
     fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.global::<TuskTheme>();
         let (bg, hover_bg, text_color, _hover_text) = self.colors(theme);
+        let focus_ring_color = theme.colors.accent;
 
         let height = self.size.height();
         let padding_x = self.size.padding_x();
@@ -243,7 +260,18 @@ impl RenderOnce for Button {
             .bg(bg)
             .text_color(text_color)
             .text_size(text_size)
-            .opacity(opacity);
+            .opacity(opacity)
+            // Border for focus ring - transparent by default
+            .border_2()
+            .border_color(gpui::transparent_black());
+
+        // Add focus tracking and focus ring if focus handle provided
+        if let Some(focus_handle) = self.focus_handle {
+            button = button
+                .track_focus(&focus_handle)
+                // WCAG 2.1 AA compliant focus ring: 2px accent border with high contrast
+                .focus(|style| style.border_color(focus_ring_color));
+        }
 
         // Add hover effect if interactive
         if is_interactive {
