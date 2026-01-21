@@ -4,7 +4,9 @@ use gpui::{AppContext, Context, Entity, IntoElement, Render, Window};
 use tusk_core::state::TuskState;
 use tusk_core::{ConnectionConfig, ConnectionPool, SchemaService};
 use tusk_ui::key_bindings::register_key_bindings;
-use tusk_ui::{database_schema_to_tree, register_text_input_bindings, Workspace};
+use tusk_ui::{
+    database_schema_to_tree, register_text_input_bindings, ConnectionStatus, Workspace,
+};
 
 /// Root application component that manages the main window.
 pub struct TuskApp {
@@ -29,8 +31,9 @@ impl TuskApp {
 
     /// Load database schema asynchronously and update the schema browser.
     fn load_schema(workspace: Entity<Workspace>, cx: &mut Context<Self>) {
-        // Set loading state
+        // Set loading state and connecting status
         workspace.update(cx, |ws, cx| {
+            ws.set_connection_status(ConnectionStatus::Connecting, cx);
             ws.schema_browser().update(cx, |sb, cx| {
                 sb.set_loading(true, cx);
             });
@@ -38,6 +41,10 @@ impl TuskApp {
 
         // Get handle to the Tokio runtime from TuskState
         let runtime_handle = cx.global::<TuskState>().runtime().handle().clone();
+
+        // Connection details for status bar display
+        let database = "postgres";
+        let host = "localhost";
 
         // Spawn GPUI async task that will coordinate with Tokio runtime
         cx.spawn(async move |_this, cx| {
@@ -85,6 +92,14 @@ impl TuskApp {
                 Ok(Ok(tree_items)) => {
                     let _ = cx.update(|cx| {
                         workspace.update(cx, |ws, cx| {
+                            // Update connection status to connected
+                            ws.set_connection_status(
+                                ConnectionStatus::Connected {
+                                    database: database.into(),
+                                    host: host.into(),
+                                },
+                                cx,
+                            );
                             ws.schema_browser().update(cx, |sb, cx| {
                                 sb.set_loading(false, cx);
                                 sb.set_error(None, cx);
@@ -95,11 +110,17 @@ impl TuskApp {
                 }
                 Ok(Err(e)) => {
                     tracing::error!(error = %e, "Failed to load schema");
+                    let error_msg = format!("{}", e);
                     let _ = cx.update(|cx| {
                         workspace.update(cx, |ws, cx| {
+                            // Update connection status to error
+                            ws.set_connection_status(
+                                ConnectionStatus::Error(error_msg.clone().into()),
+                                cx,
+                            );
                             ws.schema_browser().update(cx, |sb, cx| {
                                 sb.set_loading(false, cx);
-                                sb.set_error(Some(format!("{}", e).into()), cx);
+                                sb.set_error(Some(error_msg.into()), cx);
                             });
                         });
                     });
@@ -108,6 +129,11 @@ impl TuskApp {
                     tracing::error!(error = %e, "Task panicked");
                     let _ = cx.update(|cx| {
                         workspace.update(cx, |ws, cx| {
+                            // Update connection status to error
+                            ws.set_connection_status(
+                                ConnectionStatus::Error("Internal error".into()),
+                                cx,
+                            );
                             ws.schema_browser().update(cx, |sb, cx| {
                                 sb.set_loading(false, cx);
                                 sb.set_error(Some("Internal error".into()), cx);

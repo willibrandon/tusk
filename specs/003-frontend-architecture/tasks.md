@@ -232,11 +232,11 @@
 
 ### Implementation for User Story 11
 
-- [ ] T076 [US11] Implement StatusBar connection status display (connected/disconnected with icon) reading from TuskState in `crates/tusk_ui/src/status_bar.rs`
-- [ ] T077 [US11] Implement StatusBar database name display when connected in `crates/tusk_ui/src/status_bar.rs`
-- [ ] T078 [US11] Implement StatusBar query execution state display (spinner + "Executing..." or timing) in `crates/tusk_ui/src/status_bar.rs`
-- [ ] T079 [US11] Implement StatusBar row count display from last query result in `crates/tusk_ui/src/status_bar.rs`
-- [ ] T080 [US11] Implement StatusBar::render() with left-aligned and right-aligned sections per FR-024 in `crates/tusk_ui/src/status_bar.rs`
+- [x] T076 [US11] Implement StatusBar connection status display (connected/disconnected with icon) reading from TuskState in `crates/tusk_ui/src/status_bar.rs`
+- [x] T077 [US11] Implement StatusBar database name display when connected in `crates/tusk_ui/src/status_bar.rs`
+- [x] T078 [US11] Implement StatusBar query execution state display (spinner + "Executing..." or timing) in `crates/tusk_ui/src/status_bar.rs`
+- [x] T079 [US11] Implement StatusBar row count display from last query result in `crates/tusk_ui/src/status_bar.rs`
+- [x] T080 [US11] Implement StatusBar::render() with left-aligned and right-aligned sections per FR-024 in `crates/tusk_ui/src/status_bar.rs`
 
 **Checkpoint**: User Story 11 complete - status bar shows connection and query information
 

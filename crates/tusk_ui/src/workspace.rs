@@ -24,7 +24,7 @@ use crate::layout::spacing;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, PaneLayout, TabItem};
 use crate::panel::{DockPosition, Focusable};
 use crate::panels::SchemaBrowserPanel;
-use crate::status_bar::StatusBar;
+use crate::status_bar::{ConnectionStatus, ExecutionState, StatusBar};
 use crate::TuskTheme;
 
 // ============================================================================
@@ -158,6 +158,10 @@ pub struct Workspace {
     previous_dock_drag_coordinates: Option<Point<Pixels>>,
     /// Last calculated viewport height (for bottom dock 50% constraint).
     last_viewport_height: Pixels,
+    /// Current connection status for the status bar.
+    connection_status: ConnectionStatus,
+    /// Current query execution state for the status bar.
+    execution_state: ExecutionState,
 }
 
 impl Workspace {
@@ -240,6 +244,8 @@ impl Workspace {
             bounds: Bounds::default(),
             previous_dock_drag_coordinates: None,
             last_viewport_height: px(800.0), // Default, will be updated on first render
+            connection_status: ConnectionStatus::default(),
+            execution_state: ExecutionState::default(),
         };
 
         // Restore persisted state if available
@@ -336,6 +342,28 @@ impl Workspace {
     /// Get the schema browser panel entity.
     pub fn schema_browser(&self) -> &Entity<SchemaBrowserPanel> {
         &self.schema_browser
+    }
+
+    /// Get the current connection status.
+    pub fn connection_status(&self) -> &ConnectionStatus {
+        &self.connection_status
+    }
+
+    /// Set the connection status (updates the status bar).
+    pub fn set_connection_status(&mut self, status: ConnectionStatus, cx: &mut Context<Self>) {
+        self.connection_status = status;
+        cx.notify();
+    }
+
+    /// Get the current execution state.
+    pub fn execution_state(&self) -> &ExecutionState {
+        &self.execution_state
+    }
+
+    /// Set the execution state (updates the status bar).
+    pub fn set_execution_state(&mut self, state: ExecutionState, cx: &mut Context<Self>) {
+        self.execution_state = state;
+        cx.notify();
     }
 
     /// Get the active pane from the center pane group.
@@ -598,6 +626,8 @@ impl Workspace {
     /// Render the status bar.
     fn render_status_bar(&self, _cx: &App) -> impl IntoElement {
         StatusBar::new()
+            .connection_status(self.connection_status.clone())
+            .execution_state(self.execution_state.clone())
     }
 }
 
