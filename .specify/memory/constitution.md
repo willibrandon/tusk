@@ -1,3 +1,33 @@
+<!--
+SYNC IMPACT REPORT
+==================
+Version change: 1.1.0 → 2.0.0
+
+Modified Principles:
+- VI. Performance Discipline: Removed "Tauri events" reference, updated to "GPUI rendering and async channels"
+
+Removed Sections:
+- Technology Stack: Removed entire "Frontend (WebView)" section with Svelte/Monaco/TanStack
+- Technology Stack: Removed Tauri v2 from Backend section
+
+Added Sections:
+- Technology Stack: New unified "Pure Rust + GPUI" section
+- Technology Stack: New "Build & Packaging" subsection
+
+Templates Status:
+- .specify/templates/plan-template.md: ✅ No Tauri/Svelte references (generic template)
+- .specify/templates/spec-template.md: ✅ No technology references (generic template)
+- .specify/templates/tasks-template.md: ✅ No technology references (generic template)
+- .specify/templates/agent-file-template.md: ✅ No technology references (generic template)
+- .specify/templates/checklist-template.md: ✅ No technology references (generic template)
+
+Follow-up TODOs: None
+
+Bump Rationale: MAJOR version bump (1.1.0 → 2.0.0) because this is a backward-incompatible
+redefinition of the Technology Stack section - the entire frontend architecture has been
+replaced (WebView/Svelte/Monaco → pure Rust/GPUI).
+-->
+
 # Tusk Constitution
 
 ## Core Principles
@@ -52,14 +82,14 @@ All features MUST meet these performance targets:
 
 | Metric                            | Target     |
 | --------------------------------- | ---------- |
-| Cold start                        | < 1 second |
-| Memory (idle)                     | < 100 MB   |
-| Memory (1M rows loaded)           | < 500 MB   |
-| Query result render (1000 rows)   | < 100ms    |
-| Schema browser load (1000 tables) | < 500ms    |
-| Autocomplete response             | < 50ms     |
+| Cold start                        | < 500ms    |
+| Memory (idle)                     | < 50 MB    |
+| Memory (1M rows loaded)           | < 400 MB   |
+| Query result render (1000 rows)   | < 16ms     |
+| Schema browser load (1000 tables) | < 300ms    |
+| Autocomplete response             | < 30ms     |
 
-Performance MUST be achieved through streaming (batch row emission via Tauri events) and virtual scrolling (render only visible content). Lazy loading and pagination are acceptable; blocking the UI thread is not.
+Performance MUST be achieved through streaming (batch row emission via async channels) and virtual scrolling (GPUI's UniformList renders only visible content). Lazy loading and pagination are acceptable; blocking the main thread is not.
 
 **Rationale**: Users choose native applications for performance. Failing these targets negates the value proposition versus web-based tools.
 
@@ -81,22 +111,28 @@ Performance MUST be achieved through streaming (batch row emission via Tauri eve
 
 ## Technology Stack
 
-**Frontend** (WebView):
+**Pure Rust + GPUI**:
 
-- Svelte 5 for compiled reactivity
-- Monaco Editor for SQL editing
-- TanStack Table + custom virtualization for data grids
-- @xyflow/svelte for ER diagrams
-- Tailwind CSS for styling
+- GPUI (Zed's GPU-accelerated UI framework) for all rendering
+- Rust 1.75+ with 2021 edition
+- No JavaScript, no WebView, no Electron — native GPUI rendering throughout
 
-**Backend** (Rust):
+**Core Libraries**:
 
-- Tauri v2 for native shell
 - tokio-postgres for async Postgres operations
 - deadpool-postgres for connection pooling
-- russh for SSH tunnels
+- russh for SSH tunnels (pure Rust SSH2)
 - rusqlite for local metadata storage
 - keyring for OS credential storage
+- parking_lot for thread-safe synchronization
+- thiserror for error types
+- tracing for structured logging
+- serde/serde_json for serialization
+
+**Build & Packaging**:
+
+- Cargo workspace for multi-crate project structure
+- cargo-bundle for platform-specific packaging (macOS .app, Windows .msi, Linux .deb/.AppImage)
 
 Deviations from this stack require explicit justification and constitution amendment.
 
@@ -121,4 +157,4 @@ This constitution supersedes all other practices. Violations discovered during d
 - Task modifications MUST be rejected per Principle V (Task Immutability)
 - See `CLAUDE.md` for runtime development guidance
 
-**Version**: 1.1.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-19
+**Version**: 2.0.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-20
