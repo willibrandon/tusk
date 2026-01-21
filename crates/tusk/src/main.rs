@@ -9,9 +9,7 @@ use tusk_ui::TuskTheme;
 
 fn main() {
     // Initialize tracing with RUST_LOG environment variable support
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
 
     tracing::info!("Starting Tusk");
 
@@ -34,10 +32,7 @@ fn main() {
         // Configure window options
         let window_options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
-            window_min_size: Some(Size {
-                width: px(800.0),
-                height: px(600.0),
-            }),
+            window_min_size: Some(Size { width: px(800.0), height: px(600.0) }),
             focus: true,
             show: true,
             ..Default::default()

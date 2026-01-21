@@ -119,14 +119,14 @@
 
 ### Implementation for User Story 3
 
-- [ ] T044 [P] [US3] Create rustfmt.toml with edition="2021", max_width=100, use_small_heuristics="Max" at rustfmt.toml
-- [ ] T045 [P] [US3] Create clippy.toml with default configuration at clippy.toml
-- [ ] T046 [US3] Add cargo fmt --all -- --check step to all CI jobs in .github/workflows/ci.yml
-- [ ] T047 [US3] Add cargo clippy --workspace -- -D warnings step to all CI jobs in .github/workflows/ci.yml
-- [ ] T048 [US3] Run cargo fmt --all to format all code in workspace
-- [ ] T049 [US3] Run cargo clippy --workspace -- -D warnings and fix any warnings
-- [ ] T050 [US3] Verify cargo fmt --check passes with no violations
-- [ ] T051 [US3] Verify cargo clippy -- -D warnings passes with no warnings
+- [x] T044 [P] [US3] Create rustfmt.toml with edition="2021", max_width=100, use_small_heuristics="Max" at rustfmt.toml
+- [x] T045 [P] [US3] Create clippy.toml with default configuration at clippy.toml
+- [x] T046 [US3] Add cargo fmt --all -- --check step to all CI jobs in .github/workflows/ci.yml
+- [x] T047 [US3] Add cargo clippy --workspace -- -D warnings step to all CI jobs in .github/workflows/ci.yml
+- [x] T048 [US3] Run cargo fmt --all to format all code in workspace
+- [x] T049 [US3] Run cargo clippy --workspace -- -D warnings and fix any warnings
+- [x] T050 [US3] Verify cargo fmt --check passes with no violations
+- [x] T051 [US3] Verify cargo clippy -- -D warnings passes with no warnings
 
 **Checkpoint**: User Story 3 complete - code quality tools configured and passing
 
@@ -140,10 +140,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T052 [US4] Document cargo-watch installation instructions in quickstart.md at specs/001-project-init/quickstart.md
-- [ ] T053 [US4] Document cargo watch -x run usage for hot-reload development in quickstart.md at specs/001-project-init/quickstart.md
-- [ ] T054 [US4] Verify cargo watch -x run starts application and monitors for changes
-- [ ] T055 [US4] Verify modifying a source file triggers automatic rebuild
+- [x] T052 [US4] Document cargo-watch installation instructions in quickstart.md at specs/001-project-init/quickstart.md
+- [x] T053 [US4] Document cargo watch -x run usage for hot-reload development in quickstart.md at specs/001-project-init/quickstart.md
+- [x] T054 [US4] Verify cargo watch -x run starts application and monitors for changes
+- [x] T055 [US4] Verify modifying a source file triggers automatic rebuild
 
 **Checkpoint**: User Story 4 complete - hot-reload development workflow documented and working
 
@@ -157,10 +157,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T056 [US5] Add tracing::info!("Starting Tusk") log statement at application startup in crates/tusk/src/main.rs
-- [ ] T057 [US5] Configure tracing_subscriber with EnvFilter::from_default_env() for RUST_LOG support in crates/tusk/src/main.rs
-- [ ] T058 [US5] Verify RUST_LOG=tusk=debug cargo run shows debug-level log messages
-- [ ] T059 [US5] Verify "Starting Tusk" info message appears in console output
+- [x] T056 [US5] Add tracing::info!("Starting Tusk") log statement at application startup in crates/tusk/src/main.rs
+- [x] T057 [US5] Configure tracing_subscriber with EnvFilter::from_default_env() for RUST_LOG support in crates/tusk/src/main.rs
+- [x] T058 [US5] Verify RUST_LOG=tusk=debug cargo run shows debug-level log messages
+- [x] T059 [US5] Verify "Starting Tusk" info message appears in console output
 
 **Checkpoint**: User Story 5 complete - debug logging works via RUST_LOG environment variable
 

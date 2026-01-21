@@ -1,0 +1,5 @@
+# Clippy configuration for Tusk
+# Documentation: https://doc.rust-lang.org/clippy/configuration.html
+
+# Default configuration - no custom settings needed for initial setup
+# Add project-specific lint configurations here as needed

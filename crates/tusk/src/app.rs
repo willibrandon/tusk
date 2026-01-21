@@ -24,19 +24,8 @@ impl Render for TuskApp {
         let theme = cx.global::<TuskTheme>();
         let colors = &theme.colors;
 
-        div()
-            .flex()
-            .flex_col()
-            .size_full()
-            .bg(colors.background)
-            .text_color(colors.text)
-            .child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .items_center()
-                    .justify_center()
-                    .child("Tusk - PostgreSQL Client"),
-            )
+        div().flex().flex_col().size_full().bg(colors.background).text_color(colors.text).child(
+            div().flex().flex_1().items_center().justify_center().child("Tusk - PostgreSQL Client"),
+        )
     }
 }

@@ -39,38 +39,26 @@ pub enum TuskError {
 impl TuskError {
     /// Create a new window error.
     pub fn window(message: impl Into<String>) -> Self {
-        Self::Window {
-            message: message.into(),
-        }
+        Self::Window { message: message.into() }
     }
 
     /// Create a new theme error.
     pub fn theme(message: impl Into<String>) -> Self {
-        Self::Theme {
-            message: message.into(),
-        }
+        Self::Theme { message: message.into() }
     }
 
     /// Create a new font error.
     pub fn font(message: impl Into<String>) -> Self {
-        Self::Font {
-            message: message.into(),
-            path: None,
-        }
+        Self::Font { message: message.into(), path: None }
     }
 
     /// Create a new font error with a path.
     pub fn font_with_path(message: impl Into<String>, path: impl Into<String>) -> Self {
-        Self::Font {
-            message: message.into(),
-            path: Some(path.into()),
-        }
+        Self::Font { message: message.into(), path: Some(path.into()) }
     }
 
     /// Create a new config error.
     pub fn config(message: impl Into<String>) -> Self {
-        Self::Config {
-            message: message.into(),
-        }
+        Self::Config { message: message.into() }
     }
 }
