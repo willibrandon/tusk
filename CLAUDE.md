@@ -59,6 +59,7 @@ Key paths:
 4. **No validation-seeking.** Never ask "Does this look good?", "Is this okay?", "Fair enough?", or seek approval before acting. Just act.
 5. **No empathy theater.** Never say "I hear you", "I understand your frustration", "That's fair", or any other filler that validates feelings instead of solving problems.
 6. **Propose, don't poll.** When there are multiple options, pick the best one and state why. Don't present a menu and ask the user to choose.
+7. **Never offer a menu of choices when stuck.** If an approach is rejected, try a different concrete approach. NEVER respond with "What style are you looking for?", "Would you prefer X or Y?", "What kind of Z do you want?" — these are all failures. Make a decision and execute it. If that fails, make a different decision. Repeat until solved or truly exhausted.
 
 ## Local Postgres Access
 
