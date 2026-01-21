@@ -32,7 +32,7 @@ fn main() {
         // Configure window options
         let window_options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
-            window_min_size: Some(Size { width: px(800.0), height: px(600.0) }),
+            window_min_size: Some(Size { width: px(400.0), height: px(300.0) }),
             focus: true,
             show: true,
             ..Default::default()
