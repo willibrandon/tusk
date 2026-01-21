@@ -4,21 +4,25 @@ name: CI
 
 on:
   push:
-    branches: [main, "**"]
   pull_request:
-    branches: [main]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: true
-
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
 
 jobs:
+  # Prevent duplicate runs - skip push if PR exists for same commit
+  pre-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          concurrent_skipping: same_content_newer
+          skip_after_successful_duplicate: true
+
   # macOS ARM64 (Apple Silicon)
   macos-arm64:
+    needs: pre-check
+    if: needs.pre-check.outputs.should_skip != 'true'
     name: macOS ARM64
     runs-on: macos-14
     steps:
@@ -54,6 +58,8 @@ jobs:
 
   # macOS x64 (Intel)
   macos-x64:
+    needs: pre-check
+    if: needs.pre-check.outputs.should_skip != 'true'
     name: macOS x64
     runs-on: macos-15-intel
     steps:
@@ -89,6 +95,8 @@ jobs:
 
   # Windows x64
   windows-x64:
+    needs: pre-check
+    if: needs.pre-check.outputs.should_skip != 'true'
     name: Windows x64
     runs-on: windows-latest
     steps:
@@ -124,6 +132,8 @@ jobs:
 
   # Windows ARM64 (cross-compile)
   windows-arm64:
+    needs: pre-check
+    if: needs.pre-check.outputs.should_skip != 'true'
     name: Windows ARM64
     runs-on: windows-latest
     steps:
@@ -157,6 +167,8 @@ jobs:
 
   # Linux x64
   linux-x64:
+    needs: pre-check
+    if: needs.pre-check.outputs.should_skip != 'true'
     name: Linux x64
     runs-on: ubuntu-latest
     steps:
