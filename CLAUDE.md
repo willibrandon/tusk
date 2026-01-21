@@ -399,6 +399,7 @@ When in doubt, grep Zed's codebase for real-world usage patterns.
 ## Active Technologies
 - Rust 1.80+ with 2021 edition + GPUI (from Zed repository), tracing, serde/serde_json, parking_lo (001-project-init)
 - N/A for this feature (local SQLite introduced in later features) (001-project-init)
+- Rust 1.80+ with 2021 edition (established in workspace Cargo.toml) (002-backend-architecture)
 
 - Rust 1.75+ with GPUI (Zed's GPU-accelerated UI framework)
 - tokio-postgres, deadpool-postgres for PostgreSQL connectivity

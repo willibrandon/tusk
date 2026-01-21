@@ -4,16 +4,30 @@ mod app;
 
 use app::TuskApp;
 use gpui::{px, size, App, AppContext, Application, Bounds, Size, WindowBounds, WindowOptions};
-use tracing_subscriber::EnvFilter;
+use tusk_core::logging::{init_logging, LogConfig};
+use tusk_core::state::TuskState;
 use tusk_ui::TuskTheme;
 
 fn main() {
-    // Initialize tracing with RUST_LOG environment variable support
-    tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
+    // Initialize logging before TuskState (FR-022, FR-023, FR-024)
+    let log_config = LogConfig::new(tusk_core::logging::log_dir());
+    let _logging_guard = init_logging(log_config);
 
     tracing::info!("Starting Tusk");
 
     Application::new().run(|cx: &mut App| {
+        // Initialize TuskState and set as global (FR-005, SC-002)
+        match TuskState::new() {
+            Ok(state) => {
+                cx.set_global(state);
+                tracing::info!("TuskState initialized successfully");
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to initialize TuskState");
+                // Continue without state - app will have limited functionality
+            }
+        }
+
         // Register TuskTheme as global state
         cx.set_global(TuskTheme::default());
 

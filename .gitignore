@@ -24,6 +24,13 @@ release/
 # Environment and logs
 .env*
 *.log
+logs/
+
+# Application data (debug builds use ./tusk_data)
+tusk_data/
+*.db
+*.db-shm
+*.db-wal
 
 # Profiling
 *.prof*

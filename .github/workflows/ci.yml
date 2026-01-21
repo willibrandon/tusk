@@ -166,7 +166,8 @@ jobs:
             libxcb-render0-dev \
             libxcb-shm0-dev \
             libvulkan-dev \
-            libasound2-dev
+            libasound2-dev \
+            libdbus-1-dev
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
