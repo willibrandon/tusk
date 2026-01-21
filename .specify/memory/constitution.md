@@ -1,31 +1,27 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 2.0.0
+Version change: 2.0.0 → 2.1.0
 
-Modified Principles:
-- VI. Performance Discipline: Removed "Tauri events" reference, updated to "GPUI rendering and async channels"
+Modified Principles: None
 
-Removed Sections:
-- Technology Stack: Removed entire "Frontend (WebView)" section with Svelte/Monaco/TanStack
-- Technology Stack: Removed Tauri v2 from Backend section
+Removed Sections: None
 
 Added Sections:
-- Technology Stack: New unified "Pure Rust + GPUI" section
-- Technology Stack: New "Build & Packaging" subsection
+- GPUI Reference (Primary Source): New section after Technology Stack establishing
+  /Users/brandon/src/zed as the authoritative reference for all GPUI clarifications
 
 Templates Status:
-- .specify/templates/plan-template.md: ✅ No Tauri/Svelte references (generic template)
-- .specify/templates/spec-template.md: ✅ No technology references (generic template)
-- .specify/templates/tasks-template.md: ✅ No technology references (generic template)
-- .specify/templates/agent-file-template.md: ✅ No technology references (generic template)
-- .specify/templates/checklist-template.md: ✅ No technology references (generic template)
+- .specify/templates/plan-template.md: ✅ No updates needed (generic template)
+- .specify/templates/spec-template.md: ✅ No updates needed (generic template)
+- .specify/templates/tasks-template.md: ✅ No updates needed (generic template)
+- .specify/templates/agent-file-template.md: ✅ No updates needed (generic template)
+- .specify/templates/checklist-template.md: ✅ No updates needed (generic template)
 
 Follow-up TODOs: None
 
-Bump Rationale: MAJOR version bump (1.1.0 → 2.0.0) because this is a backward-incompatible
-redefinition of the Technology Stack section - the entire frontend architecture has been
-replaced (WebView/Svelte/Monaco → pure Rust/GPUI).
+Bump Rationale: MINOR version bump (2.0.0 → 2.1.0) because this adds a new section
+with material guidance (GPUI Reference) without modifying existing principles.
 -->
 
 # Tusk Constitution
@@ -136,6 +132,33 @@ Performance MUST be achieved through streaming (batch row emission via async cha
 
 Deviations from this stack require explicit justification and constitution amendment.
 
+## GPUI Reference (Primary Source)
+
+**Zed is cloned locally and MUST be used as the authoritative reference for all GPUI questions.**
+
+```
+/Users/brandon/src/zed
+```
+
+When uncertain about GPUI APIs, patterns, or implementation details:
+
+1. **Read Zed's source first** — Do not guess or rely on memory. The codebase is available locally.
+2. **Check the GPUI crate** — `/Users/brandon/src/zed/crates/gpui/src/`
+3. **Study the examples** — `/Users/brandon/src/zed/crates/gpui/examples/`
+4. **Look at real usage** — Search Zed's codebase for how components are actually built
+
+Key paths:
+
+| What | Where |
+|------|-------|
+| GPUI core | `/Users/brandon/src/zed/crates/gpui/src/` |
+| Examples | `/Users/brandon/src/zed/crates/gpui/examples/` |
+| UI components | `/Users/brandon/src/zed/crates/ui/src/` |
+| Editor (complex component) | `/Users/brandon/src/zed/crates/editor/src/` |
+| Theme system | `/Users/brandon/src/zed/crates/theme/src/` |
+
+**Rationale**: GPUI has limited external documentation. Zed's codebase is the definitive source for correct API usage, idiomatic patterns, and working implementations.
+
 ## Governance
 
 This constitution supersedes all other practices. Violations discovered during development MUST be fixed before proceeding.
@@ -157,4 +180,4 @@ This constitution supersedes all other practices. Violations discovered during d
 - Task modifications MUST be rejected per Principle V (Task Immutability)
 - See `CLAUDE.md` for runtime development guidance
 
-**Version**: 2.0.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-20
+**Version**: 2.1.0 | **Ratified**: 2026-01-19 | **Last Amended**: 2026-01-20

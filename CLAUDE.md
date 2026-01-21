@@ -1,5 +1,30 @@
 # Tusk — Claude Development Context
 
+## GPUI Reference (PRIMARY SOURCE)
+
+**Zed is cloned locally and MUST be used as the authoritative reference for all GPUI questions.**
+
+```
+/Users/brandon/src/zed
+```
+
+When uncertain about GPUI APIs, patterns, or implementation details:
+
+1. **Read Zed's source first** — Don't guess or rely on memory. The codebase is right there.
+2. **Check the GPUI crate** — `/Users/brandon/src/zed/crates/gpui/src/`
+3. **Study the examples** — `/Users/brandon/src/zed/crates/gpui/examples/`
+4. **Look at real usage** — Search Zed's codebase for how components are actually built
+
+Key paths:
+
+| What | Where |
+|------|-------|
+| GPUI core | `/Users/brandon/src/zed/crates/gpui/src/` |
+| Examples | `/Users/brandon/src/zed/crates/gpui/examples/` |
+| UI components | `/Users/brandon/src/zed/crates/ui/src/` |
+| Editor (complex component) | `/Users/brandon/src/zed/crates/editor/src/` |
+| Theme system | `/Users/brandon/src/zed/crates/theme/src/` |
+
 ## Rules
 
 1. **Never defer, reduce scope, deprioritize, or skip.** When implementing features, include everything. If uncertain, increase scope rather than decrease it.
@@ -356,13 +381,10 @@ impl TuskError {
 4. Respect read-only connection mode
 5. Confirm destructive operations (DROP, TRUNCATE, DELETE without WHERE)
 
-## GPUI Reference
+## GPUI Quick Reference
 
-GPUI documentation and examples can be found in the Zed repository:
-- Source: `~/src/zed/crates/gpui/`
-- Examples: `~/src/zed/crates/gpui/examples/`
+Key GPUI concepts (see `/Users/brandon/src/zed/crates/gpui/src/` for implementations):
 
-Key GPUI concepts:
 - `Render` trait: Component rendering
 - `Global` trait: Application-wide state
 - `Context<T>`: Component context for state and spawning
@@ -370,6 +392,8 @@ Key GPUI concepts:
 - `UniformList`: Virtualized list for large datasets
 - `div()`, `h_flex()`, `v_flex()`: Layout primitives
 - `.on_click()`, `.on_mouse_down()`: Event handlers
+
+When in doubt, grep Zed's codebase for real-world usage patterns.
 
 ## Active Technologies
 
