@@ -16,11 +16,15 @@ use crate::key_bindings::{
     CloseActiveTab, FocusNextPane, FocusPreviousPane, NextTab, PreviousTab, SplitDown, SplitRight,
     ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
 };
+use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, TabItem};
 use crate::panel::{DockPosition, Focusable};
 use crate::panels::SchemaBrowserPanel;
 use crate::status_bar::StatusBar;
 use crate::TuskTheme;
+
+/// Key used to store workspace state in the UI state storage.
+pub const WORKSPACE_STATE_KEY: &str = "workspace_state";
 
 /// Events emitted by the workspace.
 #[derive(Debug, Clone)]
@@ -100,12 +104,21 @@ pub struct Workspace {
     bounds: Bounds<Pixels>,
     /// Previous dock drag coordinates (to avoid duplicate processing).
     previous_dock_drag_coordinates: Option<Point<Pixels>>,
+    /// Last calculated viewport height (for bottom dock 50% constraint).
+    last_viewport_height: Pixels,
 }
 
 impl Workspace {
     /// Create a new workspace with default layout.
+    ///
+    /// Attempts to load persisted workspace state from storage. If persistence
+    /// is available and state exists, the dock sizes and visibility will be
+    /// restored to their previous values.
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
+
+        // Try to load persisted state
+        let persisted_state = Self::load_persisted_state(cx);
 
         // Create docks
         let left_dock = cx.new(|cx| Dock::new(DockPosition::Left, cx));
@@ -120,10 +133,10 @@ impl Workspace {
         // Create center pane group with one initial pane
         let center = cx.new(|cx| PaneGroup::new(window, cx));
 
-        // Subscribe to dock events
+        // Subscribe to dock events with persistence save
         let mut subscriptions = Vec::new();
 
-        subscriptions.push(cx.subscribe(&left_dock, |_this, _dock, event: &DockEvent, cx| {
+        subscriptions.push(cx.subscribe(&left_dock, |this, _dock, event: &DockEvent, cx| {
             if let DockEvent::VisibilityChanged { visible } = event {
                 cx.emit(WorkspaceEvent::DockToggled {
                     position: DockPosition::Left,
@@ -131,12 +144,14 @@ impl Workspace {
                 });
             }
             cx.emit(WorkspaceEvent::LayoutChanged);
+            // Save state on dock changes
+            this.save_state_to_storage(cx);
             cx.notify();
         }));
 
         subscriptions.push(cx.subscribe(
             &bottom_dock,
-            |_this, _dock, event: &DockEvent, cx| {
+            |this, _dock, event: &DockEvent, cx| {
                 if let DockEvent::VisibilityChanged { visible } = event {
                     cx.emit(WorkspaceEvent::DockToggled {
                         position: DockPosition::Bottom,
@@ -144,6 +159,8 @@ impl Workspace {
                     });
                 }
                 cx.emit(WorkspaceEvent::LayoutChanged);
+                // Save state on dock changes
+                this.save_state_to_storage(cx);
                 cx.notify();
             },
         ));
@@ -160,7 +177,7 @@ impl Workspace {
             },
         ));
 
-        Self {
+        let mut workspace = Self {
             left_dock,
             right_dock: None,
             bottom_dock,
@@ -169,6 +186,77 @@ impl Workspace {
             _subscriptions: subscriptions,
             bounds: Bounds::default(),
             previous_dock_drag_coordinates: None,
+            last_viewport_height: px(800.0), // Default, will be updated on first render
+        };
+
+        // Restore persisted state if available
+        if let Some(state) = persisted_state {
+            workspace.restore_state(state, cx);
+        }
+
+        workspace
+    }
+
+    /// Load persisted workspace state from storage.
+    ///
+    /// Returns None if TuskState is not available or no state has been saved.
+    #[allow(unused_variables)]
+    fn load_persisted_state(cx: &App) -> Option<WorkspaceState> {
+        #[cfg(feature = "persistence")]
+        {
+            use tusk_core::TuskState;
+            if let Some(state) = cx.try_global::<TuskState>() {
+                if let Ok(Some(json_value)) = state.storage().load_ui_state(WORKSPACE_STATE_KEY) {
+                    if let Ok(workspace_state) = serde_json::from_value(json_value) {
+                        tracing::debug!("Loaded persisted workspace state");
+                        return Some(workspace_state);
+                    }
+                }
+            }
+        }
+        // Return None for non-persistence builds or if state doesn't exist
+        None
+    }
+
+    /// Save current workspace state to storage.
+    ///
+    /// Called automatically when dock sizes or visibility change.
+    fn save_state_to_storage(&self, cx: &App) {
+        #[cfg(feature = "persistence")]
+        {
+            use tusk_core::TuskState;
+            if let Some(tusk_state) = cx.try_global::<TuskState>() {
+                let state = self.save_state(cx);
+                if let Ok(json_value) = serde_json::to_value(&state) {
+                    if let Err(e) = tusk_state.storage().save_ui_state(WORKSPACE_STATE_KEY, &json_value) {
+                        tracing::warn!(error = %e, "Failed to save workspace state");
+                    } else {
+                        tracing::trace!("Saved workspace state");
+                    }
+                }
+            }
+        }
+        // No-op for non-persistence builds
+        let _ = cx;
+    }
+
+    /// Update the bottom dock's max height constraint based on viewport size.
+    ///
+    /// Called when the workspace bounds change. The bottom dock is constrained
+    /// to a maximum of 50% of the available viewport height.
+    fn update_bottom_dock_max_height(&mut self, viewport_height: Pixels, cx: &mut Context<Self>) {
+        // Only update if the height has changed significantly
+        let height_changed = (f32::from(viewport_height) - f32::from(self.last_viewport_height)).abs() > 1.0;
+        if height_changed {
+            self.last_viewport_height = viewport_height;
+
+            // Calculate 50% of the viewport height (minus status bar)
+            let available_height = viewport_height - STATUS_BAR_HEIGHT;
+            let max_bottom_height = px(f32::from(available_height) * 0.5);
+
+            self.bottom_dock.update(cx, |dock, cx| {
+                dock.set_max_bottom_height(max_bottom_height, cx);
+            });
         }
     }
 
@@ -417,13 +505,16 @@ impl Render for Workspace {
             .bg(theme.colors.background)
             .text_color(theme.colors.text)
             // Track bounds using canvas element (Zed's pattern)
+            // Also update bottom dock max height constraint when viewport changes
             .child({
                 canvas(
                     {
                         let this = this.clone();
                         move |bounds, _window, cx| {
-                            this.update(cx, |workspace, _cx| {
+                            this.update(cx, |workspace, cx| {
                                 workspace.bounds = bounds;
+                                // Update bottom dock 50% viewport constraint when height changes
+                                workspace.update_bottom_dock_max_height(bounds.size.height, cx);
                             });
                         }
                     },

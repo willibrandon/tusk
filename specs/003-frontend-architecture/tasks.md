@@ -84,13 +84,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Implement Dock resize via Resizer component in `crates/tusk_ui/src/dock.rs` render method, placing Resizer at dock edge
-- [ ] T024 [US2] Implement Dock::set_size() with constraint clamping (min 120px, max 600px for side docks) in `crates/tusk_ui/src/dock.rs`
-- [ ] T025 [US2] Add on_resize callback from Resizer to Dock.set_size() in `crates/tusk_ui/src/dock.rs` render method
-- [ ] T026 [US2] Implement WorkspaceState persistence: save_state() and restore_state() methods in `crates/tusk_ui/src/workspace.rs`
-- [ ] T027 [US2] Add persistence load on Workspace::new() and save on dock resize in `crates/tusk_ui/src/workspace.rs`
-- [ ] T108 [US2] Implement dock collapsed state with toggle indicator (collapsed/expanded chevron icon) and smooth visibility transition (FR-007) in `crates/tusk_ui/src/dock.rs`
-- [ ] T109 [US2] Implement bottom dock 50% viewport max height constraint with dynamic calculation on window resize in `crates/tusk_ui/src/dock.rs`
+- [x] T023 [US2] Implement Dock resize via Resizer component in `crates/tusk_ui/src/dock.rs` render method, placing Resizer at dock edge
+- [x] T024 [US2] Implement Dock::set_size() with constraint clamping (min 120px, max 600px for side docks) in `crates/tusk_ui/src/dock.rs`
+- [x] T025 [US2] Add on_resize callback from Resizer to Dock.set_size() in `crates/tusk_ui/src/dock.rs` render method
+- [x] T026 [US2] Implement WorkspaceState persistence: save_state() and restore_state() methods in `crates/tusk_ui/src/workspace.rs`
+- [x] T027 [US2] Add persistence load on Workspace::new() and save on dock resize in `crates/tusk_ui/src/workspace.rs`
+- [x] T108 [US2] Implement dock collapsed state with toggle indicator (collapsed/expanded chevron icon) and smooth visibility transition (FR-007) in `crates/tusk_ui/src/dock.rs`
+- [x] T109 [US2] Implement bottom dock 50% viewport max height constraint with dynamic calculation on window resize in `crates/tusk_ui/src/dock.rs`
 
 **Checkpoint**: User Story 2 complete - dock resizing works with constraints, collapse/expand, and persists across restarts
 

@@ -10,8 +10,8 @@ use gpui::{
     Render, Subscription, Window,
 };
 
-use crate::icon::IconName;
-use crate::layout::sizes::{DOCK_MAX_BOTTOM, DOCK_MAX_SIDE, DOCK_MIN, RESIZER_SIZE};
+use crate::icon::{Icon, IconName, IconSize};
+use crate::layout::sizes::{DOCK_MAX_SIDE, DOCK_MIN, DOCK_MIN_BOTTOM, RESIZER_SIZE};
 use crate::panel::{DockPosition, PanelEntry, PanelHandle};
 use crate::TuskTheme;
 
@@ -50,8 +50,13 @@ pub struct Dock {
     active_panel_index: usize,
     size: Pixels,
     is_visible: bool,
+    /// The last non-collapsed size, used when restoring from collapsed state.
+    previous_size: Pixels,
     focus_handle: FocusHandle,
     _subscriptions: Vec<Subscription>,
+    /// Maximum height constraint for bottom dock (50% of viewport).
+    /// Updated dynamically by the workspace when the window is resized.
+    max_bottom_height: Option<Pixels>,
 }
 
 impl Dock {
@@ -69,8 +74,10 @@ impl Dock {
             active_panel_index: 0,
             size: default_size,
             is_visible: true,
+            previous_size: default_size,
             focus_handle,
             _subscriptions: Vec::new(),
+            max_bottom_height: None,
         }
     }
 
@@ -101,8 +108,19 @@ impl Dock {
     }
 
     /// Set visibility.
+    ///
+    /// When collapsing (visible=false), the current size is saved.
+    /// When expanding (visible=true), the previous size is restored.
     pub fn set_visible(&mut self, visible: bool, cx: &mut Context<Self>) {
         if visible != self.is_visible {
+            if !visible {
+                // Save current size before collapsing
+                self.previous_size = self.size;
+            } else {
+                // Restore previous size when expanding
+                let (min, max) = self.size_constraints();
+                self.size = self.previous_size.max(min).min(max);
+            }
             self.is_visible = visible;
             cx.emit(DockEvent::VisibilityChanged { visible });
             cx.notify();
@@ -165,10 +183,32 @@ impl Dock {
     }
 
     /// Get size constraints for this dock position.
+    ///
+    /// For bottom docks, the max height is dynamically calculated as 50% of the viewport.
     pub fn size_constraints(&self) -> (Pixels, Pixels) {
         match self.position {
             DockPosition::Left | DockPosition::Right => (DOCK_MIN, DOCK_MAX_SIDE),
-            DockPosition::Bottom => (DOCK_MIN, DOCK_MAX_BOTTOM),
+            DockPosition::Bottom => {
+                let max = self.max_bottom_height.unwrap_or(px(400.0));
+                (DOCK_MIN_BOTTOM, max)
+            }
+        }
+    }
+
+    /// Set the maximum height for a bottom dock (50% viewport constraint).
+    ///
+    /// This should be called by the workspace when the window is resized.
+    pub fn set_max_bottom_height(&mut self, max_height: Pixels, cx: &mut Context<Self>) {
+        if self.position == DockPosition::Bottom {
+            self.max_bottom_height = Some(max_height);
+            // Re-clamp the current size if it exceeds the new maximum
+            let (min, max) = self.size_constraints();
+            let clamped = self.size.max(min).min(max);
+            if clamped != self.size {
+                self.size = clamped;
+                cx.emit(DockEvent::Resized { size: clamped });
+                cx.notify();
+            }
         }
     }
 
@@ -179,58 +219,126 @@ impl Dock {
         }
     }
 
-    /// Render the panel tabs.
-    fn render_tabs(&self, cx: &App) -> impl IntoElement {
+    /// Render the panel tabs with collapse/expand toggle.
+    fn render_tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<TuskTheme>();
+        let position = self.position;
+
+        // Determine the chevron icon based on dock position and visibility
+        // For a visible dock, the chevron points toward the edge (to collapse)
+        // When clicked, it will toggle visibility
+        let toggle_icon = match position {
+            DockPosition::Left => IconName::ChevronLeft,
+            DockPosition::Right => IconName::ChevronRight,
+            DockPosition::Bottom => IconName::ChevronDown,
+        };
 
         div()
             .flex()
             .items_center()
+            .justify_between()
             .h(px(32.0))
             .px(px(8.0))
-            .gap(px(4.0))
             .bg(theme.colors.tab_bar_background)
             .border_b_1()
             .border_color(theme.colors.border)
-            .children(self.panels.iter().enumerate().map(|(index, entry)| {
-                let is_active = index == self.active_panel_index;
-                let title = entry.panel.title(cx);
-                let icon = entry.panel.icon(cx);
-
-                let bg = if is_active {
-                    theme.colors.tab_active_background
-                } else {
-                    gpui::transparent_black()
-                };
-
-                let text_color = if is_active {
-                    theme.colors.text
-                } else {
-                    theme.colors.text_muted
-                };
-
+            .child(
+                // Left side: panel tabs
                 div()
-                    .id(("dock-tab", index))
                     .flex()
                     .items_center()
-                    .gap(px(6.0))
-                    .px(px(8.0))
-                    .py(px(4.0))
+                    .gap(px(4.0))
+                    .children(self.panels.iter().enumerate().map(|(index, entry)| {
+                        let is_active = index == self.active_panel_index;
+                        let title = entry.panel.title(cx);
+                        let icon = entry.panel.icon(cx);
+
+                        let bg = if is_active {
+                            theme.colors.tab_active_background
+                        } else {
+                            gpui::transparent_black()
+                        };
+
+                        let text_color = if is_active {
+                            theme.colors.text
+                        } else {
+                            theme.colors.text_muted
+                        };
+
+                        div()
+                            .id(("dock-tab", index))
+                            .flex()
+                            .items_center()
+                            .gap(px(6.0))
+                            .px(px(8.0))
+                            .py(px(4.0))
+                            .rounded(px(4.0))
+                            .bg(bg)
+                            .text_color(text_color)
+                            .text_size(px(12.0))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(theme.colors.element_hover))
+                            .child(self.render_panel_icon(icon, text_color))
+                            .child(title.to_string())
+                    })),
+            )
+            .child(
+                // Right side: collapse toggle button
+                div()
+                    .id("dock-collapse-toggle")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(px(24.0))
                     .rounded(px(4.0))
-                    .bg(bg)
-                    .text_color(text_color)
-                    .text_size(px(12.0))
                     .cursor_pointer()
                     .hover(|style| style.bg(theme.colors.element_hover))
-                    .child(self.render_icon(icon, text_color))
-                    .child(title.to_string())
-            }))
+                    .on_click(cx.listener(move |this, _e, _window, cx| {
+                        this.toggle_visibility(cx);
+                    }))
+                    .child(Icon::new(toggle_icon).size(IconSize::Small).color(theme.colors.text_muted)),
+            )
     }
 
-    /// Render an icon with a unicode fallback.
-    fn render_icon(&self, icon: IconName, color: gpui::Hsla) -> impl IntoElement {
-        use crate::icon::{Icon, IconSize};
+    /// Render a panel icon with the specified color.
+    fn render_panel_icon(&self, icon: IconName, color: gpui::Hsla) -> impl IntoElement {
         Icon::new(icon).size(IconSize::Small).color(color)
+    }
+
+    /// Render the collapsed indicator bar.
+    ///
+    /// When the dock is collapsed, this shows a clickable bar with a chevron
+    /// that points toward the center to indicate it can be expanded.
+    fn render_collapsed_indicator(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<TuskTheme>();
+        let position = self.position;
+
+        // Chevron points inward (toward center) when collapsed
+        let expand_icon = match position {
+            DockPosition::Left => IconName::ChevronRight,
+            DockPosition::Right => IconName::ChevronLeft,
+            DockPosition::Bottom => IconName::ChevronUp,
+        };
+
+        let base = div()
+            .id("dock-expand-indicator")
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(theme.colors.panel_background)
+            .cursor_pointer()
+            .hover(|style| style.bg(theme.colors.element_hover))
+            .on_click(cx.listener(move |this, _e, _window, cx| {
+                this.toggle_visibility(cx);
+            }))
+            .child(Icon::new(expand_icon).size(IconSize::Small).color(theme.colors.text_muted));
+
+        // Size the indicator based on dock position
+        match position {
+            DockPosition::Left => base.h_full().w(px(24.0)).border_r_1().border_color(theme.colors.border),
+            DockPosition::Right => base.h_full().w(px(24.0)).border_l_1().border_color(theme.colors.border),
+            DockPosition::Bottom => base.w_full().h(px(24.0)).border_t_1().border_color(theme.colors.border),
+        }
     }
 
     /// Render the active panel content.
@@ -315,8 +423,9 @@ impl Render for Dock {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<TuskTheme>();
 
+        // When collapsed, show a minimal collapsed indicator that can be clicked to expand
         if !self.is_visible {
-            return div().into_any_element();
+            return self.render_collapsed_indicator(cx).into_any_element();
         }
 
         let position = self.position;
@@ -373,6 +482,6 @@ mod tests {
     fn test_size_constraints() {
         // Can't easily test without GPUI context, but verify constants
         assert!(DOCK_MIN < DOCK_MAX_SIDE);
-        assert!(DOCK_MIN < DOCK_MAX_BOTTOM);
+        assert!(DOCK_MIN_BOTTOM < DOCK_MAX_SIDE);
     }
 }
