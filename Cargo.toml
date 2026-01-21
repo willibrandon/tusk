@@ -1,0 +1,47 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+authors = ["Brandon Williams"]
+repository = "https://github.com/willibrandon/tusk"
+
+[workspace.dependencies]
+# GPUI - Zed's GPU-accelerated UI framework
+gpui = { git = "https://github.com/zed-industries/zed", rev = "89e9ab97aa5d978351ee8a28d9cc35c272c530f5", package = "gpui" }
+
+# Workspace crates
+tusk_core = { path = "crates/tusk_core" }
+tusk_ui = { path = "crates/tusk_ui" }
+
+# Error handling
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Concurrency
+parking_lot = "0.12"
+
+# Force core-text and core-graphics to compatible versions (match Zed's lockfile)
+core-text = "=21.0.0"
+core-graphics = "=0.24.0"
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

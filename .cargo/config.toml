@@ -1,0 +1,7 @@
+[build]
+# Use all available CPU cores for parallel compilation
+jobs = -1
+
+[env]
+# Enable backtraces for debugging
+RUST_BACKTRACE = "1"

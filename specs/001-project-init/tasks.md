@@ -26,15 +26,15 @@
 
 **Purpose**: Create Cargo workspace structure and configuration files
 
-- [ ] T001 Create root Cargo.toml workspace manifest with workspace members and shared dependencies at Cargo.toml
-- [ ] T002 [P] Create rust-toolchain.toml pinning Rust version to 1.80+ at rust-toolchain.toml
-- [ ] T003 [P] Create .cargo/config.toml with build configuration at .cargo/config.toml
-- [ ] T004 [P] Create tusk_core crate directory structure at crates/tusk_core/
-- [ ] T005 [P] Create tusk_ui crate directory structure at crates/tusk_ui/
-- [ ] T006 [P] Create tusk binary crate directory structure at crates/tusk/
-- [ ] T007 Create crates/tusk_core/Cargo.toml with thiserror dependency at crates/tusk_core/Cargo.toml
-- [ ] T008 [P] Create crates/tusk_ui/Cargo.toml with gpui dependency at crates/tusk_ui/Cargo.toml
-- [ ] T009 [P] Create crates/tusk/Cargo.toml with gpui, tracing, tusk_core, tusk_ui dependencies at crates/tusk/Cargo.toml
+- [x] T001 Create root Cargo.toml workspace manifest with workspace members and shared dependencies at Cargo.toml
+- [x] T002 [P] Create rust-toolchain.toml pinning Rust version to 1.80+ at rust-toolchain.toml
+- [x] T003 [P] Create .cargo/config.toml with build configuration at .cargo/config.toml
+- [x] T004 [P] Create tusk_core crate directory structure at crates/tusk_core/
+- [x] T005 [P] Create tusk_ui crate directory structure at crates/tusk_ui/
+- [x] T006 [P] Create tusk binary crate directory structure at crates/tusk/
+- [x] T007 Create crates/tusk_core/Cargo.toml with thiserror dependency at crates/tusk_core/Cargo.toml
+- [x] T008 [P] Create crates/tusk_ui/Cargo.toml with gpui dependency at crates/tusk_ui/Cargo.toml
+- [x] T009 [P] Create crates/tusk/Cargo.toml with gpui, tracing, tusk_core, tusk_ui dependencies at crates/tusk/Cargo.toml
 
 ---
 
@@ -44,14 +44,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T010 Implement TuskError enum with Window, Theme, Font, Config variants in crates/tusk_core/src/error.rs
-- [ ] T011 Create crates/tusk_core/src/lib.rs exporting error module at crates/tusk_core/src/lib.rs
-- [ ] T012 Define ThemeColors struct with all color fields (background, surface, text, border, accent, status colors) using Hsla type in crates/tusk_ui/src/theme.rs
-- [ ] T013 Define TuskTheme struct with name, appearance, and colors fields in crates/tusk_ui/src/theme.rs
-- [ ] T014 Implement Default trait for TuskTheme returning dark theme colors in crates/tusk_ui/src/theme.rs
-- [ ] T015 Implement Global trait for TuskTheme to enable cx.global::<TuskTheme>() access in crates/tusk_ui/src/theme.rs
-- [ ] T016 Create crates/tusk_ui/src/icons.rs with icon management module foundation at crates/tusk_ui/src/icons.rs
-- [ ] T017 Create crates/tusk_ui/src/lib.rs exporting theme and icons modules at crates/tusk_ui/src/lib.rs
+- [x] T010 Implement TuskError enum with Window, Theme, Font, Config variants in crates/tusk_core/src/error.rs
+- [x] T011 Create crates/tusk_core/src/lib.rs exporting error module at crates/tusk_core/src/lib.rs
+- [x] T012 Define ThemeColors struct with all color fields (background, surface, text, border, accent, status colors) using Hsla type in crates/tusk_ui/src/theme.rs
+- [x] T013 Define TuskTheme struct with name, appearance, and colors fields in crates/tusk_ui/src/theme.rs
+- [x] T014 Implement Default trait for TuskTheme returning dark theme colors in crates/tusk_ui/src/theme.rs
+- [x] T015 Implement Global trait for TuskTheme to enable cx.global::<TuskTheme>() access in crates/tusk_ui/src/theme.rs
+- [x] T016 Create crates/tusk_ui/src/icons.rs with icon management module foundation at crates/tusk_ui/src/icons.rs
+- [x] T017 Create crates/tusk_ui/src/lib.rs exporting theme and icons modules at crates/tusk_ui/src/lib.rs
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -65,22 +65,22 @@
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Create TuskApp struct implementing Render trait with render method returning themed div in crates/tusk/src/app.rs
-- [ ] T019 [US1] Implement TuskApp::new() constructor in crates/tusk/src/app.rs
-- [ ] T020 [US1] Implement render() method using div().flex().flex_col().size_full().bg() with theme colors in crates/tusk/src/app.rs
-- [ ] T021 [US1] Create main.rs with tracing_subscriber initialization in crates/tusk/src/main.rs
-- [ ] T022 [US1] Implement Application::new().run() entry point with window creation in crates/tusk/src/main.rs
-- [ ] T023 [US1] Configure WindowOptions with window_bounds using Bounds::centered(None, size(px(1400.0), px(900.0)), cx) in crates/tusk/src/main.rs
-- [ ] T024 [US1] Configure WindowOptions with window_min_size of 800x600 pixels in crates/tusk/src/main.rs
-- [ ] T025 [US1] Register TuskTheme as global state using cx.set_global() before window creation in crates/tusk/src/main.rs
-- [ ] T026 [US1] Add cx.activate(true) after window creation to focus application in crates/tusk/src/main.rs
-- [ ] T027 [P] [US1] Download and add JetBrainsMono-Regular.ttf to assets/fonts/JetBrainsMono-Regular.ttf
-- [ ] T028 [P] [US1] Download and add JetBrainsMono-Bold.ttf to assets/fonts/JetBrainsMono-Bold.ttf
-- [ ] T029 [P] [US1] Download and add JetBrainsMono-Italic.ttf to assets/fonts/JetBrainsMono-Italic.ttf
-- [ ] T030 [P] [US1] Download and add JetBrainsMono-BoldItalic.ttf to assets/fonts/JetBrainsMono-BoldItalic.ttf
-- [ ] T031 [US1] Verify cargo build completes successfully with no errors
-- [ ] T032 [US1] Verify cargo run launches window with dark theme at 1400x900 pixels
-- [ ] T033 [US1] Verify window minimum size constraint of 800x600 is enforced
+- [x] T018 [US1] Create TuskApp struct implementing Render trait with render method returning themed div in crates/tusk/src/app.rs
+- [x] T019 [US1] Implement TuskApp::new() constructor in crates/tusk/src/app.rs
+- [x] T020 [US1] Implement render() method using div().flex().flex_col().size_full().bg() with theme colors in crates/tusk/src/app.rs
+- [x] T021 [US1] Create main.rs with tracing_subscriber initialization in crates/tusk/src/main.rs
+- [x] T022 [US1] Implement Application::new().run() entry point with window creation in crates/tusk/src/main.rs
+- [x] T023 [US1] Configure WindowOptions with window_bounds using Bounds::centered(None, size(px(1400.0), px(900.0)), cx) in crates/tusk/src/main.rs
+- [x] T024 [US1] Configure WindowOptions with window_min_size of 800x600 pixels in crates/tusk/src/main.rs
+- [x] T025 [US1] Register TuskTheme as global state using cx.set_global() before window creation in crates/tusk/src/main.rs
+- [x] T026 [US1] Add cx.activate(true) after window creation to focus application in crates/tusk/src/main.rs
+- [x] T027 [P] [US1] Download and add JetBrainsMono-Regular.ttf to assets/fonts/JetBrainsMono-Regular.ttf
+- [x] T028 [P] [US1] Download and add JetBrainsMono-Bold.ttf to assets/fonts/JetBrainsMono-Bold.ttf
+- [x] T029 [P] [US1] Download and add JetBrainsMono-Italic.ttf to assets/fonts/JetBrainsMono-Italic.ttf
+- [x] T030 [P] [US1] Download and add JetBrainsMono-BoldItalic.ttf to assets/fonts/JetBrainsMono-BoldItalic.ttf
+- [x] T031 [US1] Verify cargo build completes successfully with no errors
+- [x] T032 [US1] Verify cargo run launches window with dark theme at 1400x900 pixels
+- [x] T033 [US1] Verify window minimum size constraint of 800x600 is enforced
 
 **Checkpoint**: User Story 1 complete - application builds and runs with themed window
 
