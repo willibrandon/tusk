@@ -592,13 +592,20 @@ impl Focusable for Pane {
 
 impl Render for Pane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<TuskTheme>();
+        let focus_ring_color = theme.colors.accent;
+
         let mut pane_div = div()
             .relative()
             .flex()
             .flex_col()
             .size_full()
+            .border_2()
+            .border_color(gpui::transparent_black())
             .track_focus(&self.focus_handle)
             .key_context("Pane")
+            // Visible focus indicator (2px accent border when focused)
+            .focus(|style| style.border_color(focus_ring_color))
             .child(self.render_tab_bar(cx))
             .child(self.render_content(cx));
 

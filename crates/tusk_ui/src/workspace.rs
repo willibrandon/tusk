@@ -14,8 +14,10 @@ use std::sync::Arc;
 use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::icon::IconName;
 use crate::key_bindings::{
-    CloseActiveTab, FocusNextPane, FocusPreviousPane, NewQueryTab, NextTab, PreviousTab,
-    SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
+    ActivateTab1, ActivateTab2, ActivateTab3, ActivateTab4, ActivateTab5, ActivateTab6,
+    ActivateTab7, ActivateTab8, ActivateTab9, CloseActiveTab, FocusNextPane, FocusPreviousPane,
+    FocusResults, FocusSchemaBrowser, NewQueryTab, NextTab, PreviousTab, SplitDown, SplitRight,
+    ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
 };
 use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::layout::spacing;
@@ -432,6 +434,41 @@ impl Workspace {
         });
     }
 
+    /// Activate a tab by index (0-based) in the active pane.
+    pub fn activate_tab_by_index(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.center.update(cx, |pane_group, cx| {
+            let active_pane = pane_group.active_pane();
+            active_pane.update(cx, |pane, cx| {
+                pane.activate_tab(index, cx);
+            });
+        });
+    }
+
+    /// Focus the schema browser panel.
+    pub fn focus_schema_browser(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Show the left dock if hidden
+        self.left_dock.update(cx, |dock, cx| {
+            if !dock.is_visible() {
+                dock.set_visible(true, cx);
+            }
+        });
+        // Focus the schema browser (window is captured, cx derefs to &mut App)
+        self.schema_browser.update(cx, |sb, cx| {
+            sb.focus_handle(cx).focus(window, cx);
+        });
+    }
+
+    /// Focus the results panel in the bottom dock.
+    pub fn focus_results(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Show the bottom dock if hidden, then focus it
+        self.bottom_dock.update(cx, |dock, cx| {
+            if !dock.is_visible() {
+                dock.set_visible(true, cx);
+            }
+            dock.focus_handle(cx).focus(window, cx);
+        });
+    }
+
     /// Create a new query tab in the active pane.
     ///
     /// This creates a placeholder query tab. The actual SQL editor component
@@ -663,6 +700,41 @@ impl Render for Workspace {
             }))
             .on_action(cx.listener(|this, _: &NewQueryTab, _window, cx| {
                 this.new_query_tab(cx);
+            }))
+            // Tab activation by index (Cmd+1-9)
+            .on_action(cx.listener(|this, _: &ActivateTab1, _window, cx| {
+                this.activate_tab_by_index(0, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab2, _window, cx| {
+                this.activate_tab_by_index(1, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab3, _window, cx| {
+                this.activate_tab_by_index(2, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab4, _window, cx| {
+                this.activate_tab_by_index(3, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab5, _window, cx| {
+                this.activate_tab_by_index(4, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab6, _window, cx| {
+                this.activate_tab_by_index(5, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab7, _window, cx| {
+                this.activate_tab_by_index(6, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab8, _window, cx| {
+                this.activate_tab_by_index(7, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ActivateTab9, _window, cx| {
+                this.activate_tab_by_index(8, cx);
+            }))
+            // Panel focus shortcuts
+            .on_action(cx.listener(|this, _: &FocusSchemaBrowser, window, cx| {
+                this.focus_schema_browser(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &FocusResults, window, cx| {
+                this.focus_results(window, cx);
             }))
             // Main content area (horizontal: left dock | center | right dock)
             .child(

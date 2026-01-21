@@ -471,11 +471,16 @@ impl<T: TreeItem> Render for Tree<T> {
         let theme = cx.global::<TuskTheme>().clone();
         let item_count = self.visible_entries.len();
         let selected_id = self.selected.clone();
+        let focus_ring_color = theme.colors.accent;
 
         div()
             .id("tree")
             .key_context("Tree")
+            .border_2()
+            .border_color(gpui::transparent_black())
             .track_focus(&self.focus_handle)
+            // Visible focus indicator (2px accent border when focused)
+            .focus(|style| style.border_color(focus_ring_color))
             .on_action(cx.listener(|this, _: &SelectNext, _window, cx| {
                 this.select_next(cx)
             }))

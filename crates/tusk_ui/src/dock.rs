@@ -430,25 +430,31 @@ impl Render for Dock {
 
         let position = self.position;
         let size = self.size;
+        let focus_ring_color = theme.colors.accent;
 
         // Create the dock container with appropriate dimensions
+        // Use border_2 with transparent default, then .focus() to show accent color when focused
         let mut dock = div()
             .relative()
             .flex()
             .flex_shrink_0()
+            .border_2()
+            .border_color(gpui::transparent_black())
+            .track_focus(&self.focus_handle)
             .bg(theme.colors.panel_background)
-            .border_color(theme.colors.border);
+            // Visible focus indicator (2px accent border when focused)
+            .focus(|style| style.border_color(focus_ring_color));
 
-        // Set size and border based on position
+        // Set size and inner border based on position (using box_shadow for inner border effect)
         match position {
             DockPosition::Left => {
-                dock = dock.flex_col().w(size).h_full().border_r_1();
+                dock = dock.flex_col().w(size).h_full();
             }
             DockPosition::Right => {
-                dock = dock.flex_col().w(size).h_full().border_l_1();
+                dock = dock.flex_col().w(size).h_full();
             }
             DockPosition::Bottom => {
-                dock = dock.flex_col().h(size).w_full().border_t_1();
+                dock = dock.flex_col().h(size).w_full();
             }
         }
 

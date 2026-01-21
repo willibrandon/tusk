@@ -151,13 +151,13 @@
 
 ### Implementation for User Story 10
 
-- [ ] T047 [US10] Implement tab switching shortcuts (Cmd+1-9, Cmd+Shift+[, Cmd+Shift+]) in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T048 [US10] Implement dock toggle action handlers (ToggleLeftDock, ToggleRightDock, ToggleBottomDock) in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T049 [US10] Implement panel focus shortcuts (FocusSchemaBrowser, FocusResults, FocusMessages) in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T050 [US10] Add key_context("Workspace") to workspace render and register all action handlers via on_action() in `crates/tusk_ui/src/workspace.rs`
-- [ ] T051 [US10] Add key_context("Pane") to pane render and register tab-related action handlers in `crates/tusk_ui/src/pane.rs`
-- [ ] T052 [US10] Add key_context("Tree") to tree render and register tree navigation action handlers in `crates/tusk_ui/src/tree.rs`
-- [ ] T053 [US10] Implement visible focus indicators on all focusable elements (Workspace, Dock, Pane, Tree) using track_focus() and CSS focus ring
+- [x] T047 [US10] Implement tab switching shortcuts (Cmd+1-9, Cmd+Shift+[, Cmd+Shift+]) in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T048 [US10] Implement dock toggle action handlers (ToggleLeftDock, ToggleRightDock, ToggleBottomDock) in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T049 [US10] Implement panel focus shortcuts (FocusSchemaBrowser, FocusResults, FocusMessages) in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T050 [US10] Add key_context("Workspace") to workspace render and register all action handlers via on_action() in `crates/tusk_ui/src/workspace.rs`
+- [x] T051 [US10] Add key_context("Pane") to pane render and register tab-related action handlers in `crates/tusk_ui/src/pane.rs`
+- [x] T052 [US10] Add key_context("Tree") to tree render and register tree navigation action handlers in `crates/tusk_ui/src/tree.rs`
+- [x] T053 [US10] Implement visible focus indicators on all focusable elements (Workspace, Dock, Pane, Tree) using track_focus() and CSS focus ring
 
 **Checkpoint**: User Story 10 complete - full keyboard navigation working for all P1 stories
 
