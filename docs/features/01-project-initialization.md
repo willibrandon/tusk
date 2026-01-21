@@ -182,7 +182,7 @@ edition = "2021"
 rust-version = "1.80"
 authors = ["Tusk Contributors"]
 license = "MIT"
-repository = "https://github.com/tusk-app/tusk"
+repository = "https://github.com/willibrandon/tusk"
 
 [workspace.dependencies]
 # GPUI from Zed (use git dependency or path)

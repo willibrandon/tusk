@@ -837,7 +837,7 @@ use crate::error::{Result, TuskError};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-const UPDATE_URL: &str = "https://releases.tusk-app.dev";
+const UPDATE_URL: &str = "https://api.github.com/repos/willibrandon/tusk/releases/latest";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateInfo {
