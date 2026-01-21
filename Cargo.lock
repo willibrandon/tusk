@@ -5662,6 +5662,7 @@ dependencies = [
  "smallvec",
  "tracing",
  "tusk_core",
+ "unicode-segmentation",
  "uuid",
 ]
 

@@ -151,6 +151,8 @@ pub struct Workspace {
     bottom_dock: Entity<Dock>,
     /// Center pane group.
     center: Entity<PaneGroup>,
+    /// Schema browser panel entity.
+    schema_browser: Entity<SchemaBrowserPanel>,
     /// Focus handle for the workspace.
     focus_handle: FocusHandle,
     /// Subscriptions to child component events.
@@ -182,7 +184,7 @@ impl Workspace {
         // Create and register the schema browser panel with the left dock
         let schema_browser = cx.new(|cx| SchemaBrowserPanel::new(cx));
         left_dock.update(cx, |dock, cx| {
-            dock.add_panel(Arc::new(schema_browser), cx);
+            dock.add_panel(Arc::new(schema_browser.clone()), cx);
         });
 
         // Create center pane group with one initial pane
@@ -237,6 +239,7 @@ impl Workspace {
             right_dock: None,
             bottom_dock,
             center,
+            schema_browser,
             focus_handle,
             _subscriptions: subscriptions,
             bounds: Bounds::default(),
@@ -333,6 +336,11 @@ impl Workspace {
     /// Get the center pane group.
     pub fn center(&self) -> &Entity<PaneGroup> {
         &self.center
+    }
+
+    /// Get the schema browser panel entity.
+    pub fn schema_browser(&self) -> &Entity<SchemaBrowserPanel> {
+        &self.schema_browser
     }
 
     /// Get the active pane from the center pane group.

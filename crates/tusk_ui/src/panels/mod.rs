@@ -7,4 +7,4 @@
 
 pub mod schema_browser;
 
-pub use schema_browser::SchemaBrowserPanel;
+pub use schema_browser::{database_schema_to_tree, SchemaItem, SchemaBrowserPanel};

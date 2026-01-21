@@ -127,17 +127,17 @@
 
 ### Implementation for User Story 5
 
-- [ ] T036 [US5] Create `crates/tusk_ui/src/tree.rs` with TreeItem trait (id, label, icon, children, is_expandable) per contracts/tree.md
-- [ ] T037 [US5] Implement Tree<T: TreeItem> struct with items, expanded HashSet, selected Option, focus_handle in `crates/tusk_ui/src/tree.rs`
-- [ ] T038 [US5] Implement Tree expand/collapse methods (expand, collapse, toggle_expanded, expand_all, collapse_all) in `crates/tusk_ui/src/tree.rs`
-- [ ] T039 [US5] Implement Tree::visible_items() returning flattened list with depth for rendering in `crates/tusk_ui/src/tree.rs`
-- [ ] T040 [US5] Implement Tree::render() using UniformList for virtualization (60fps for 1000+ items) in `crates/tusk_ui/src/tree.rs`
-- [ ] T041 [US5] Add tree item rendering with indentation, expand/collapse chevron, icon, and label in `crates/tusk_ui/src/tree.rs`
-- [ ] T042 [US5] Implement TreeEvent emission (Selected, Expanded, Collapsed, Activated) in `crates/tusk_ui/src/tree.rs`
-- [ ] T043 [US5] Create SchemaItem enum (Connection/Database/Schema/Table/View/Function/Column) implementing TreeItem in `crates/tusk_ui/src/panels/schema_browser.rs`
-- [ ] T044 [US5] Implement Tree keyboard navigation actions (SelectPrevious, SelectNext, ExpandSelected, CollapseSelected, ActivateSelected) in `crates/tusk_ui/src/tree.rs`
-- [ ] T045 [US5] Implement SchemaBrowserPanel::render() with Tree<SchemaItem> and filter input in `crates/tusk_ui/src/panels/schema_browser.rs`
-- [ ] T046 [US5] Implement Tree::set_filter() for text filtering of visible items in `crates/tusk_ui/src/tree.rs`
+- [x] T036 [US5] Create `crates/tusk_ui/src/tree.rs` with TreeItem trait (id, label, icon, children, is_expandable) per contracts/tree.md
+- [x] T037 [US5] Implement Tree<T: TreeItem> struct with items, expanded HashSet, selected Option, focus_handle in `crates/tusk_ui/src/tree.rs`
+- [x] T038 [US5] Implement Tree expand/collapse methods (expand, collapse, toggle_expanded, expand_all, collapse_all) in `crates/tusk_ui/src/tree.rs`
+- [x] T039 [US5] Implement Tree::visible_items() returning flattened list with depth for rendering in `crates/tusk_ui/src/tree.rs`
+- [x] T040 [US5] Implement Tree::render() using UniformList for virtualization (60fps for 1000+ items) in `crates/tusk_ui/src/tree.rs`
+- [x] T041 [US5] Add tree item rendering with indentation, expand/collapse chevron, icon, and label in `crates/tusk_ui/src/tree.rs`
+- [x] T042 [US5] Implement TreeEvent emission (Selected, Expanded, Collapsed, Activated) in `crates/tusk_ui/src/tree.rs`
+- [x] T043 [US5] Create SchemaItem enum (Connection/Database/Schema/Table/View/Function/Column) implementing TreeItem in `crates/tusk_ui/src/panels/schema_browser.rs`
+- [x] T044 [US5] Implement Tree keyboard navigation actions (SelectPrevious, SelectNext, ExpandSelected, CollapseSelected, ActivateSelected) in `crates/tusk_ui/src/tree.rs`
+- [x] T045 [US5] Implement SchemaBrowserPanel::render() with Tree<SchemaItem> and filter input in `crates/tusk_ui/src/panels/schema_browser.rs`
+- [x] T046 [US5] Implement Tree::set_filter() for text filtering of visible items in `crates/tusk_ui/src/tree.rs`
 
 **Checkpoint**: User Story 5 complete - schema browser tree works with expand/collapse, virtualization, and filtering
 
