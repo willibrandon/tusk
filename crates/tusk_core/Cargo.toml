@@ -1,0 +1,12 @@
+[package]
+name = "tusk_core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Core types and utilities for Tusk PostgreSQL client"
+
+[dependencies]
+thiserror.workspace = true

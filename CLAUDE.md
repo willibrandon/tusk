@@ -59,6 +59,7 @@ Key paths:
 4. **No validation-seeking.** Never ask "Does this look good?", "Is this okay?", "Fair enough?", or seek approval before acting. Just act.
 5. **No empathy theater.** Never say "I hear you", "I understand your frustration", "That's fair", or any other filler that validates feelings instead of solving problems.
 6. **Propose, don't poll.** When there are multiple options, pick the best one and state why. Don't present a menu and ask the user to choose.
+7. **Never offer a menu of choices when stuck.** If an approach is rejected, try a different concrete approach. NEVER respond with "What style are you looking for?", "Would you prefer X or Y?", "What kind of Z do you want?" — these are all failures. Make a decision and execute it. If that fails, make a different decision. Repeat until solved or truly exhausted.
 
 ## Local Postgres Access
 
@@ -396,6 +397,8 @@ Key GPUI concepts (see `/Users/brandon/src/zed/crates/gpui/src/` for implementat
 When in doubt, grep Zed's codebase for real-world usage patterns.
 
 ## Active Technologies
+- Rust 1.80+ with 2021 edition + GPUI (from Zed repository), tracing, serde/serde_json, parking_lo (001-project-init)
+- N/A for this feature (local SQLite introduced in later features) (001-project-init)
 
 - Rust 1.75+ with GPUI (Zed's GPU-accelerated UI framework)
 - tokio-postgres, deadpool-postgres for PostgreSQL connectivity
@@ -406,3 +409,6 @@ When in doubt, grep Zed's codebase for real-world usage patterns.
 - tracing for structured logging
 - parking_lot for synchronization primitives
 - serde/serde_json for serialization
+
+## Recent Changes
+- 001-project-init: Added Rust 1.80+ with 2021 edition + GPUI (from Zed repository), tracing, serde/serde_json, parking_lo

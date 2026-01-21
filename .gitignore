@@ -1,1 +1,37 @@
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Rust build artifacts
+/target/
+debug/
+release/
+*.rs.bk
+*.rlib
+
+# Cargo lock should be committed for applications
+# Cargo.lock
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment and logs
+.env*
+*.log
+
+# Profiling
+*.prof*
+perf.data
+perf.data.old
+
+# Coverage
+*.gcda
+*.gcno
+tarpaulin-report.html
+coverage/
