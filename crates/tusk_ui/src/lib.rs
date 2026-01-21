@@ -35,7 +35,10 @@ pub use key_bindings::register_key_bindings;
 pub use layout::{radius, sizes, spacing};
 pub use pane::{Pane, PaneEvent, PaneGroup, PaneGroupEvent, PaneLayout, PaneNode, SerializedAxis, TabItem};
 pub use panel::{DockPosition, Focusable, Panel, PanelEntry, PanelEvent, PanelHandle};
-pub use panels::{database_schema_to_tree, SchemaItem, SchemaBrowserPanel};
+pub use panels::{
+    database_schema_to_tree, Message, MessageSeverity, MessagesPanel, ResultsPanel, ResultsState,
+    SchemaItem, SchemaBrowserPanel,
+};
 pub use resizer::Resizer;
 pub use spinner::{Spinner, SpinnerSize};
 pub use status_bar::{ConnectionStatus, ExecutionState, StatusBar};

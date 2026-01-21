@@ -250,11 +250,11 @@
 
 ### Implementation for User Story 12
 
-- [ ] T081 [US12] Add loading state to SchemaBrowserPanel showing Spinner during schema fetch in `crates/tusk_ui/src/panels/schema_browser.rs`
-- [ ] T082 [US12] Create `crates/tusk_ui/src/panels/results.rs` with ResultsPanel implementing Panel trait with loading Spinner state
-- [ ] T083 [US12] Create `crates/tusk_ui/src/panels/messages.rs` with MessagesPanel implementing Panel trait
-- [ ] T084 [US12] Update `crates/tusk_ui/src/panels/mod.rs` to export ResultsPanel and MessagesPanel
-- [ ] T085 [US12] Register ResultsPanel and MessagesPanel with bottom dock in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T081 [US12] Add loading state to SchemaBrowserPanel showing Spinner during schema fetch in `crates/tusk_ui/src/panels/schema_browser.rs`
+- [x] T082 [US12] Create `crates/tusk_ui/src/panels/results.rs` with ResultsPanel implementing Panel trait with loading Spinner state
+- [x] T083 [US12] Create `crates/tusk_ui/src/panels/messages.rs` with MessagesPanel implementing Panel trait
+- [x] T084 [US12] Update `crates/tusk_ui/src/panels/mod.rs` to export ResultsPanel and MessagesPanel
+- [x] T085 [US12] Register ResultsPanel and MessagesPanel with bottom dock in Workspace in `crates/tusk_ui/src/workspace.rs`
 
 **Checkpoint**: User Story 12 complete - loading states work across all panels
 

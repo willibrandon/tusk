@@ -23,7 +23,7 @@ use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::layout::spacing;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, PaneLayout, TabItem};
 use crate::panel::{DockPosition, Focusable};
-use crate::panels::SchemaBrowserPanel;
+use crate::panels::{MessagesPanel, ResultsPanel, SchemaBrowserPanel};
 use crate::status_bar::{ConnectionStatus, ExecutionState, StatusBar};
 use crate::TuskTheme;
 
@@ -148,6 +148,10 @@ pub struct Workspace {
     center: Entity<PaneGroup>,
     /// Schema browser panel entity.
     schema_browser: Entity<SchemaBrowserPanel>,
+    /// Results panel entity.
+    results_panel: Entity<ResultsPanel>,
+    /// Messages panel entity.
+    messages_panel: Entity<MessagesPanel>,
     /// Focus handle for the workspace.
     focus_handle: FocusHandle,
     /// Subscriptions to child component events.
@@ -184,6 +188,14 @@ impl Workspace {
         let schema_browser = cx.new(|cx| SchemaBrowserPanel::new(cx));
         left_dock.update(cx, |dock, cx| {
             dock.add_panel(Arc::new(schema_browser.clone()), cx);
+        });
+
+        // Create and register the results and messages panels with the bottom dock
+        let results_panel = cx.new(|cx| ResultsPanel::new(cx));
+        let messages_panel = cx.new(|cx| MessagesPanel::new(cx));
+        bottom_dock.update(cx, |dock, cx| {
+            dock.add_panel(Arc::new(results_panel.clone()), cx);
+            dock.add_panel(Arc::new(messages_panel.clone()), cx);
         });
 
         // Create center pane group with one initial pane
@@ -239,6 +251,8 @@ impl Workspace {
             bottom_dock,
             center,
             schema_browser,
+            results_panel,
+            messages_panel,
             focus_handle,
             _subscriptions: subscriptions,
             bounds: Bounds::default(),
@@ -342,6 +356,16 @@ impl Workspace {
     /// Get the schema browser panel entity.
     pub fn schema_browser(&self) -> &Entity<SchemaBrowserPanel> {
         &self.schema_browser
+    }
+
+    /// Get the results panel entity.
+    pub fn results_panel(&self) -> &Entity<ResultsPanel> {
+        &self.results_panel
+    }
+
+    /// Get the messages panel entity.
+    pub fn messages_panel(&self) -> &Entity<MessagesPanel> {
+        &self.messages_panel
     }
 
     /// Get the current connection status.
