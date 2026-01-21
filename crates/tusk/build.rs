@@ -28,10 +28,11 @@ fn embed_windows_manifest() {
         .expect("Could not resolve manifest path");
 
     if manifest_path.exists() {
-        // Use the embed_resource crate if available, otherwise use winres
-        // For simplicity, we use the Windows resource compiler directly via println
+        // Pass linker arguments to embed the manifest
+        // These must be separate arguments for MSVC linker
+        println!("cargo:rustc-link-arg-bins=/MANIFEST:EMBED");
         println!(
-            "cargo:rustc-link-arg-bins=/MANIFEST:EMBED:/MANIFESTINPUT:{}",
+            "cargo:rustc-link-arg-bins=/MANIFESTINPUT:{}",
             manifest_path.display()
         );
     } else {
