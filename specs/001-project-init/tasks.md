@@ -94,18 +94,18 @@
 
 ### Implementation for User Story 2
 
-- [ ] T034 [P] [US2] Create macOS application icon at assets/icons/tusk.icns (16, 32, 128, 256, 512, 1024 px sizes)
-- [ ] T035 [P] [US2] Create Windows application icon at assets/icons/tusk.ico (16, 32, 48, 256 px sizes)
-- [ ] T036 [US2] Create .github/workflows/ci.yml with workflow name and trigger configuration at .github/workflows/ci.yml
-- [ ] T037 [US2] Add macOS ARM64 job (macos-14 runner, aarch64-apple-darwin target) to .github/workflows/ci.yml
-- [ ] T038 [US2] Add macOS x64 job (macos-13 runner, x86_64-apple-darwin target) to .github/workflows/ci.yml
-- [ ] T039 [US2] Add Windows x64 job (windows-latest runner, x86_64-pc-windows-msvc target) to .github/workflows/ci.yml
-- [ ] T040 [US2] Add Linux x64 job (ubuntu-latest runner, x86_64-unknown-linux-gnu target) with system dependencies to .github/workflows/ci.yml
-- [ ] T041 [US2] Configure Linux job to install libxkbcommon-dev, libwayland-dev packages in .github/workflows/ci.yml
-- [ ] T042 [US2] Add cargo build step to all CI jobs in .github/workflows/ci.yml
-- [ ] T043 [US2] Add cargo test step to all CI jobs in .github/workflows/ci.yml
-- [ ] T065 [P] [US2] Create Windows application manifest tusk.exe.manifest with DPI awareness settings at assets/tusk.exe.manifest
-- [ ] T066 [US2] Create build.rs to embed Windows manifest for DPI awareness (FR-013) at build.rs
+- [x] T034 [P] [US2] Create macOS application icon at assets/icons/tusk.icns (16, 32, 128, 256, 512, 1024 px sizes) from source assets/icons/app-icon.svg (Elephant Head by Delapouite, CC BY 3.0)
+- [x] T035 [P] [US2] Create Windows application icon at assets/icons/tusk.ico (16, 32, 48, 256 px sizes) by renaming existing assets/icons/app-icon.ico (generated from Elephant Head by Delapouite, CC BY 3.0)
+- [x] T036 [US2] Create .github/workflows/ci.yml with workflow name and trigger configuration at .github/workflows/ci.yml
+- [x] T037 [US2] Add macOS ARM64 job (macos-14 runner, aarch64-apple-darwin target) to .github/workflows/ci.yml
+- [x] T038 [US2] Add macOS x64 job (macos-13 runner, x86_64-apple-darwin target) to .github/workflows/ci.yml
+- [x] T039 [US2] Add Windows x64 job (windows-latest runner, x86_64-pc-windows-msvc target) to .github/workflows/ci.yml
+- [x] T040 [US2] Add Linux x64 job (ubuntu-latest runner, x86_64-unknown-linux-gnu target) with system dependencies to .github/workflows/ci.yml
+- [x] T041 [US2] Configure Linux job to install libxkbcommon-dev, libwayland-dev packages in .github/workflows/ci.yml
+- [x] T042 [US2] Add cargo build step to all CI jobs in .github/workflows/ci.yml
+- [x] T043 [US2] Add cargo test step to all CI jobs in .github/workflows/ci.yml
+- [x] T065 [P] [US2] Create Windows application manifest tusk.exe.manifest with DPI awareness settings at assets/tusk.exe.manifest
+- [x] T066 [US2] Create build.rs to embed Windows manifest for DPI awareness (FR-013) at build.rs
 
 **Checkpoint**: User Story 2 complete - CI builds on all target platforms
 
