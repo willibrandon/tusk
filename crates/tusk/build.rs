@@ -31,10 +31,7 @@ fn embed_windows_manifest() {
         // Pass linker arguments to embed the manifest
         // These must be separate arguments for MSVC linker
         println!("cargo:rustc-link-arg-bins=/MANIFEST:EMBED");
-        println!(
-            "cargo:rustc-link-arg-bins=/MANIFESTINPUT:{}",
-            manifest_path.display()
-        );
+        println!("cargo:rustc-link-arg-bins=/MANIFESTINPUT:{}", manifest_path.display());
     } else {
         // Fallback: the manifest will be embedded by other means or is not critical for dev builds
         println!(
