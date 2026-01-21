@@ -170,11 +170,11 @@
 
 **Purpose**: Final validation and documentation
 
-- [ ] T060 [P] Update quickstart.md with final build and run instructions at specs/001-project-init/quickstart.md
-- [ ] T061 [P] Verify all fonts render correctly in application window
-- [ ] T062 Run full CI workflow locally to validate all checks pass
-- [ ] T063 Run cargo build --release and verify release build succeeds
-- [ ] T064 Verify cold start time is under 500ms target
+- [x] T060 [P] Update quickstart.md with final build and run instructions at specs/001-project-init/quickstart.md
+- [x] T061 [P] Verify all fonts render correctly in application window
+- [x] T062 Run full CI workflow locally to validate all checks pass
+- [x] T063 Run cargo build --release and verify release build succeeds
+- [x] T064 Verify cold start time is under 500ms target
 
 ---
 

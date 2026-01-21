@@ -164,13 +164,45 @@ xcode-select --install
 rustup update stable
 ```
 
-## Next Steps
+## Performance
+
+### Cold Start Target
+
+The application targets a cold start time under 500ms. To measure:
+
+```bash
+time cargo run --release
+```
+
+### Release Build
+
+For production performance:
+
+```bash
+cargo build --release
+./target/release/tusk
+```
+
+## CI Integration
+
+The project uses GitHub Actions for continuous integration. CI runs on:
+- macOS ARM64 (Apple Silicon)
+- macOS x64 (Intel)
+- Windows x64
+- Linux x64
+
+Each platform runs: format check, clippy lints, build, and tests.
+
+## Verification Checklist
 
 After successful build and run:
-1. Verify the window appears with dark theme
-2. Verify minimum size constraint works (try resizing below 800x600)
-3. Verify debug logging works with `RUST_LOG=tusk=debug`
-4. Run `cargo test` to verify test harness works
-5. Run `cargo clippy -- -D warnings` to verify no lint warnings
+- [ ] Window appears at 1400x900 with dark theme
+- [ ] Minimum size constraint works (cannot resize below 800x600)
+- [ ] Debug logging works with `RUST_LOG=tusk=debug cargo run`
+- [ ] JetBrains Mono fonts render correctly (when text is displayed)
+- [ ] `cargo test` passes
+- [ ] `cargo clippy -- -D warnings` passes
+- [ ] `cargo fmt --check` passes
+- [ ] Release build succeeds: `cargo build --release`
 
 The project is ready for feature development when all verification steps pass.
