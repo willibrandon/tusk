@@ -85,6 +85,10 @@ pub struct ThemeColors {
     pub warning: Hsla,
     /// Error color.
     pub error: Hsla,
+
+    // Drag and drop colors
+    /// Drop target background (used when dragging over a valid target).
+    pub drop_target_background: Hsla,
 }
 
 impl ThemeColors {
@@ -168,6 +172,10 @@ impl ThemeColors {
             success: hsla(115.0 / 360.0, 0.54, 0.76, 1.0),
             warning: hsla(41.0 / 360.0, 0.86, 0.83, 1.0),
             error: hsla(343.0 / 360.0, 0.81, 0.75, 1.0),
+
+            // Drag and drop
+            // #89b4fa at 15% - Blue drop target
+            drop_target_background: hsla(217.0 / 360.0, 0.92, 0.76, 0.15),
         }
     }
 
@@ -251,6 +259,10 @@ impl ThemeColors {
             success: hsla(109.0 / 360.0, 0.58, 0.40, 1.0),
             warning: hsla(35.0 / 360.0, 0.77, 0.49, 1.0),
             error: hsla(347.0 / 360.0, 0.87, 0.44, 1.0),
+
+            // Drag and drop
+            // #1e66f5 at 15% - Blue drop target
+            drop_target_background: hsla(220.0 / 360.0, 0.91, 0.54, 0.15),
         }
     }
 }

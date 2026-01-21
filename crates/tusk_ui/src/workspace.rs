@@ -12,16 +12,71 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::dock::{Dock, DockEvent, DraggedDock};
+use crate::icon::IconName;
 use crate::key_bindings::{
-    CloseActiveTab, FocusNextPane, FocusPreviousPane, NextTab, PreviousTab, SplitDown, SplitRight,
-    ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
+    CloseActiveTab, FocusNextPane, FocusPreviousPane, NewQueryTab, NextTab, PreviousTab,
+    SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
 };
 use crate::layout::sizes::STATUS_BAR_HEIGHT;
+use crate::layout::spacing;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, TabItem};
 use crate::panel::{DockPosition, Focusable};
 use crate::panels::SchemaBrowserPanel;
 use crate::status_bar::StatusBar;
 use crate::TuskTheme;
+
+// ============================================================================
+// QueryPlaceholderView - Placeholder for query editor tabs
+// ============================================================================
+
+/// A placeholder view shown in query tabs until the actual SQL editor is implemented.
+///
+/// This provides a simple UI that explains the tab is a placeholder and hints at
+/// the keyboard shortcut for creating new tabs.
+pub struct QueryPlaceholderView {
+    title: String,
+}
+
+impl QueryPlaceholderView {
+    /// Create a new placeholder view with the given title.
+    pub fn new(title: String) -> Self {
+        Self { title }
+    }
+}
+
+impl Render for QueryPlaceholderView {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.global::<TuskTheme>();
+
+        div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .bg(theme.colors.editor_background)
+            .gap(spacing::MD)
+            .child(
+                div()
+                    .text_xl()
+                    .text_color(theme.colors.text)
+                    .child(self.title.clone()),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.colors.text_muted)
+                    .child("SQL Editor placeholder - implementation coming soon"),
+            )
+            .child(
+                div()
+                    .mt(spacing::LG)
+                    .text_xs()
+                    .text_color(theme.colors.text_muted)
+                    .child("Press Cmd+W to close this tab"),
+            )
+    }
+}
 
 /// Key used to store workspace state in the UI state storage.
 pub const WORKSPACE_STATE_KEY: &str = "workspace_state";
@@ -369,6 +424,23 @@ impl Workspace {
         });
     }
 
+    /// Create a new query tab in the active pane.
+    ///
+    /// This creates a placeholder query tab. The actual SQL editor component
+    /// will be implemented in a later feature.
+    pub fn new_query_tab(&mut self, cx: &mut Context<Self>) {
+        // Count existing tabs to generate a unique title
+        let query_count = self.center.read(cx).active_pane().read(cx).tabs().len() + 1;
+        let title = format!("Query {}", query_count);
+
+        // Create a placeholder view for the query editor
+        let placeholder_view = cx.new(|_cx| QueryPlaceholderView::new(title.clone()));
+
+        let tab = TabItem::new(title, placeholder_view).with_icon(IconName::Code);
+
+        self.open_tab(tab, cx);
+    }
+
     /// Resize the left dock to the given size.
     pub fn resize_left_dock(&mut self, size: Pixels, cx: &mut Context<Self>) {
         self.left_dock.update(cx, |dock, cx| {
@@ -580,6 +652,9 @@ impl Render for Workspace {
             }))
             .on_action(cx.listener(|this, _: &FocusPreviousPane, window, cx| {
                 this.focus_previous_pane(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &NewQueryTab, _window, cx| {
+                this.new_query_tab(cx);
             }))
             // Main content area (horizontal: left dock | center | right dock)
             .child(

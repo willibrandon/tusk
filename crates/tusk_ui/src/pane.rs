@@ -6,11 +6,12 @@
 use gpui::{
     canvas, deferred, div, prelude::*, px, AnyElement, AnyView, App, Axis, Bounds, ClickEvent,
     Context, CursorStyle, DragMoveEvent, Entity, EntityId, EventEmitter, FocusHandle, IntoElement,
-    Pixels, Point, Render, SharedString, Window,
+    Pixels, Point, Render, SharedString, Subscription, Window,
 };
 use smallvec::SmallVec;
 use uuid::Uuid;
 
+use crate::confirm_dialog::{ConfirmDialog, ConfirmDialogEvent, ConfirmDialogKind};
 use crate::icon::{Icon, IconName, IconSize};
 use crate::layout::{sizes, spacing};
 use crate::panel::Focusable;
@@ -20,6 +21,29 @@ use crate::TuskTheme;
 const SPLIT_HANDLE_SIZE: Pixels = px(6.0);
 /// Minimum size for a pane in pixels.
 const PANE_MIN_SIZE: Pixels = px(100.0);
+
+// ============================================================================
+// DraggedTab - marker for tab drag operations
+// ============================================================================
+
+/// Marker type for tab drag-and-drop operations.
+///
+/// Used with `on_drag` to initiate tab reordering. Contains the tab index
+/// being dragged so drop handlers can determine where to insert.
+#[derive(Clone)]
+pub struct DraggedTab {
+    /// The index of the tab being dragged.
+    pub index: usize,
+    /// The tab ID being dragged.
+    pub tab_id: Uuid,
+}
+
+impl Render for DraggedTab {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        // Invisible drag visual - actual feedback comes from drag_over styling
+        gpui::Empty
+    }
+}
 
 // ============================================================================
 // TabItem
@@ -105,6 +129,14 @@ pub struct Pane {
     active_tab_index: usize,
     /// Focus handle for this pane.
     focus_handle: FocusHandle,
+    /// Active confirmation dialog (shown when closing dirty tab).
+    confirm_dialog: Option<Entity<ConfirmDialog>>,
+    /// Index of tab pending close (waiting for confirmation).
+    pending_close_index: Option<usize>,
+    /// Subscription to the confirm dialog events.
+    _dialog_subscription: Option<Subscription>,
+    /// Index being dragged over for visual feedback.
+    drag_over_index: Option<usize>,
 }
 
 impl Pane {
@@ -114,6 +146,10 @@ impl Pane {
             tabs: Vec::new(),
             active_tab_index: 0,
             focus_handle: cx.focus_handle(),
+            confirm_dialog: None,
+            pending_close_index: None,
+            _dialog_subscription: None,
+            drag_over_index: None,
         }
     }
 
@@ -153,8 +189,30 @@ impl Pane {
 
     /// Close a tab by index.
     ///
-    /// Returns the closed tab if successful.
+    /// If the tab has unsaved changes (dirty=true), shows a confirmation dialog.
+    /// The actual close happens after user confirms or if the tab is not dirty.
+    ///
+    /// Returns the closed tab if successful and not dirty, None if pending confirmation.
     pub fn close_tab(&mut self, index: usize, cx: &mut Context<Self>) -> Option<TabItem> {
+        if index >= self.tabs.len() {
+            return None;
+        }
+
+        // Check if tab is dirty - if so, show confirmation dialog
+        if self.tabs[index].dirty {
+            self.show_close_confirmation(index, cx);
+            return None; // Close is pending confirmation
+        }
+
+        // Tab is not dirty, close immediately
+        self.close_tab_unchecked(index, cx)
+    }
+
+    /// Close a tab without checking dirty state.
+    ///
+    /// This is called directly when the tab is not dirty, or after user confirms
+    /// they want to close a dirty tab.
+    fn close_tab_unchecked(&mut self, index: usize, cx: &mut Context<Self>) -> Option<TabItem> {
         if index >= self.tabs.len() {
             return None;
         }
@@ -175,6 +233,61 @@ impl Pane {
         cx.emit(PaneEvent::TabClosed { tab_id });
         cx.notify();
         Some(tab)
+    }
+
+    /// Show confirmation dialog for closing a dirty tab.
+    fn show_close_confirmation(&mut self, index: usize, cx: &mut Context<Self>) {
+        let tab_title = self.tabs[index].title.clone();
+
+        // Create the confirmation dialog
+        let dialog = cx.new(|cx| {
+            ConfirmDialog::warning(
+                "Unsaved Changes",
+                format!(
+                    "\"{}\" has unsaved changes. Close anyway?",
+                    tab_title
+                ),
+                cx,
+            )
+            .with_confirm_label("Close Without Saving")
+            .with_cancel_label("Cancel")
+            .with_kind(ConfirmDialogKind::Warning)
+        });
+
+        // Subscribe to dialog events
+        let subscription = cx.subscribe(&dialog, move |this, _, event: &ConfirmDialogEvent, cx| {
+            match event {
+                ConfirmDialogEvent::Confirmed => {
+                    // User confirmed - close the tab
+                    if let Some(pending_index) = this.pending_close_index.take() {
+                        this.close_tab_unchecked(pending_index, cx);
+                    }
+                }
+                ConfirmDialogEvent::Dismissed => {
+                    // User cancelled - do nothing
+                }
+            }
+            // Clear dialog state
+            this.confirm_dialog = None;
+            this.pending_close_index = None;
+            this._dialog_subscription = None;
+            cx.notify();
+        });
+
+        self.confirm_dialog = Some(dialog);
+        self.pending_close_index = Some(index);
+        self._dialog_subscription = Some(subscription);
+        cx.notify();
+    }
+
+    /// Dismiss any active confirmation dialog.
+    pub fn dismiss_dialog(&mut self, cx: &mut Context<Self>) {
+        if self.confirm_dialog.is_some() {
+            self.confirm_dialog = None;
+            self.pending_close_index = None;
+            self._dialog_subscription = None;
+            cx.notify();
+        }
     }
 
     /// Close the currently active tab.
@@ -248,6 +361,8 @@ impl Pane {
             .map(|(index, tab)| self.render_tab(index, tab, &theme, cx))
             .collect();
 
+        let tab_count = self.tabs.len();
+
         div()
             .h(sizes::TAB_BAR_HEIGHT)
             .w_full()
@@ -257,9 +372,47 @@ impl Pane {
             .border_b_1()
             .border_color(theme.colors.border)
             .children(tabs)
+            // Drop target for adding tabs at the end
+            .child(self.render_tab_bar_drop_target(tab_count, &theme, cx))
     }
 
-    /// Render a single tab.
+    /// Render the drop target at the end of the tab bar.
+    ///
+    /// This allows users to drop tabs at the end of the list.
+    fn render_tab_bar_drop_target(
+        &self,
+        tab_count: usize,
+        theme: &TuskTheme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let drop_target_bg = theme.colors.drop_target_background;
+        let accent = theme.colors.accent;
+
+        div()
+            .id("tab-bar-drop-target")
+            .h_full()
+            .flex_grow()
+            .min_w(px(24.0))
+            // Visual feedback when dragging over the end zone
+            .drag_over::<DraggedTab>(move |drop_div, dragged_tab: &DraggedTab, _, _cx| {
+                // Only show drop indicator if not already at the end
+                if dragged_tab.index < tab_count.saturating_sub(1) || tab_count == 0 {
+                    drop_div.bg(drop_target_bg).border_l_2().border_color(accent)
+                } else {
+                    drop_div
+                }
+            })
+            // Handle drop at end of tab bar
+            .on_drop(cx.listener(move |this, dragged_tab: &DraggedTab, _window, cx| {
+                let target_index = this.tabs.len().saturating_sub(1);
+                if dragged_tab.index != target_index && !this.tabs.is_empty() {
+                    this.move_tab(dragged_tab.index, target_index, cx);
+                }
+                this.drag_over_index = None;
+            }))
+    }
+
+    /// Render a single tab with drag-and-drop support for reordering.
     fn render_tab(
         &self,
         index: usize,
@@ -268,6 +421,8 @@ impl Pane {
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
         let is_active = index == self.active_tab_index;
+        let is_drag_target = self.drag_over_index == Some(index);
+
         let bg = if is_active {
             theme.colors.tab_active_background
         } else {
@@ -283,10 +438,13 @@ impl Pane {
         let weak_pane = cx.entity().downgrade();
         let tab_icon = tab.icon;
         let tab_title = tab.title.clone();
+        let tab_id = tab.id;
         let tab_dirty = tab.dirty;
         let tab_closable = tab.closable;
         let hover_bg = theme.colors.tab_hover_background;
         let close_hover_bg = theme.colors.ghost_element_hover;
+        let drop_target_bg = theme.colors.drop_target_background;
+        let accent = theme.colors.accent;
 
         let mut tab_div = div()
             .id(("pane-tab", index))
@@ -298,6 +456,35 @@ impl Pane {
             .bg(bg)
             .hover(|style| style.bg(hover_bg))
             .cursor_pointer()
+            // Drag initiation - start dragging this tab
+            .on_drag(
+                DraggedTab { index, tab_id },
+                |dragged_tab, _, _, cx| {
+                    cx.stop_propagation();
+                    cx.new(|_| dragged_tab.clone())
+                },
+            )
+            // Visual feedback when dragging over this tab
+            .drag_over::<DraggedTab>(move |tab_div, dragged_tab: &DraggedTab, _, _cx| {
+                if dragged_tab.index != index {
+                    // Show visual indicator based on whether dropping before or after
+                    if index < dragged_tab.index {
+                        tab_div.bg(drop_target_bg).border_l_2().border_color(accent)
+                    } else {
+                        tab_div.bg(drop_target_bg).border_r_2().border_color(accent)
+                    }
+                } else {
+                    tab_div
+                }
+            })
+            // Handle drop - reorder tabs
+            .on_drop(cx.listener(move |this, dragged_tab: &DraggedTab, _window, cx| {
+                if dragged_tab.index != index {
+                    this.move_tab(dragged_tab.index, index, cx);
+                }
+                this.drag_over_index = None;
+            }))
+            // Click to activate
             .on_click({
                 let weak = weak_pane.clone();
                 move |_event: &ClickEvent, _window, cx| {
@@ -306,6 +493,11 @@ impl Pane {
                     }
                 }
             });
+
+        // Apply drag target styling if needed
+        if is_drag_target {
+            tab_div = tab_div.bg(drop_target_bg);
+        }
 
         // Icon
         if let Some(icon) = tab_icon {
@@ -400,14 +592,30 @@ impl Focusable for Pane {
 
 impl Render for Pane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div()
+        let mut pane_div = div()
+            .relative()
             .flex()
             .flex_col()
             .size_full()
             .track_focus(&self.focus_handle)
             .key_context("Pane")
             .child(self.render_tab_bar(cx))
-            .child(self.render_content(cx))
+            .child(self.render_content(cx));
+
+        // Render confirmation dialog overlay if present
+        if let Some(dialog) = &self.confirm_dialog {
+            pane_div = pane_div.child(
+                deferred(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .child(dialog.clone()),
+                )
+                .with_priority(1),
+            );
+        }
+
+        pane_div
     }
 }
 

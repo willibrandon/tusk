@@ -104,16 +104,16 @@
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Implement Pane::add_tab() method to add TabItem to tabs Vec in `crates/tusk_ui/src/pane.rs`
-- [ ] T029 [US3] Implement Pane::close_tab() method with dirty state check in `crates/tusk_ui/src/pane.rs`
-- [ ] T030 [US3] Implement Pane::activate_tab() method to switch active tab in `crates/tusk_ui/src/pane.rs`
-- [ ] T031 [US3] Implement Pane::render() with tab bar (tabs with close buttons) and content area in `crates/tusk_ui/src/pane.rs`
-- [ ] T032 [US3] Render tab bar with tab items showing title, dirty indicator (*), and close button in `crates/tusk_ui/src/pane.rs`
-- [ ] T033 [US3] Implement empty state UI when all tabs closed in `crates/tusk_ui/src/pane.rs` (message with "Create new query" prompt)
-- [ ] T034 [US3] Wire NewQueryTab action handler in Workspace to add new tab to active pane in `crates/tusk_ui/src/workspace.rs`
-- [ ] T035 [US3] Wire CloseActiveTab action handler in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T107 [US3] Implement tab reordering via drag-and-drop (FR-012) in `crates/tusk_ui/src/pane.rs`
-- [ ] T122 [US3] Wire dirty tab close confirmation using ConfirmDialog in Pane::close_tab() - prompt "Unsaved changes will be lost. Close anyway?" when TabItem.is_dirty=true (FR-011) in `crates/tusk_ui/src/pane.rs`
+- [x] T028 [US3] Implement Pane::add_tab() method to add TabItem to tabs Vec in `crates/tusk_ui/src/pane.rs`
+- [x] T029 [US3] Implement Pane::close_tab() method with dirty state check in `crates/tusk_ui/src/pane.rs`
+- [x] T030 [US3] Implement Pane::activate_tab() method to switch active tab in `crates/tusk_ui/src/pane.rs`
+- [x] T031 [US3] Implement Pane::render() with tab bar (tabs with close buttons) and content area in `crates/tusk_ui/src/pane.rs`
+- [x] T032 [US3] Render tab bar with tab items showing title, dirty indicator (*), and close button in `crates/tusk_ui/src/pane.rs`
+- [x] T033 [US3] Implement empty state UI when all tabs closed in `crates/tusk_ui/src/pane.rs` (message with "Create new query" prompt)
+- [x] T034 [US3] Wire NewQueryTab action handler in Workspace to add new tab to active pane in `crates/tusk_ui/src/workspace.rs`
+- [x] T035 [US3] Wire CloseActiveTab action handler in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T107 [US3] Implement tab reordering via drag-and-drop (FR-012) in `crates/tusk_ui/src/pane.rs`
+- [x] T122 [US3] Wire dirty tab close confirmation using ConfirmDialog in Pane::close_tab() - prompt "Unsaved changes will be lost. Close anyway?" when TabItem.is_dirty=true (FR-011) in `crates/tusk_ui/src/pane.rs`
 
 **Checkpoint**: User Story 3 complete - multiple tabs work with switching, closing, reordering, and dirty indicators with save prompts
 
