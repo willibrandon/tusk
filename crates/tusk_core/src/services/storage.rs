@@ -11,7 +11,9 @@
 //! - **Debug builds**: `./tusk_data` in current directory
 
 use crate::error::TuskError;
-use crate::models::{ConnectionConfig, ConnectionOptions, QueryHistoryEntry, SshAuthMethod, SshTunnelConfig, SslMode};
+use crate::models::{
+    ConnectionConfig, ConnectionOptions, QueryHistoryEntry, SshAuthMethod, SshTunnelConfig, SslMode,
+};
 
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
@@ -116,10 +118,7 @@ impl LocalStorage {
         // Configure SQLite for optimal performance
         Self::configure_connection(&connection)?;
 
-        let storage = Self {
-            connection: Mutex::new(connection),
-            data_dir,
-        };
+        let storage = Self { connection: Mutex::new(connection), data_dir };
 
         // Run migrations
         storage.run_migrations()?;
@@ -412,9 +411,8 @@ impl LocalStorage {
                 .map_err(|e| TuskError::storage(format!("Failed to read row: {e}"), None))?;
 
             let ssh_tunnel = if let Some(tunnel_id) = &row.ssh_tunnel_id {
-                let tunnel_uuid = Uuid::parse_str(tunnel_id).map_err(|e| {
-                    TuskError::storage(format!("Invalid SSH tunnel ID: {e}"), None)
-                })?;
+                let tunnel_uuid = Uuid::parse_str(tunnel_id)
+                    .map_err(|e| TuskError::storage(format!("Invalid SSH tunnel ID: {e}"), None))?;
                 self.load_ssh_tunnel_internal(&conn, tunnel_uuid)?
             } else {
                 None
@@ -430,11 +428,8 @@ impl LocalStorage {
     pub fn delete_connection(&self, id: Uuid) -> Result<(), TuskError> {
         let conn = self.connection.lock();
 
-        conn.execute(
-            "DELETE FROM connections WHERE connection_id = ?",
-            [id.to_string()],
-        )
-        .map_err(|e| TuskError::storage(format!("Failed to delete connection: {e}"), None))?;
+        conn.execute("DELETE FROM connections WHERE connection_id = ?", [id.to_string()])
+            .map_err(|e| TuskError::storage(format!("Failed to delete connection: {e}"), None))?;
 
         tracing::debug!(connection_id = %id, "Connection deleted");
         Ok(())
@@ -512,7 +507,7 @@ impl LocalStorage {
                     host: row.get(2)?,
                     port: row.get(3)?,
                     username: row.get(4)?,
-                    auth_method: SshAuthMethod::from_str(&auth_method_str),
+                    auth_method: SshAuthMethod::parse(&auth_method_str),
                     key_path: key_path_str.map(PathBuf::from),
                 })
             },
@@ -544,7 +539,7 @@ impl LocalStorage {
                     host: row.get(2)?,
                     port: row.get(3)?,
                     username: row.get(4)?,
-                    auth_method: SshAuthMethod::from_str(&auth_method_str),
+                    auth_method: SshAuthMethod::parse(&auth_method_str),
                     key_path: key_path_str.map(PathBuf::from),
                 })
             })
@@ -558,11 +553,8 @@ impl LocalStorage {
     pub fn delete_ssh_tunnel(&self, id: Uuid) -> Result<(), TuskError> {
         let conn = self.connection.lock();
 
-        conn.execute(
-            "DELETE FROM ssh_tunnels WHERE tunnel_id = ?",
-            [id.to_string()],
-        )
-        .map_err(|e| TuskError::storage(format!("Failed to delete SSH tunnel: {e}"), None))?;
+        conn.execute("DELETE FROM ssh_tunnels WHERE tunnel_id = ?", [id.to_string()])
+            .map_err(|e| TuskError::storage(format!("Failed to delete SSH tunnel: {e}"), None))?;
 
         tracing::debug!(tunnel_id = %id, "SSH tunnel deleted");
         Ok(())
@@ -838,11 +830,8 @@ impl LocalStorage {
     pub fn delete_saved_query(&self, id: Uuid) -> Result<(), TuskError> {
         let conn = self.connection.lock();
 
-        conn.execute(
-            "DELETE FROM saved_queries WHERE query_id = ?",
-            [id.to_string()],
-        )
-        .map_err(|e| TuskError::storage(format!("Failed to delete saved query: {e}"), None))?;
+        conn.execute("DELETE FROM saved_queries WHERE query_id = ?", [id.to_string()])
+            .map_err(|e| TuskError::storage(format!("Failed to delete saved query: {e}"), None))?;
 
         tracing::debug!(query_id = %id, "Saved query deleted");
         Ok(())
@@ -873,11 +862,7 @@ impl LocalStorage {
         let conn = self.connection.lock();
 
         let result: Option<String> = conn
-            .query_row(
-                "SELECT value_json FROM ui_state WHERE key = ?",
-                [key],
-                |row| row.get(0),
-            )
+            .query_row("SELECT value_json FROM ui_state WHERE key = ?", [key], |row| row.get(0))
             .optional()
             .map_err(|e| TuskError::storage(format!("Failed to load UI state: {e}"), None))?;
 
@@ -918,7 +903,7 @@ impl LocalStorage {
             port: row.port,
             database: row.database,
             username: row.username,
-            ssl_mode: SslMode::from_str(&row.ssl_mode),
+            ssl_mode: SslMode::parse(&row.ssl_mode),
             ssh_tunnel,
             options: ConnectionOptions {
                 connect_timeout_secs: row.connect_timeout_secs,

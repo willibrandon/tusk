@@ -36,3 +36,10 @@ dirs = "5.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 atty = "0.2"
+
+# Optional GPUI integration for Global trait
+gpui = { workspace = true, optional = true }
+
+[features]
+default = []
+gpui = ["dep:gpui"]

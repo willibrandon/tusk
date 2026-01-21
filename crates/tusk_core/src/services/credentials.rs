@@ -50,11 +50,7 @@ impl CredentialService {
             None
         };
 
-        Self {
-            available,
-            fallback_reason,
-            session_store,
-        }
+        Self { available, fallback_reason, session_store }
     }
 
     /// Check if keychain is available by attempting a test operation.
@@ -110,10 +106,7 @@ impl CredentialService {
             .map_err(|e| TuskError::keyring(e.to_string(), None))?
             .set_password(password)
             .map_err(|e| {
-                TuskError::keyring(
-                    e.to_string(),
-                    Some("Grant Tusk access in system preferences"),
-                )
+                TuskError::keyring(e.to_string(), Some("Grant Tusk access in system preferences"))
             })?;
 
         tracing::debug!(connection_id = %connection_id, "Password stored in keychain");
@@ -192,11 +185,7 @@ impl CredentialService {
     }
 
     /// Store an SSH passphrase.
-    pub fn store_ssh_passphrase(
-        &self,
-        tunnel_id: Uuid,
-        passphrase: &str,
-    ) -> Result<(), TuskError> {
+    pub fn store_ssh_passphrase(&self, tunnel_id: Uuid, passphrase: &str) -> Result<(), TuskError> {
         let key = format!("ssh:{tunnel_id}");
 
         if let Some(ref store) = self.session_store {

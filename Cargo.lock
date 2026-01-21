@@ -5633,6 +5633,7 @@ dependencies = [
  "chrono",
  "deadpool-postgres",
  "dirs 5.0.1",
+ "gpui",
  "keyring",
  "parking_lot",
  "rusqlite",

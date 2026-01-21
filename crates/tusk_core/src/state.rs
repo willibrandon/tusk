@@ -117,11 +117,7 @@ impl TuskState {
 
     /// Get status of all connection pools (SC-010).
     pub fn all_pool_statuses(&self) -> HashMap<Uuid, PoolStatus> {
-        self.connections
-            .read()
-            .iter()
-            .map(|(id, pool)| (*id, pool.status()))
-            .collect()
+        self.connections.read().iter().map(|(id, pool)| (*id, pool.status())).collect()
     }
 
     // ========== Schema Cache Management (FR-007) ==========
@@ -240,7 +236,6 @@ impl TuskState {
     }
 }
 
-// Implement GPUI's Global trait for application-wide state access
-// Note: This requires the gpui crate, which may not be available in tusk_core
-// The actual implementation will be in the main tusk crate
-// impl gpui::Global for TuskState {}
+// Implement GPUI's Global trait for application-wide state access (FR-005)
+#[cfg(feature = "gpui")]
+impl gpui::Global for TuskState {}

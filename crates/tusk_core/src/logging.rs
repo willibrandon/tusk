@@ -25,11 +25,7 @@ pub struct LogConfig {
 impl LogConfig {
     /// Create a new logging configuration.
     pub fn new(log_dir: PathBuf) -> Self {
-        Self {
-            log_dir,
-            is_pty: atty::is(atty::Stream::Stdout),
-            log_filter: None,
-        }
+        Self { log_dir, is_pty: atty::is(atty::Stream::Stdout), log_filter: None }
     }
 
     /// Set custom log filter.
@@ -57,14 +53,9 @@ pub fn init_logging(config: LogConfig) -> LoggingGuard {
 
     // Try to initialize file logging
     match init_file_logging(&config) {
-        Ok(guard) => LoggingGuard {
-            _worker_guard: Some(guard),
-        },
+        Ok(guard) => LoggingGuard { _worker_guard: Some(guard) },
         Err(e) => {
-            eprintln!(
-                "Warning: Failed to initialize file logging: {}. Using console only.",
-                e
-            );
+            eprintln!("Warning: Failed to initialize file logging: {}. Using console only.", e);
             init_stdout_logging(config.log_filter.as_deref())
         }
     }
@@ -87,9 +78,7 @@ fn init_stdout_logging(filter: Option<&str>) -> LoggingGuard {
         .with_thread_ids(false)
         .init();
 
-    LoggingGuard {
-        _worker_guard: None,
-    }
+    LoggingGuard { _worker_guard: None }
 }
 
 /// Initialize file + console logging (FR-022, FR-023).

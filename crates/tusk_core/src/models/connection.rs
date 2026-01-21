@@ -34,7 +34,7 @@ impl SslMode {
     }
 
     /// Parse from string representation.
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "disable" => Self::Disable,
             "require" => Self::Require,
@@ -46,7 +46,7 @@ impl SslMode {
 }
 
 /// SSH authentication method.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SshAuthMethod {
     /// Private key authentication
@@ -54,6 +54,7 @@ pub enum SshAuthMethod {
     /// Password authentication (from keychain)
     Password,
     /// SSH agent authentication
+    #[default]
     Agent,
 }
 
@@ -68,18 +69,12 @@ impl SshAuthMethod {
     }
 
     /// Parse from string representation.
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "key" => Self::Key,
             "password" => Self::Password,
             _ => Self::Agent,
         }
-    }
-}
-
-impl Default for SshAuthMethod {
-    fn default() -> Self {
-        Self::Agent
     }
 }
 
@@ -104,7 +99,11 @@ pub struct SshTunnelConfig {
 
 impl SshTunnelConfig {
     /// Create a new SSH tunnel configuration.
-    pub fn new(name: impl Into<String>, host: impl Into<String>, username: impl Into<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        host: impl Into<String>,
+        username: impl Into<String>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             name: name.into(),
@@ -245,10 +244,7 @@ impl ConnectionConfig {
 
     /// Get the display connection string (without password).
     pub fn display_url(&self) -> String {
-        format!(
-            "postgresql://{}@{}:{}/{}",
-            self.username, self.host, self.port, self.database
-        )
+        format!("postgresql://{}@{}:{}/{}", self.username, self.host, self.port, self.database)
     }
 }
 

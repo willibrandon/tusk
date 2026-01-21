@@ -9,6 +9,8 @@ pub mod connection;
 pub mod history;
 pub mod query;
 
-pub use connection::{ConnectionConfig, ConnectionOptions, PoolStatus, SshAuthMethod, SshTunnelConfig, SslMode};
+pub use connection::{
+    ConnectionConfig, ConnectionOptions, PoolStatus, SshAuthMethod, SshTunnelConfig, SslMode,
+};
 pub use history::QueryHistoryEntry;
 pub use query::{ColumnInfo, QueryHandle, QueryResult, QueryType};

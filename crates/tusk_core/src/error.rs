@@ -145,10 +145,7 @@ impl TuskError {
 
     /// Create a new connection error.
     pub fn connection(message: impl Into<String>) -> Self {
-        Self::Connection {
-            message: message.into(),
-            source: None,
-        }
+        Self::Connection { message: message.into(), source: None }
     }
 
     /// Create a new connection error with source.
@@ -156,10 +153,7 @@ impl TuskError {
         message: impl Into<String>,
         source: impl std::error::Error + Send + Sync + 'static,
     ) -> Self {
-        Self::Connection {
-            message: message.into(),
-            source: Some(Box::new(source)),
-        }
+        Self::Connection { message: message.into(), source: Some(Box::new(source)) }
     }
 
     /// Create a new authentication error.
@@ -171,30 +165,18 @@ impl TuskError {
     }
 
     /// Create a new authentication error with custom hint.
-    pub fn authentication_with_hint(
-        message: impl Into<String>,
-        hint: impl Into<String>,
-    ) -> Self {
-        Self::Authentication {
-            message: message.into(),
-            hint: Some(hint.into()),
-        }
+    pub fn authentication_with_hint(message: impl Into<String>, hint: impl Into<String>) -> Self {
+        Self::Authentication { message: message.into(), hint: Some(hint.into()) }
     }
 
     /// Create a new SSL error.
     pub fn ssl(message: impl Into<String>) -> Self {
-        Self::Ssl {
-            message: message.into(),
-            source: None,
-        }
+        Self::Ssl { message: message.into(), source: None }
     }
 
     /// Create a new SSH error.
     pub fn ssh(message: impl Into<String>) -> Self {
-        Self::Ssh {
-            message: message.into(),
-            source: None,
-        }
+        Self::Ssh { message: message.into(), source: None }
     }
 
     /// Create a new query error with full PostgreSQL details (FR-002).
@@ -205,13 +187,7 @@ impl TuskError {
         position: Option<usize>,
         code: Option<String>,
     ) -> Self {
-        Self::Query {
-            message: message.into(),
-            detail,
-            hint,
-            position,
-            code,
-        }
+        Self::Query { message: message.into(), detail, hint, position, code }
     }
 
     /// Create a query cancelled error.
@@ -221,11 +197,7 @@ impl TuskError {
 
     /// Create a new storage error.
     pub fn storage(message: impl Into<String>, hint: Option<&str>) -> Self {
-        Self::Storage {
-            message: message.into(),
-            hint: hint.map(String::from),
-            source: None,
-        }
+        Self::Storage { message: message.into(), hint: hint.map(String::from), source: None }
     }
 
     /// Create a new storage error with source.
@@ -233,72 +205,47 @@ impl TuskError {
         message: impl Into<String>,
         source: impl std::error::Error + Send + Sync + 'static,
     ) -> Self {
-        Self::Storage {
-            message: message.into(),
-            hint: None,
-            source: Some(Box::new(source)),
-        }
+        Self::Storage { message: message.into(), hint: None, source: Some(Box::new(source)) }
     }
 
     /// Create a new keyring error.
     pub fn keyring(message: impl Into<String>, hint: Option<&str>) -> Self {
-        Self::Keyring {
-            message: message.into(),
-            hint: hint.map(String::from),
-        }
+        Self::Keyring { message: message.into(), hint: hint.map(String::from) }
     }
 
     /// Create a new pool timeout error (FR-013a).
     pub fn pool_timeout(message: impl Into<String>, waiting: usize) -> Self {
-        Self::PoolTimeout {
-            message: message.into(),
-            waiting,
-        }
+        Self::PoolTimeout { message: message.into(), waiting }
     }
 
     /// Create a new internal error.
     pub fn internal(message: impl Into<String>) -> Self {
-        Self::Internal {
-            message: message.into(),
-            source: None,
-        }
+        Self::Internal { message: message.into(), source: None }
     }
 
     /// Create a new window error.
     pub fn window(message: impl Into<String>) -> Self {
-        Self::Window {
-            message: message.into(),
-        }
+        Self::Window { message: message.into() }
     }
 
     /// Create a new theme error.
     pub fn theme(message: impl Into<String>) -> Self {
-        Self::Theme {
-            message: message.into(),
-        }
+        Self::Theme { message: message.into() }
     }
 
     /// Create a new font error.
     pub fn font(message: impl Into<String>) -> Self {
-        Self::Font {
-            message: message.into(),
-            path: None,
-        }
+        Self::Font { message: message.into(), path: None }
     }
 
     /// Create a new font error with a path.
     pub fn font_with_path(message: impl Into<String>, path: impl Into<String>) -> Self {
-        Self::Font {
-            message: message.into(),
-            path: Some(path.into()),
-        }
+        Self::Font { message: message.into(), path: Some(path.into()) }
     }
 
     /// Create a new config error.
     pub fn config(message: impl Into<String>) -> Self {
-        Self::Config {
-            message: message.into(),
-        }
+        Self::Config { message: message.into() }
     }
 
     // ========== Methods ==========
@@ -366,9 +313,7 @@ impl TuskError {
         let hint = self.hint().map(String::from);
 
         let technical_detail = match self {
-            Self::Query {
-                detail, code, position, ..
-            } => {
+            Self::Query { detail, code, position, .. } => {
                 let mut parts = Vec::new();
                 if let Some(code) = code {
                     parts.push(format!("Code: {code}"));
@@ -391,12 +336,7 @@ impl TuskError {
             _ => None,
         };
 
-        ErrorInfo {
-            error_type,
-            message,
-            hint,
-            technical_detail,
-        }
+        ErrorInfo { error_type, message, hint, technical_detail }
     }
 }
 
@@ -449,21 +389,10 @@ impl From<tokio_postgres::Error> for TuskError {
                 }
                 // Connection exceptions (08xxx)
                 _ if code_str.starts_with("08") => {
-                    return TuskError::Connection {
-                        message,
-                        source: Some(Box::new(err)),
-                    }
+                    return TuskError::Connection { message, source: Some(Box::new(err)) }
                 }
                 // Syntax/semantic errors (42xxx) and others - return as Query error
-                _ => {
-                    return TuskError::Query {
-                        message,
-                        detail,
-                        hint,
-                        position,
-                        code,
-                    }
-                }
+                _ => return TuskError::Query { message, detail, hint, position, code },
             }
         }
 
@@ -476,10 +405,7 @@ impl From<tokio_postgres::Error> for TuskError {
         }
 
         // Generic fallback
-        TuskError::Connection {
-            message: err.to_string(),
-            source: Some(Box::new(err)),
-        }
+        TuskError::Connection { message: err.to_string(), source: Some(Box::new(err)) }
     }
 }
 

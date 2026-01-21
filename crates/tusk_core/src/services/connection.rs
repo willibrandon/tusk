@@ -4,6 +4,7 @@
 //! - Connection validation on pool creation (FR-011)
 //! - Pool status reporting (FR-013)
 //! - Configurable timeout on pool exhaustion (FR-013a)
+//! - Session defaults (statement_timeout, idle_in_transaction_session_timeout)
 
 use crate::error::TuskError;
 use crate::models::{ConnectionConfig, PoolStatus};
@@ -14,6 +15,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio_postgres::NoTls;
 use uuid::Uuid;
+
+/// Default idle_in_transaction_session_timeout in seconds (5 minutes).
+/// Prevents abandoned transactions from holding locks indefinitely.
+const DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_SECS: u32 = 300;
 
 /// A managed pool of database connections for a single ConnectionConfig.
 ///
@@ -28,6 +33,8 @@ pub struct ConnectionPool {
     pool: Pool,
     /// When this pool was created
     created_at: DateTime<Utc>,
+    /// SQL to set session defaults (statement_timeout, idle_in_transaction_session_timeout)
+    session_defaults_sql: Option<String>,
 }
 
 impl ConnectionPool {
@@ -70,9 +77,7 @@ impl ConnectionPool {
         let manager = Manager::from_config(
             pg_config,
             NoTls,
-            ManagerConfig {
-                recycling_method: RecyclingMethod::Fast,
-            },
+            ManagerConfig { recycling_method: RecyclingMethod::Fast },
         );
 
         // Build the pool
@@ -84,10 +89,21 @@ impl ConnectionPool {
             .build()
             .map_err(|e| TuskError::connection(format!("Failed to create pool: {e}")))?;
 
+        // Build session defaults SQL (statement_timeout, idle_in_transaction_session_timeout)
+        let session_defaults_sql = Self::build_session_defaults_sql(&config);
+
         // Validate connection by establishing a test connection (FR-011)
-        let client = pool.get().await.map_err(|e| {
-            TuskError::connection(format!("Failed to establish connection: {e}"))
-        })?;
+        let client = pool
+            .get()
+            .await
+            .map_err(|e| TuskError::connection(format!("Failed to establish connection: {e}")))?;
+
+        // Apply session defaults on the validation connection
+        if let Some(ref sql) = session_defaults_sql {
+            client.execute(sql.as_str(), &[]).await.map_err(|e| {
+                TuskError::connection(format!("Failed to set session defaults: {e}"))
+            })?;
+        }
 
         // Execute a simple query to verify the connection is working
         client
@@ -107,7 +123,31 @@ impl ConnectionPool {
             config: Arc::new(config),
             pool,
             created_at: Utc::now(),
+            session_defaults_sql,
         })
+    }
+
+    /// Build SQL to set session defaults (statement_timeout, idle_in_transaction_session_timeout).
+    fn build_session_defaults_sql(config: &ConnectionConfig) -> Option<String> {
+        let mut statements = Vec::new();
+
+        // Set statement_timeout if configured
+        if let Some(timeout_secs) = config.options.statement_timeout_secs {
+            // PostgreSQL statement_timeout is in milliseconds
+            let timeout_ms = timeout_secs as u64 * 1000;
+            statements.push(format!("SET statement_timeout = {timeout_ms}"));
+        }
+
+        // Always set idle_in_transaction_session_timeout to prevent abandoned transactions
+        // from holding locks indefinitely
+        let idle_timeout_ms = DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_SECS as u64 * 1000;
+        statements.push(format!("SET idle_in_transaction_session_timeout = {idle_timeout_ms}"));
+
+        if statements.is_empty() {
+            None
+        } else {
+            Some(statements.join("; "))
+        }
     }
 
     /// Get the pool's unique identifier.
@@ -128,6 +168,8 @@ impl ConnectionPool {
     /// Acquire a connection from the pool.
     ///
     /// Waits up to the configured timeout if the pool is exhausted (FR-013a).
+    /// Applies session defaults (statement_timeout, idle_in_transaction_session_timeout)
+    /// to each connection when acquired.
     pub async fn get(&self) -> Result<PooledConnection, TuskError> {
         let client = self.pool.get().await.map_err(|e| {
             let status = self.status();
@@ -141,10 +183,15 @@ impl ConnectionPool {
             }
         })?;
 
-        Ok(PooledConnection {
-            client,
-            connection_id: self.id,
-        })
+        // Apply session defaults on each acquired connection
+        // This ensures timeouts are set even for recycled connections
+        if let Some(ref sql) = self.session_defaults_sql {
+            client.execute(sql.as_str(), &[]).await.map_err(|e| {
+                TuskError::connection(format!("Failed to set session defaults: {e}"))
+            })?;
+        }
+
+        Ok(PooledConnection { client, connection_id: self.id })
     }
 
     /// Get current pool status (FR-013, SC-010).
@@ -190,10 +237,7 @@ impl PooledConnection {
         sql: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<Vec<tokio_postgres::Row>, TuskError> {
-        self.client
-            .query(sql, params)
-            .await
-            .map_err(TuskError::from)
+        self.client.query(sql, params).await.map_err(TuskError::from)
     }
 
     /// Execute a query that doesn't return rows.
@@ -202,10 +246,7 @@ impl PooledConnection {
         sql: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<u64, TuskError> {
-        self.client
-            .execute(sql, params)
-            .await
-            .map_err(TuskError::from)
+        self.client.execute(sql, params).await.map_err(TuskError::from)
     }
 
     /// Prepare a statement for repeated execution.
@@ -243,10 +284,7 @@ impl<'a> Transaction<'a> {
         sql: &str,
         params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
     ) -> Result<u64, TuskError> {
-        self.txn
-            .execute(sql, params)
-            .await
-            .map_err(TuskError::from)
+        self.txn.execute(sql, params).await.map_err(TuskError::from)
     }
 
     /// Commit the transaction.
