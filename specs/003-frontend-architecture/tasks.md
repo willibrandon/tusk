@@ -40,17 +40,17 @@
 
 **WARNING**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create `crates/tusk_ui/src/key_bindings.rs` with global actions (ToggleLeftDock, ToggleRightDock, ToggleBottomDock, NewQueryTab, CloseActiveTab, etc.) and register_key_bindings() function per contracts/keyboard.md
-- [ ] T007 [P] Create `crates/tusk_ui/src/button.rs` with Button component implementing RenderOnce, ButtonVariant enum (Primary/Secondary/Ghost/Danger), ButtonSize enum (Small/Medium/Large), and fluent builder pattern per contracts/components.md
-- [ ] T008 [P] Create `crates/tusk_ui/src/resizer.rs` with Resizer component implementing RenderOnce for Axis::Horizontal and Axis::Vertical resize handles per contracts/resizer.md
-- [ ] T009 [P] Create `crates/tusk_ui/src/panel.rs` with Panel trait definition (panel_id, title, icon, focus, closable, is_dirty, position), PanelEvent enum, and AnyPanel wrapper type for type-erased panel storage per contracts/panel.md
-- [ ] T010 Create `crates/tusk_ui/src/pane.rs` with TabItem struct, Pane struct implementing Render/Focusable/EventEmitter<PaneEvent>, and PaneNode enum (Single/Split) per contracts/pane.md
-- [ ] T011 Create PaneGroup struct in `crates/tusk_ui/src/pane.rs` implementing Render/Focusable/EventEmitter<PaneGroupEvent> with split(), close_pane(), resize_split() methods per contracts/pane.md
-- [ ] T012 Create `crates/tusk_ui/src/dock.rs` with Dock struct implementing Render/Focusable/EventEmitter<DockEvent>, DockPosition enum (Left/Right/Bottom), size constraints (120px-600px for side, 100px-50vh for bottom) per contracts/dock.md
-- [ ] T013 Create `crates/tusk_ui/src/workspace.rs` with Workspace struct implementing Render/Focusable/EventEmitter<WorkspaceEvent>, containing left_dock, bottom_dock, center PaneGroup, and status_bar per contracts/workspace.md
-- [ ] T014 Add WorkspaceState struct for persistence (dock sizes, visibility, pane layout) in `crates/tusk_ui/src/workspace.rs` with Serialize/Deserialize per contracts/workspace.md
-- [ ] T015 Update `crates/tusk_ui/src/lib.rs` with all module declarations and public exports for workspace, dock, pane, panel, button, icon, spinner, resizer, key_bindings, layout, theme, confirm_dialog
-- [ ] T121 Create `crates/tusk_ui/src/confirm_dialog.rs` with ConfirmDialog struct implementing Render/Focusable for simple yes/no confirmations (title, message, confirm_label, cancel_label, on_confirm, on_cancel) - lightweight alternative to full Modal for immediate use in P1 stories
+- [x] T006 Create `crates/tusk_ui/src/key_bindings.rs` with global actions (ToggleLeftDock, ToggleRightDock, ToggleBottomDock, NewQueryTab, CloseActiveTab, etc.) and register_key_bindings() function per contracts/keyboard.md
+- [x] T007 [P] Create `crates/tusk_ui/src/button.rs` with Button component implementing RenderOnce, ButtonVariant enum (Primary/Secondary/Ghost/Danger), ButtonSize enum (Small/Medium/Large), and fluent builder pattern per contracts/components.md
+- [x] T008 [P] Create `crates/tusk_ui/src/resizer.rs` with Resizer component implementing RenderOnce for Axis::Horizontal and Axis::Vertical resize handles per contracts/resizer.md
+- [x] T009 [P] Create `crates/tusk_ui/src/panel.rs` with Panel trait definition (panel_id, title, icon, focus, closable, is_dirty, position), PanelEvent enum, and AnyPanel wrapper type for type-erased panel storage per contracts/panel.md
+- [x] T010 Create `crates/tusk_ui/src/pane.rs` with TabItem struct, Pane struct implementing Render/Focusable/EventEmitter<PaneEvent>, and PaneNode enum (Single/Split) per contracts/pane.md
+- [x] T011 Create PaneGroup struct in `crates/tusk_ui/src/pane.rs` implementing Render/Focusable/EventEmitter<PaneGroupEvent> with split(), close_pane(), resize_split() methods per contracts/pane.md
+- [x] T012 Create `crates/tusk_ui/src/dock.rs` with Dock struct implementing Render/Focusable/EventEmitter<DockEvent>, DockPosition enum (Left/Right/Bottom), size constraints (120px-600px for side, 100px-50vh for bottom) per contracts/dock.md
+- [x] T013 Create `crates/tusk_ui/src/workspace.rs` with Workspace struct implementing Render/Focusable/EventEmitter<WorkspaceEvent>, containing left_dock, bottom_dock, center PaneGroup, and status_bar per contracts/workspace.md
+- [x] T014 Add WorkspaceState struct for persistence (dock sizes, visibility, pane layout) in `crates/tusk_ui/src/workspace.rs` with Serialize/Deserialize per contracts/workspace.md
+- [x] T015 Update `crates/tusk_ui/src/lib.rs` with all module declarations and public exports for workspace, dock, pane, panel, button, icon, spinner, resizer, key_bindings, layout, theme, confirm_dialog
+- [x] T121 Create `crates/tusk_ui/src/confirm_dialog.rs` with ConfirmDialog struct implementing Render/Focusable for simple yes/no confirmations (title, message, confirm_label, cancel_label, on_confirm, on_cancel) - lightweight alternative to full Modal for immediate use in P1 stories
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -64,13 +64,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Create `crates/tusk_ui/src/status_bar.rs` with StatusBar struct implementing Render, displaying connection status placeholder (left) and execution state placeholder (right) per contracts/components.md
-- [ ] T017 [US1] Implement Workspace::new() constructor in `crates/tusk_ui/src/workspace.rs` creating left_dock (240px default), bottom_dock, center PaneGroup, and StatusBar
-- [ ] T018 [US1] Implement Workspace::render() in `crates/tusk_ui/src/workspace.rs` with layout: left dock (conditional), center pane group (flex-grow), status bar (bottom)
-- [ ] T019 [US1] Create `crates/tusk_ui/src/panels/mod.rs` with module structure for panels
-- [ ] T020 [US1] Create `crates/tusk_ui/src/panels/schema_browser.rs` with SchemaBrowserPanel struct implementing Panel trait (placeholder content for now)
-- [ ] T021 [US1] Wire up workspace in `crates/tusk/src/app.rs` to create and render Workspace as root component
-- [ ] T022 [US1] Register left dock with SchemaBrowserPanel in Workspace initialization in `crates/tusk_ui/src/workspace.rs`
+- [x] T016 [US1] Create `crates/tusk_ui/src/status_bar.rs` with StatusBar struct implementing Render, displaying connection status placeholder (left) and execution state placeholder (right) per contracts/components.md
+- [x] T017 [US1] Implement Workspace::new() constructor in `crates/tusk_ui/src/workspace.rs` creating left_dock (240px default), bottom_dock, center PaneGroup, and StatusBar
+- [x] T018 [US1] Implement Workspace::render() in `crates/tusk_ui/src/workspace.rs` with layout: left dock (conditional), center pane group (flex-grow), status bar (bottom)
+- [x] T019 [US1] Create `crates/tusk_ui/src/panels/mod.rs` with module structure for panels
+- [x] T020 [US1] Create `crates/tusk_ui/src/panels/schema_browser.rs` with SchemaBrowserPanel struct implementing Panel trait (placeholder content for now)
+- [x] T021 [US1] Wire up workspace in `crates/tusk/src/app.rs` to create and render Workspace as root component
+- [x] T022 [US1] Register left dock with SchemaBrowserPanel in Workspace initialization in `crates/tusk_ui/src/workspace.rs`
 
 **Checkpoint**: User Story 1 complete - application launches with visible workspace shell (left dock, center area, status bar)
 

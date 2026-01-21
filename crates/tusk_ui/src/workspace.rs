@@ -9,14 +9,17 @@ use gpui::{
 };
 use serde::{Deserialize, Serialize};
 
+use std::sync::Arc;
+
 use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::key_bindings::{
     CloseActiveTab, FocusNextPane, FocusPreviousPane, NextTab, PreviousTab, SplitDown, SplitRight,
     ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
 };
-use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, TabItem};
 use crate::panel::{DockPosition, Focusable};
+use crate::panels::SchemaBrowserPanel;
+use crate::status_bar::StatusBar;
 use crate::TuskTheme;
 
 /// Events emitted by the workspace.
@@ -107,6 +110,12 @@ impl Workspace {
         // Create docks
         let left_dock = cx.new(|cx| Dock::new(DockPosition::Left, cx));
         let bottom_dock = cx.new(|cx| Dock::new(DockPosition::Bottom, cx));
+
+        // Create and register the schema browser panel with the left dock
+        let schema_browser = cx.new(|cx| SchemaBrowserPanel::new(cx));
+        left_dock.update(cx, |dock, cx| {
+            dock.add_panel(Arc::new(schema_browser), cx);
+        });
 
         // Create center pane group with one initial pane
         let center = cx.new(|cx| PaneGroup::new(window, cx));
@@ -376,21 +385,8 @@ impl Workspace {
     }
 
     /// Render the status bar.
-    fn render_status_bar(&self, cx: &App) -> impl IntoElement {
-        let theme = cx.global::<TuskTheme>();
-
-        div()
-            .h(STATUS_BAR_HEIGHT)
-            .w_full()
-            .flex()
-            .items_center()
-            .px(px(12.0))
-            .bg(theme.colors.status_bar_background)
-            .border_t_1()
-            .border_color(theme.colors.border)
-            .text_color(theme.colors.text_muted)
-            .text_size(px(12.0))
-            .child("Ready")
+    fn render_status_bar(&self, _cx: &App) -> impl IntoElement {
+        StatusBar::new()
     }
 }
 
