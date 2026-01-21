@@ -142,9 +142,3 @@ Contributions are welcome! Please read the design document before starting work 
 ## License
 
 [MIT](LICENSE)
-
-## Acknowledgments
-
-- [GPUI](https://github.com/zed-industries/zed) - GPU-accelerated UI framework from the Zed editor
-- [JetBrains Mono](https://www.jetbrains.com/lp/mono/) - Typeface for developers
-- [Elephant Head icon](https://game-icons.net/1x1/delapouite/elephant-head.html) by Delapouite (CC BY 3.0)
