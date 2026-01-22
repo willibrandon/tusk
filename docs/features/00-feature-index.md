@@ -17,7 +17,7 @@ These features establish the project infrastructure and must be completed first.
 | 01  | [01-project-initialization.md](./01-project-initialization.md)             | GPUI project setup, Cargo workspace, build config    | None         |
 | 02  | [02-backend-architecture.md](./02-backend-architecture.md)                 | Rust service layer, modules, error handling          | 01           |
 | 03  | [03-frontend-architecture.md](./03-frontend-architecture.md)               | GPUI component structure, styling, Global state      | 01           |
-| 04  | [04-ipc-layer.md](./04-ipc-layer.md)                                       | Service integration, async patterns, channel events  | 02, 03       |
+| 04  | [04-service-integration.md](./04-service-integration.md)                                       | Service integration, async patterns, channel events  | 02, 03       |
 | 05  | [05-local-storage.md](./05-local-storage.md)                               | SQLite schema, migrations, CRUD operations           | 02, 04       |
 | 06  | [06-settings-theming-credentials.md](./06-settings-theming-credentials.md) | Settings system, GPUI theming, OS keychain           | 03, 04, 05   |
 

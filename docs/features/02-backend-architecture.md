@@ -1243,7 +1243,7 @@ mod tests {
 
 ## Dependent Features
 
-- 04-ipc-layer.md (now internal Rust APIs, not IPC)
+- 04-service-integration.md (now internal Rust APIs, not IPC)
 - 05-local-storage.md
 - 07-connection-management.md
 - All other backend features

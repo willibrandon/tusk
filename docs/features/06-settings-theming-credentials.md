@@ -1575,7 +1575,7 @@ mod tests {
 ## Dependencies on Other Features
 
 - **03-frontend-architecture.md**: GPUI component patterns
-- **04-ipc-layer.md**: TuskState global
+- **04-service-integration.md**: TuskState global
 - **05-local-storage.md**: Settings persistence
 
 ## Dependent Features

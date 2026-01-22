@@ -2169,7 +2169,7 @@ mod gpui_tests {
 
 ## Dependencies on Other Features
 
-- **04-ipc-layer.md**: Defines service architecture pattern (now internal, no IPC)
+- **04-service-integration.md**: Defines service architecture pattern (now internal, no IPC)
 - **05-local-storage.md**: StorageService for persisting connection configs
 - **06-settings-theming-credentials.md**: KeyringService for password storage, Theme for UI
 

@@ -1990,7 +1990,7 @@ mod tests {
 ## Dependencies on Other Features
 
 - **02-backend-architecture.md**: Error types, module structure
-- **04-ipc-layer.md**: TuskState global integration
+- **04-service-integration.md**: TuskState global integration
 
 ## Dependent Features
 
