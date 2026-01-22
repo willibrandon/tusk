@@ -98,6 +98,8 @@ pub struct DisplayError {
     pub hint: Option<String>,
     /// Optional error code
     pub code: Option<String>,
+    /// Error position in query (1-indexed, for T063)
+    pub position: Option<usize>,
     /// Whether this was a query cancellation
     pub is_cancelled: bool,
 }
@@ -110,6 +112,7 @@ impl From<TuskError> for DisplayError {
             message: err.to_string(),
             hint: err.hint().map(|s| s.to_string()),
             code: err.pg_code().map(|s| s.to_string()),
+            position: err.position(),
         }
     }
 }
@@ -233,6 +236,7 @@ impl ResultsPanel {
             message: message.into(),
             hint: None,
             code: None,
+            position: None,
             is_cancelled: false,
         });
         cx.notify();

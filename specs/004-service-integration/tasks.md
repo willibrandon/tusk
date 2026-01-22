@@ -157,16 +157,16 @@ This is a Rust workspace with multiple crates:
 
 ### Implementation for User Story 5
 
-- [ ] T060 [US5] Implement error display rules based on ErrorInfo.recoverable flag in crates/tusk_ui/src/workspace.rs
-- [ ] T061 [US5] Show toast notifications for recoverable errors (auto-dismiss 10s) in crates/tusk_ui/src/toast.rs
-- [ ] T062 [US5] Create ErrorPanel component for detailed error display in crates/tusk_ui/src/error_panel.rs
-- [ ] T063 [US5] Display error position indicator for query errors in crates/tusk_ui/src/panels/results.rs
-- [ ] T064 [US5] Show PostgreSQL error code and hint in error panel in crates/tusk_ui/src/error_panel.rs
-- [ ] T065 [US5] Map PostgreSQL error codes to user-friendly hints in crates/tusk_core/src/error.rs
-- [ ] T066 [US5] Handle authentication errors with specific hints in crates/tusk_core/src/error.rs
-- [ ] T067 [US5] Handle connection timeout with retry suggestion in crates/tusk_core/src/error.rs
-- [ ] T068 [US5] Handle pool timeout with "close unused tabs" hint in crates/tusk_core/src/error.rs
-- [ ] T069 [US5] Log errors at WARN/ERROR level with context (no credentials) in crates/tusk_core/src/services/query.rs
+- [X] T060 [US5] Implement error display rules based on ErrorInfo.recoverable flag in crates/tusk_ui/src/workspace.rs
+- [X] T061 [US5] Show toast notifications for recoverable errors (auto-dismiss 10s) in crates/tusk_ui/src/toast.rs
+- [X] T062 [US5] Create ErrorPanel component for detailed error display in crates/tusk_ui/src/error_panel.rs
+- [X] T063 [US5] Display error position indicator for query errors in crates/tusk_ui/src/panels/results.rs
+- [X] T064 [US5] Show PostgreSQL error code and hint in error panel in crates/tusk_ui/src/error_panel.rs
+- [X] T065 [US5] Map PostgreSQL error codes to user-friendly hints in crates/tusk_core/src/error.rs
+- [X] T066 [US5] Handle authentication errors with specific hints in crates/tusk_core/src/error.rs
+- [X] T067 [US5] Handle connection timeout with retry suggestion in crates/tusk_core/src/error.rs
+- [X] T068 [US5] Handle pool timeout with "close unused tabs" hint in crates/tusk_core/src/error.rs
+- [X] T069 [US5] Log errors at WARN/ERROR level with context (no credentials) in crates/tusk_core/src/services/query.rs
 
 **Checkpoint**: At this point, User Stories 1-5 should all work independently
 

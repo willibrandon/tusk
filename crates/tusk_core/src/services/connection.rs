@@ -88,29 +88,52 @@ impl ConnectionPool {
             .create_timeout(Some(connect_timeout))
             .runtime(Runtime::Tokio1)
             .build()
-            .map_err(|e| TuskError::connection(format!("Failed to create pool: {e}")))?;
+            .map_err(|e| {
+                tracing::error!(
+                    host = %config.host,
+                    database = %config.database,
+                    error = %e,
+                    "Failed to create connection pool"
+                );
+                TuskError::connection(format!("Failed to create pool: {e}"))
+            })?;
 
         // Build session defaults SQL (statement_timeout, idle_in_transaction_session_timeout)
         let session_defaults_sql = Self::build_session_defaults_sql(&config);
 
         // Validate connection by establishing a test connection (FR-011)
-        let client = pool
-            .get()
-            .await
-            .map_err(|e| TuskError::connection(format!("Failed to establish connection: {e}")))?;
+        let client = pool.get().await.map_err(|e| {
+            tracing::error!(
+                host = %config.host,
+                database = %config.database,
+                error = %e,
+                "Failed to establish initial connection"
+            );
+            TuskError::connection(format!("Failed to establish connection: {e}"))
+        })?;
 
         // Apply session defaults on the validation connection
         if let Some(ref sql) = session_defaults_sql {
             client.execute(sql.as_str(), &[]).await.map_err(|e| {
+                tracing::error!(
+                    connection_id = %config.id,
+                    error = %e,
+                    "Failed to set session defaults on initial connection"
+                );
                 TuskError::connection(format!("Failed to set session defaults: {e}"))
             })?;
         }
 
         // Execute a simple query to verify the connection is working
-        client
-            .execute("SELECT 1", &[])
-            .await
-            .map_err(|e| TuskError::connection(format!("Connection validation failed: {e}")))?;
+        client.execute("SELECT 1", &[]).await.map_err(|e| {
+            tracing::error!(
+                host = %config.host,
+                database = %config.database,
+                error = %e,
+                "Connection validation query failed"
+            );
+            TuskError::connection(format!("Connection validation failed: {e}"))
+        })?;
 
         tracing::info!(
             connection_id = %config.id,
@@ -175,11 +198,22 @@ impl ConnectionPool {
         let client = self.pool.get().await.map_err(|e| {
             let status = self.status();
             if status.waiting > 0 {
+                tracing::warn!(
+                    connection_id = %self.id,
+                    waiting = status.waiting,
+                    error = %e,
+                    "Pool exhausted - connection timeout"
+                );
                 TuskError::pool_timeout(
                     format!("Pool exhausted after timeout: {e}"),
                     status.waiting,
                 )
             } else {
+                tracing::error!(
+                    connection_id = %self.id,
+                    error = %e,
+                    "Failed to acquire connection from pool"
+                );
                 TuskError::connection(format!("Failed to acquire connection: {e}"))
             }
         })?;
@@ -188,6 +222,11 @@ impl ConnectionPool {
         // This ensures timeouts are set even for recycled connections
         if let Some(ref sql) = self.session_defaults_sql {
             client.execute(sql.as_str(), &[]).await.map_err(|e| {
+                tracing::error!(
+                    connection_id = %self.id,
+                    error = %e,
+                    "Failed to set session defaults on acquired connection"
+                );
                 TuskError::connection(format!("Failed to set session defaults: {e}"))
             })?;
         }

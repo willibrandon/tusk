@@ -316,41 +316,204 @@ impl TuskError {
         }
     }
 
-    /// Convert to user-displayable error info (FR-003).
+    /// Convert to user-displayable error info (FR-003, FR-019, FR-020, FR-021).
+    ///
+    /// Display rules per error-handling.md contract:
+    /// - recoverable=true, no position: Toast notification (auto-dismiss 10s)
+    /// - recoverable=true, has position: Error panel (query errors)
+    /// - recoverable=false: Error panel + log (critical errors)
     pub fn to_error_info(&self) -> ErrorInfo {
-        let error_type = format!("{} Error", self.category());
-        let message = self.to_string();
-        let hint = self.hint().map(String::from);
+        match self {
+            Self::Connection { message, .. } => ErrorInfo {
+                error_type: "Connection Error".to_string(),
+                message: message.clone(),
+                hint: Some("Check that the database server is running and accessible".to_string()),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: true,
+            },
 
-        let technical_detail = match self {
-            Self::Query { detail, code, position, .. } => {
-                let mut parts = Vec::new();
-                if let Some(code) = code {
-                    parts.push(format!("Code: {code}"));
-                }
-                if let Some(pos) = position {
-                    parts.push(format!("Position: {pos}"));
-                }
-                if let Some(detail) = detail {
-                    parts.push(format!("Detail: {detail}"));
-                }
-                if parts.is_empty() {
-                    None
-                } else {
-                    Some(parts.join("\n"))
-                }
-            }
-            Self::PoolTimeout { waiting, .. } => {
-                Some(format!("{waiting} tasks waiting for connections"))
-            }
+            Self::Authentication { message, hint } => ErrorInfo {
+                error_type: "Authentication Failed".to_string(),
+                message: message.clone(),
+                hint: hint.clone().or(Some("Verify username and password".to_string())),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: true,
+            },
+
+            Self::Ssl { message, .. } => ErrorInfo {
+                error_type: "SSL Error".to_string(),
+                message: message.clone(),
+                hint: Some("Verify SSL certificate configuration".to_string()),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: true,
+            },
+
+            Self::Ssh { message, .. } => ErrorInfo {
+                error_type: "SSH Error".to_string(),
+                message: message.clone(),
+                hint: Some("Check SSH key permissions".to_string()),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: true,
+            },
+
+            Self::Query { message, detail, hint, position, code } => ErrorInfo {
+                error_type: "Query Error".to_string(),
+                message: message.clone(),
+                hint: hint.clone().or_else(|| Self::hint_for_pg_code(code.as_deref())),
+                technical_detail: detail.clone(),
+                position: *position,
+                code: code.clone(),
+                recoverable: true,
+            },
+
+            Self::QueryCancelled { .. } => ErrorInfo {
+                error_type: "Query Cancelled".to_string(),
+                message: "Query was cancelled by user".to_string(),
+                hint: None,
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: true,
+            },
+
+            Self::Storage { message, hint, .. } => ErrorInfo {
+                error_type: "Storage Error".to_string(),
+                message: message.clone(),
+                hint: hint.clone().or(Some("Check file permissions and disk space".to_string())),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: false, // Storage errors are typically not recoverable
+            },
+
+            Self::Keyring { message, hint } => ErrorInfo {
+                error_type: "Credential Storage Error".to_string(),
+                message: message.clone(),
+                hint: hint
+                    .clone()
+                    .or(Some("Password will be stored for this session only".to_string())),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: true,
+            },
+
+            Self::PoolTimeout { message, waiting } => ErrorInfo {
+                error_type: "Connection Pool Timeout".to_string(),
+                message: message.clone(),
+                hint: Some(format!("{} queries waiting. Consider closing unused tabs", waiting)),
+                technical_detail: Some(format!("{} tasks waiting for connections", waiting)),
+                position: None,
+                code: None,
+                recoverable: true,
+            },
+
+            Self::Internal { message, .. } => ErrorInfo {
+                error_type: "Internal Error".to_string(),
+                message: message.clone(),
+                hint: Some("Please report this issue".to_string()),
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: false, // Internal errors are not recoverable
+            },
+
+            Self::Window { message } => ErrorInfo {
+                error_type: "Window Error".to_string(),
+                message: message.clone(),
+                hint: None,
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: false,
+            },
+
+            Self::Theme { message } => ErrorInfo {
+                error_type: "Theme Error".to_string(),
+                message: message.clone(),
+                hint: None,
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: false,
+            },
+
+            Self::Font { message, path } => ErrorInfo {
+                error_type: "Font Error".to_string(),
+                message: message.clone(),
+                hint: None,
+                technical_detail: path.clone(),
+                position: None,
+                code: None,
+                recoverable: false,
+            },
+
+            Self::Config { message } => ErrorInfo {
+                error_type: "Config Error".to_string(),
+                message: message.clone(),
+                hint: None,
+                technical_detail: None,
+                position: None,
+                code: None,
+                recoverable: false,
+            },
+        }
+    }
+
+    /// Map PostgreSQL error codes to user-friendly hints (T065).
+    ///
+    /// Common PostgreSQL error codes per error-handling.md contract.
+    fn hint_for_pg_code(code: Option<&str>) -> Option<String> {
+        let code = code?;
+        match code {
+            // Authentication errors (28xxx)
+            "28P01" => Some("Check your password and try again".to_string()),
+            "28000" => Some("Authentication failed - check username and permissions".to_string()),
+
+            // Connection exceptions (08xxx)
+            "08000" => Some("Connection error occurred".to_string()),
+            "08003" => Some("Connection does not exist".to_string()),
+            "08006" => Some("Connection failure".to_string()),
+            "08001" => Some("Unable to establish connection".to_string()),
+            "08004" => Some("Server rejected the connection".to_string()),
+
+            // Database errors (3Dxxx)
+            "3D000" => Some("Database does not exist".to_string()),
+
+            // Syntax and semantic errors (42xxx)
+            "42601" => Some("Check SQL syntax".to_string()),
+            "42P01" => Some("Table does not exist".to_string()),
+            "42703" => Some("Column does not exist".to_string()),
+            "42501" => Some("Insufficient privileges".to_string()),
+            "42P02" => Some("Parameter does not exist".to_string()),
+
+            // Resource limit errors (53xxx)
+            "53000" => Some("Insufficient resources".to_string()),
+            "53100" => Some("Disk full".to_string()),
+            "53200" => Some("Out of memory".to_string()),
+            "53300" => Some("Server connection limit reached. Try again later".to_string()),
+
+            // Query cancelled (57xxx)
+            "57014" => Some("Query was cancelled".to_string()),
+            "57P01" => Some("Database server is shutting down".to_string()),
+            "57P02" => Some("Database server is starting up".to_string()),
+            "57P03" => Some("Cannot connect now - server not accepting connections".to_string()),
+
+            // Other errors
             _ => None,
-        };
-
-        ErrorInfo { error_type, message, hint, technical_detail }
+        }
     }
 }
 
-/// User-displayable error information (FR-003).
+/// User-displayable error information (FR-003, FR-019, FR-020, FR-021).
 #[derive(Debug, Clone)]
 pub struct ErrorInfo {
     /// Category name (e.g., "Connection Error").
@@ -361,11 +524,22 @@ pub struct ErrorInfo {
     pub hint: Option<String>,
     /// Technical detail for "Show Details" expansion.
     pub technical_detail: Option<String>,
+    /// Character position for query errors (1-indexed).
+    pub position: Option<usize>,
+    /// PostgreSQL error code (e.g., "42P01" for undefined table).
+    pub code: Option<String>,
+    /// Whether the error is recoverable (affects display type).
+    /// - true: Show as toast notification (auto-dismiss 10s)
+    /// - false: Show as error panel/modal
+    pub recoverable: bool,
 }
 
 // ========== Error Conversions (FR-004) ==========
 
-/// Convert from tokio_postgres::Error to TuskError.
+/// Convert from tokio_postgres::Error to TuskError (T066, T067).
+///
+/// Maps PostgreSQL error codes to appropriate TuskError variants with
+/// user-friendly hints per SC-006 requirements.
 impl From<tokio_postgres::Error> for TuskError {
     fn from(err: tokio_postgres::Error) -> Self {
         // Try to extract PostgreSQL error details
@@ -378,15 +552,15 @@ impl From<tokio_postgres::Error> for TuskError {
                 tokio_postgres::error::ErrorPosition::Internal { .. } => None,
             });
             let code = Some(db_err.code().code().to_string());
-
-            // Map specific error codes to appropriate variants
             let code_str = db_err.code().code();
+
+            // Map specific error codes to appropriate variants (T066)
             match code_str {
-                // Authentication errors
+                // Authentication errors (E01, E02 per error-handling.md)
                 "28P01" => {
                     return TuskError::Authentication {
                         message,
-                        hint: Some("Invalid password - check your credentials".to_string()),
+                        hint: Some("Check your password and try again".to_string()),
                     }
                 }
                 "28000" => {
@@ -397,19 +571,95 @@ impl From<tokio_postgres::Error> for TuskError {
                         ),
                     }
                 }
-                // Connection exceptions (08xxx)
+
+                // Connection exceptions (08xxx) - E03, E04, E15
+                "08000" => {
+                    return TuskError::Connection {
+                        message: format!("{} - Check network connectivity", message),
+                        source: Some(Box::new(err)),
+                    }
+                }
+                "08001" => {
+                    return TuskError::Connection {
+                        message,
+                        source: Some(Box::new(err)),
+                    }
+                }
+                "08003" => {
+                    return TuskError::Connection {
+                        message: "Connection lost. Reconnect to continue".to_string(),
+                        source: Some(Box::new(err)),
+                    }
+                }
+                "08006" => {
+                    return TuskError::Connection {
+                        message: "Connection to server lost. Reconnect to continue".to_string(),
+                        source: Some(Box::new(err)),
+                    }
+                }
+
+                // Database does not exist (E05)
+                "3D000" => {
+                    return TuskError::Connection {
+                        message: format!("{} - Database does not exist on this server", message),
+                        source: Some(Box::new(err)),
+                    }
+                }
+
+                // Too many connections (E19)
+                "53300" => {
+                    return TuskError::Connection {
+                        message: format!(
+                            "{} - Server connection limit reached. Try again later",
+                            message
+                        ),
+                        source: Some(Box::new(err)),
+                    }
+                }
+
+                // Admin shutdown (E18)
+                "57P01" => {
+                    return TuskError::Connection {
+                        message: "Database server is shutting down".to_string(),
+                        source: Some(Box::new(err)),
+                    }
+                }
+
+                // Query cancelled (E12, E13)
+                "57014" => {
+                    // This is handled separately via QueryCancelled, but just in case
+                    return TuskError::Query {
+                        message: "Query was cancelled".to_string(),
+                        detail,
+                        hint: Some("Query was cancelled by database administrator".to_string()),
+                        position,
+                        code,
+                    }
+                }
+
+                // Other connection exceptions
                 _ if code_str.starts_with("08") => {
                     return TuskError::Connection { message, source: Some(Box::new(err)) }
                 }
+
                 // Syntax/semantic errors (42xxx) and others - return as Query error
                 _ => return TuskError::Query { message, detail, hint, position, code },
             }
         }
 
+        // Check for connection timeout (T067)
+        let err_msg = err.to_string().to_lowercase();
+        if err_msg.contains("timeout") || err_msg.contains("timed out") {
+            return TuskError::Connection {
+                message: "Connection timeout - Server may be slow or unreachable. Check network connectivity".to_string(),
+                source: Some(Box::new(err)),
+            };
+        }
+
         // Connection errors without db_error details
         if err.is_closed() {
             return TuskError::Connection {
-                message: "Connection closed".to_string(),
+                message: "Connection lost. Reconnect to continue".to_string(),
                 source: Some(Box::new(err)),
             };
         }
