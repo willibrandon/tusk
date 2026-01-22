@@ -65,8 +65,16 @@ fn main() {
         };
 
         // Open the main window
-        cx.open_window(window_options, |window, cx| cx.new(|cx| TuskApp::new(window, cx)))
-            .expect("Failed to open window");
+        cx.open_window(window_options, |window, cx| {
+            // Register should_close handler for proper window cleanup on Windows
+            window.on_window_should_close(cx, |_window, _cx| {
+                // Allow close - returning true permits the window to close
+                true
+            });
+
+            cx.new(|cx| TuskApp::new(window, cx))
+        })
+        .expect("Failed to open window");
 
         // Activate the application (bring to front)
         cx.activate(true);
