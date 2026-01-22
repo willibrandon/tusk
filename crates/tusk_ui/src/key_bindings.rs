@@ -43,6 +43,26 @@ actions!(
         // Global
         CommandPalette,
         Settings,
+        // Application
+        Quit,
+        About,
+        CloseWindow,
+        Minimize,
+        Zoom,
+    ]
+);
+
+// ============================================================================
+// Query Actions
+// ============================================================================
+
+actions!(
+    query,
+    [
+        RunQuery,
+        ExplainQuery,
+        FormatQuery,
+        CancelQuery,
     ]
 );
 
@@ -154,6 +174,15 @@ pub fn register_key_bindings(cx: &mut App) {
         // Global
         KeyBinding::new("cmd-shift-p", CommandPalette, Some("Workspace")),
         KeyBinding::new("cmd-,", Settings, Some("Workspace")),
+        KeyBinding::new("cmd-q", Quit, None),
+    ]);
+
+    // Query bindings
+    cx.bind_keys([
+        KeyBinding::new("cmd-enter", RunQuery, Some("QueryEditor")),
+        KeyBinding::new("cmd-shift-e", ExplainQuery, Some("QueryEditor")),
+        KeyBinding::new("cmd-shift-f", FormatQuery, Some("QueryEditor")),
+        KeyBinding::new("escape", CancelQuery, Some("QueryEditor")),
     ]);
 
     // Tree navigation bindings

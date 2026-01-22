@@ -50,6 +50,9 @@ pub use status_bar::{ConnectionStatus, ExecutionState, StatusBar};
 pub use theme::{ThemeColors, TuskTheme};
 pub use tooltip::Tooltip;
 pub use select::{Select, SelectEvent, SelectOption};
-pub use text_input::{register_text_input_bindings, TextInput, TextInputEvent};
+pub use text_input::{
+    register_text_input_bindings, Copy, Cut, Paste, Redo, SelectAll, TextInput, TextInputEvent,
+    Undo,
+};
 pub use tree::{Tree, TreeEvent, TreeItem, VisibleEntry};
 pub use workspace::{Workspace, WorkspaceEvent, WorkspaceState};

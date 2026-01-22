@@ -26,6 +26,12 @@ actions!(
         Home,
         End,
         Submit,
+        // Standard edit operations (for menu integration)
+        Undo,
+        Redo,
+        Cut,
+        Copy,
+        Paste,
     ]
 );
 

@@ -1,11 +1,13 @@
 //! Tusk - A fast, native PostgreSQL client built with GPUI.
 
 mod app;
+mod app_menus;
 
 use app::TuskApp;
-use gpui::{px, size, App, AppContext, Application, Bounds, Size, WindowBounds, WindowOptions};
+use gpui::{px, size, App, AppContext, Application, Bounds, PromptLevel, Size, WindowBounds, WindowOptions};
 use tusk_core::logging::{init_logging, LogConfig};
 use tusk_core::state::TuskState;
+use tusk_ui::key_bindings::{About, CloseWindow, Minimize, Quit, Zoom};
 use tusk_ui::TuskTheme;
 
 fn main() {
@@ -30,6 +32,13 @@ fn main() {
 
         // Register TuskTheme as global state
         cx.set_global(TuskTheme::default());
+
+        // Set up application menus
+        let menus = app_menus::app_menus(cx);
+        cx.set_menus(menus);
+
+        // Register global action handlers
+        register_global_actions(cx);
 
         // Quit when all windows are closed
         cx.on_window_closed(|cx| {
@@ -60,5 +69,76 @@ fn main() {
 
         // Activate the application (bring to front)
         cx.activate(true);
+    });
+}
+
+/// Register handlers for global application actions.
+///
+/// These actions work at the application level, independent of which
+/// component has focus. Menu items are only enabled when their corresponding
+/// action has a registered handler.
+fn register_global_actions(cx: &mut App) {
+    // Quit application
+    cx.on_action(|_: &Quit, cx| {
+        cx.quit();
+    });
+
+    // About Tusk dialog
+    cx.on_action(|_: &About, cx| {
+        // Defer to run after current dispatch completes (window may be borrowed during menu action)
+        cx.defer(|cx| {
+            if let Some(window_handle) = cx.windows().first().copied() {
+                let result = window_handle
+                    .update(cx, |_, window, cx| {
+                        let version = env!("CARGO_PKG_VERSION");
+                        let message = format!("Tusk {version}");
+                        let detail = "A fast, native PostgreSQL client built with GPUI.";
+                        let prompt = window.prompt(PromptLevel::Info, &message, Some(detail), &["OK"], cx);
+                        cx.background_executor().spawn(async move {
+                            let _ = prompt.await;
+                        }).detach();
+                    });
+                if let Err(e) = result {
+                    tracing::error!("About dialog failed: {e}");
+                }
+            }
+        });
+    });
+
+    // Window management actions - deferred to run after current dispatch
+    cx.on_action(|_: &Minimize, cx| {
+        cx.defer(|cx| {
+            if let Some(window_handle) = cx.windows().first().copied() {
+                window_handle
+                    .update(cx, |_, window, _cx| {
+                        window.minimize_window();
+                    })
+                    .ok();
+            }
+        });
+    });
+
+    cx.on_action(|_: &Zoom, cx| {
+        cx.defer(|cx| {
+            if let Some(window_handle) = cx.windows().first().copied() {
+                window_handle
+                    .update(cx, |_, window, _cx| {
+                        window.zoom_window();
+                    })
+                    .ok();
+            }
+        });
+    });
+
+    cx.on_action(|_: &CloseWindow, cx| {
+        cx.defer(|cx| {
+            if let Some(window_handle) = cx.windows().first().copied() {
+                window_handle
+                    .update(cx, |_, window, _cx| {
+                        window.remove_window();
+                    })
+                    .ok();
+            }
+        });
     });
 }
