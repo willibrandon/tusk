@@ -398,6 +398,8 @@ When in doubt, grep Zed's codebase for real-world usage patterns.
 
 ## Active Technologies
 - Local SQLite via rusqlite (for persistence of dock sizes, workspace state) (003-frontend-architecture)
+- Rust 1.80+ with 2021 edition + GPUI (from Zed), tokio-postgres 0.7, deadpool-postgres 0.14, tokio 1.x, parking_lot 0.12 (004-service-integration)
+- PostgreSQL (target databases), SQLite via rusqlite 0.32 (local metadata) (004-service-integration)
 
 - Rust 1.80+ with 2021 edition
 - GPUI (from Zed repository) for GPU-accelerated UI
