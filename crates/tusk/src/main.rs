@@ -57,14 +57,13 @@ fn main() {
 
         // Open the main window
         cx.open_window(window_options, |window, cx| {
-            // Handle window close manually to avoid Windows race condition.
+            // Handle window close by deferring quit to avoid Windows race condition.
             // Returning false prevents the standard Windows close sequence (which
             // triggers WM_ACTIVATE messages that race with window destruction).
-            // Instead, we manually remove the window and quit the app.
-            window.on_window_should_close(cx, |window, cx| {
-                window.remove_window();
-                cx.quit();
-                false // Prevent standard close, we handled it manually
+            // Deferring quit allows pending Windows messages to drain first.
+            window.on_window_should_close(cx, |_window, cx| {
+                cx.defer(|cx| cx.quit());
+                false
             });
 
             cx.new(|cx| TuskApp::new(window, cx))
@@ -137,15 +136,8 @@ fn register_global_actions(cx: &mut App) {
     });
 
     cx.on_action(|_: &CloseWindow, cx| {
-        cx.defer(|cx| {
-            if let Some(window_handle) = cx.windows().first().copied() {
-                window_handle
-                    .update(cx, |_, window, _cx| {
-                        window.remove_window();
-                    })
-                    .ok();
-            }
-        });
+        // Use quit() which handles window cleanup properly on all platforms
+        cx.defer(|cx| cx.quit());
     });
 
     // Keyboard shortcuts dialog
