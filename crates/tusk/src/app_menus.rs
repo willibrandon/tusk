@@ -5,8 +5,8 @@
 
 use gpui::{App, Menu, MenuItem, OsAction};
 use tusk_ui::key_bindings::{
-    About, CloseActiveTab, CloseWindow, Minimize, NewQueryTab, Quit, Settings, SplitDown,
-    SplitRight, ToggleBottomDock, ToggleLeftDock, Zoom,
+    About, CloseActiveTab, CloseWindow, Minimize, NewQueryTab, Quit, Settings,
+    ShowKeyboardShortcuts, SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, Zoom,
 };
 use tusk_ui::{Copy, Cut, Paste, Redo, SelectAll, Undo};
 
@@ -78,6 +78,13 @@ pub fn app_menus(_cx: &mut App) -> Vec<Menu> {
             ],
         },
         // Help menu
-        Menu { name: "Help".into(), items: vec![MenuItem::action("About Tusk", About)] },
+        Menu {
+            name: "Help".into(),
+            items: vec![
+                MenuItem::action("Keyboard Shortcuts", ShowKeyboardShortcuts),
+                MenuItem::separator(),
+                MenuItem::action("About Tusk", About),
+            ],
+        },
     ]
 }

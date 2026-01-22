@@ -14,6 +14,7 @@ pub mod context_menu;
 pub mod dock;
 pub mod icon;
 pub mod key_bindings;
+pub mod keyboard_shortcuts;
 pub mod layout;
 pub mod modal;
 pub mod pane;
@@ -36,6 +37,7 @@ pub use context_menu::{ContextMenu, ContextMenuEvent, ContextMenuItem, ContextMe
 pub use dock::{Dock, DockEvent};
 pub use icon::{Icon, IconName, IconSize};
 pub use key_bindings::register_key_bindings;
+pub use keyboard_shortcuts::show_keyboard_shortcuts;
 pub use layout::{radius, sizes, spacing};
 pub use modal::{Modal, ModalAction, ModalEvent, ModalLayer};
 pub use pane::{

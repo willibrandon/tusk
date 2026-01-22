@@ -49,6 +49,7 @@ actions!(
         CloseWindow,
         Minimize,
         Zoom,
+        ShowKeyboardShortcuts,
     ]
 );
 
@@ -150,6 +151,7 @@ pub fn register_key_bindings(cx: &mut App) {
         // Global
         KeyBinding::new("cmd-shift-p", CommandPalette, Some("Workspace")),
         KeyBinding::new("cmd-,", Settings, Some("Workspace")),
+        KeyBinding::new("cmd-/", ShowKeyboardShortcuts, None),
         KeyBinding::new("cmd-q", Quit, None),
     ]);
 

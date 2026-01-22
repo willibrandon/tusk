@@ -9,8 +9,8 @@ use gpui::{
 };
 use tusk_core::logging::{init_logging, LogConfig};
 use tusk_core::state::TuskState;
-use tusk_ui::key_bindings::{About, CloseWindow, Minimize, Quit, Zoom};
-use tusk_ui::TuskTheme;
+use tusk_ui::key_bindings::{About, CloseWindow, Minimize, Quit, ShowKeyboardShortcuts, Zoom};
+use tusk_ui::{show_keyboard_shortcuts, TuskTheme};
 
 fn main() {
     // Initialize logging before TuskState (FR-022, FR-023, FR-024)
@@ -141,6 +141,13 @@ fn register_global_actions(cx: &mut App) {
                     })
                     .ok();
             }
+        });
+    });
+
+    // Keyboard shortcuts dialog
+    cx.on_action(|_: &ShowKeyboardShortcuts, cx| {
+        cx.defer(|cx| {
+            show_keyboard_shortcuts(cx);
         });
     });
 }
