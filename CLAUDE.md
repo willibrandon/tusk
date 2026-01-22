@@ -410,4 +410,10 @@ When in doubt, grep Zed's codebase for real-world usage patterns.
 - serde/serde_json for serialization
 
 ## Recent Changes
+- 003-frontend-architecture: Complete workspace UI with docks, panes, tabs, and panels
+- 003-frontend-architecture: Native application menu bar (File, Edit, View, Window, Help)
+- 003-frontend-architecture: Keyboard shortcuts help modal (Cmd+/)
+- 003-frontend-architecture: Schema browser with tree navigation
+- 003-frontend-architecture: Results panel with virtualized data grid
+- 003-frontend-architecture: Context menus, modals, tooltips, and select components
 - 003-frontend-architecture: Added Rust 1.80+ with 2021 edition
