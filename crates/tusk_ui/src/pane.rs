@@ -299,6 +299,9 @@ impl Pane {
     }
 
     /// Activate a tab by index.
+    ///
+    /// Performance target: <16ms (SC-003)
+    #[tracing::instrument(level = "trace", skip_all, name = "pane_activate_tab")]
     pub fn activate_tab(&mut self, index: usize, cx: &mut Context<Self>) {
         if index < self.tabs.len() && index != self.active_tab_index {
             self.active_tab_index = index;
@@ -718,9 +721,10 @@ impl PaneNode {
 ///
 /// This mirrors PaneNode but without Entity references, allowing
 /// serialization to/from JSON for workspace state persistence.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub enum PaneLayout {
     /// A single pane (leaf node).
+    #[default]
     Single,
     /// A split containing multiple child layouts.
     Split {
@@ -731,12 +735,6 @@ pub enum PaneLayout {
         /// The ratios for each child (must sum to 1.0).
         ratios: Vec<f32>,
     },
-}
-
-impl Default for PaneLayout {
-    fn default() -> Self {
-        PaneLayout::Single
-    }
 }
 
 /// Serializable axis enum.
@@ -804,7 +802,7 @@ pub struct PaneGroup {
 impl PaneGroup {
     /// Create a new pane group with a single pane.
     pub fn new(_window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let pane = cx.new(|cx| Pane::new(cx));
+        let pane = cx.new(Pane::new);
         Self {
             root: PaneNode::Single(pane.clone()),
             active_pane: pane,
@@ -845,7 +843,7 @@ impl PaneGroup {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Entity<Pane> {
-        let new_pane = cx.new(|cx| Pane::new(cx));
+        let new_pane = cx.new(Pane::new);
 
         // For simplicity, we replace the root with a split
         // A full implementation would find the active pane in the tree

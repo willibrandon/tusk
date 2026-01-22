@@ -25,6 +25,7 @@ pub mod spinner;
 pub mod status_bar;
 pub mod text_input;
 pub mod theme;
+pub mod tooltip;
 pub mod tree;
 pub mod workspace;
 
@@ -47,6 +48,7 @@ pub use resizer::Resizer;
 pub use spinner::{Spinner, SpinnerSize};
 pub use status_bar::{ConnectionStatus, ExecutionState, StatusBar};
 pub use theme::{ThemeColors, TuskTheme};
+pub use tooltip::Tooltip;
 pub use select::{Select, SelectEvent, SelectOption};
 pub use text_input::{register_text_input_bindings, TextInput, TextInputEvent};
 pub use tree::{Tree, TreeEvent, TreeItem, VisibleEntry};

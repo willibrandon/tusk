@@ -176,6 +176,9 @@ impl Workspace {
     /// Attempts to load persisted workspace state from storage. If persistence
     /// is available and state exists, the dock sizes and visibility will be
     /// restored to their previous values.
+    ///
+    /// Performance target: < 500ms (SC-001)
+    #[tracing::instrument(level = "debug", skip_all, name = "workspace_new")]
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
 
@@ -187,14 +190,14 @@ impl Workspace {
         let bottom_dock = cx.new(|cx| Dock::new(DockPosition::Bottom, cx));
 
         // Create and register the schema browser panel with the left dock
-        let schema_browser = cx.new(|cx| SchemaBrowserPanel::new(cx));
+        let schema_browser = cx.new(SchemaBrowserPanel::new);
         left_dock.update(cx, |dock, cx| {
             dock.add_panel(Arc::new(schema_browser.clone()), cx);
         });
 
         // Create and register the results and messages panels with the bottom dock
-        let results_panel = cx.new(|cx| ResultsPanel::new(cx));
-        let messages_panel = cx.new(|cx| MessagesPanel::new(cx));
+        let results_panel = cx.new(ResultsPanel::new);
+        let messages_panel = cx.new(MessagesPanel::new);
         bottom_dock.update(cx, |dock, cx| {
             dock.add_panel(Arc::new(results_panel.clone()), cx);
             dock.add_panel(Arc::new(messages_panel.clone()), cx);
@@ -666,6 +669,8 @@ impl Focusable for Workspace {
 }
 
 impl Render for Workspace {
+    /// Performance target: render within 16ms for 60fps
+    #[tracing::instrument(level = "trace", skip_all, name = "workspace_render")]
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<TuskTheme>();
         let dispatch_context = Self::dispatch_context();

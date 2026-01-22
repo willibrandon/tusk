@@ -97,7 +97,7 @@ impl TuskApp {
             // Handle the result and update UI
             match result {
                 Ok(Ok(tree_items)) => {
-                    let _ = cx.update(|cx| {
+                    cx.update(|cx| {
                         workspace.update(cx, |ws, cx| {
                             // Update connection status to connected
                             ws.set_connection_status(
@@ -118,7 +118,7 @@ impl TuskApp {
                 Ok(Err(e)) => {
                     tracing::error!(error = %e, "Failed to load schema");
                     let error_msg = format!("{}", e);
-                    let _ = cx.update(|cx| {
+                    cx.update(|cx| {
                         workspace.update(cx, |ws, cx| {
                             // Update connection status to error
                             ws.set_connection_status(
@@ -134,7 +134,7 @@ impl TuskApp {
                 }
                 Err(e) => {
                     tracing::error!(error = %e, "Task panicked");
-                    let _ = cx.update(|cx| {
+                    cx.update(|cx| {
                         workspace.update(cx, |ws, cx| {
                             // Update connection status to error
                             ws.set_connection_status(

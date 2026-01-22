@@ -313,17 +313,17 @@
 
 **Note**: Tasks T107, T108, T109 have been relocated to their respective user story phases (T107→US3, T108/T109→US2) for proper dependency ordering. Task IDs preserved per Constitution Principle V.
 
-- [ ] T110 Add text truncation with ellipsis and hover tooltips for long names in tree items in `crates/tusk_ui/src/tree.rs`
-- [ ] T111 Verify performance: workspace renders in <500ms (SC-001)
-- [ ] T112 Verify performance: dock resize at 60fps (SC-002)
-- [ ] T113 Verify performance: tab switch <16ms (SC-003)
-- [ ] T114 Verify performance: tree with 1000+ items at 60fps (SC-004)
-- [ ] T115 Verify WCAG 2.1 AA focus indicators on all interactive elements (SC-005)
-- [ ] T116 Verify performance: keyboard shortcuts <16ms (SC-006)
-- [ ] T117 Verify performance: modal open/close <200ms (SC-007)
-- [ ] T118 Verify performance: context menu appears <16ms (SC-008)
-- [ ] T119 Verify persistence: dock/pane state survives restart (SC-009)
-- [ ] T120 Final code cleanup and consistency check across all components
+- [x] T110 Add text truncation with ellipsis and hover tooltips for long names in tree items in `crates/tusk_ui/src/tree.rs`
+- [x] T111 Verify performance: workspace renders in <500ms (SC-001)
+- [x] T112 Verify performance: dock resize at 60fps (SC-002)
+- [x] T113 Verify performance: tab switch <16ms (SC-003)
+- [x] T114 Verify performance: tree with 1000+ items at 60fps (SC-004)
+- [x] T115 Verify WCAG 2.1 AA focus indicators on all interactive elements (SC-005)
+- [x] T116 Verify performance: keyboard shortcuts <16ms (SC-006)
+- [x] T117 Verify performance: modal open/close <200ms (SC-007)
+- [x] T118 Verify performance: context menu appears <16ms (SC-008)
+- [x] T119 Verify persistence: dock/pane state survives restart (SC-009)
+- [x] T120 Final code cleanup and consistency check across all components
 
 **Checkpoint**: All user stories complete with performance targets met
 

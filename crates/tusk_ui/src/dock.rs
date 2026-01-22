@@ -92,6 +92,9 @@ impl Dock {
     }
 
     /// Set size (clamped to min/max).
+    ///
+    /// Performance target: 60fps (SC-002) - must complete within 16ms
+    #[tracing::instrument(level = "trace", skip_all, name = "dock_set_size")]
     pub fn set_size(&mut self, size: Pixels, cx: &mut Context<Self>) {
         let (min, max) = self.size_constraints();
         let clamped = size.max(min).min(max);

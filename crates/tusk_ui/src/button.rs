@@ -9,6 +9,9 @@ use crate::icon::{Icon, IconName, IconSize};
 use crate::spinner::{Spinner, SpinnerSize};
 use crate::TuskTheme;
 
+/// Type alias for button click handler callback.
+pub type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
+
 /// Button variant styles.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonVariant {
@@ -108,7 +111,7 @@ pub struct Button {
     disabled: bool,
     loading: bool,
     focus_handle: Option<FocusHandle>,
-    on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+    on_click: Option<ClickHandler>,
 }
 
 impl Button {

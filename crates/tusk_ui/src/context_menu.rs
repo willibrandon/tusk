@@ -746,6 +746,9 @@ impl ContextMenuLayer {
     /// Show a context menu.
     ///
     /// Any existing menu will be dismissed first.
+    ///
+    /// Performance target: <16ms (SC-008)
+    #[tracing::instrument(level = "debug", skip_all, name = "context_menu_show")]
     pub fn show(&mut self, menu: Entity<ContextMenu>, window: &mut Window, cx: &mut App) {
         // Dismiss any existing menu
         self.dismiss(cx);

@@ -447,6 +447,9 @@ impl ModalLayer {
     /// Show a modal on top of the stack.
     ///
     /// The modal will receive focus and be rendered above all other content.
+    ///
+    /// Performance target: <200ms (SC-007)
+    #[tracing::instrument(level = "debug", skip_all, name = "modal_show")]
     pub fn show(&mut self, modal: Entity<Modal>, cx: &mut App) {
         // Subscribe to modal events to handle dismissal
         // App::subscribe takes (Entity<T>, &Event, &mut App)
@@ -467,6 +470,9 @@ impl ModalLayer {
     }
 
     /// Dismiss the topmost modal.
+    ///
+    /// Performance target: <200ms (SC-007)
+    #[tracing::instrument(level = "debug", skip_all, name = "modal_dismiss")]
     pub fn dismiss(&mut self, cx: &mut App) {
         if self.stack.pop().is_some() {
             cx.refresh_windows();

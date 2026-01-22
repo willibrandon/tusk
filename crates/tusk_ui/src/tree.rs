@@ -23,6 +23,7 @@ use crate::key_bindings::tree::{
     SelectPrevious,
 };
 use crate::layout::spacing;
+use crate::tooltip::Tooltip;
 use crate::TuskTheme;
 
 /// Trait for items that can be displayed in a tree.
@@ -240,11 +241,10 @@ impl<T: TreeItem> Tree<T> {
                 });
 
                 // When filtering, auto-expand items with matching descendants
-                if descendant_matches {
-                    if let Some(children) = item.children() {
-                        self.flatten_items_filtered(children, depth + 1, filter);
-                    }
-                } else if item.is_expandable() && self.expanded.contains(&item.id()) {
+                // or if the item is explicitly expanded
+                let should_show_children =
+                    descendant_matches || (item.is_expandable() && self.expanded.contains(&item.id()));
+                if should_show_children {
                     if let Some(children) = item.children() {
                         self.flatten_items_filtered(children, depth + 1, filter);
                     }
@@ -447,9 +447,12 @@ impl<T: TreeItem> Tree<T> {
                         ))
                     }),
             )
-            .child(
-                // Label
+            .child({
+                // Label with text truncation and tooltip
+                let label = entry.item.label();
+                let label_for_tooltip = label.clone();
                 div()
+                    .id(format!("tree-label-{}", item_id))
                     .flex_1()
                     .text_sm()
                     .text_color(if is_selected {
@@ -459,14 +462,17 @@ impl<T: TreeItem> Tree<T> {
                     })
                     .overflow_hidden()
                     .text_ellipsis()
-                    .child(entry.item.label()),
-            )
+                    .tooltip(Tooltip::text(label_for_tooltip))
+                    .child(label)
+            })
     }
 }
 
 impl<T: TreeItem> EventEmitter<TreeEvent<T::Id>> for Tree<T> {}
 
 impl<T: TreeItem> Render for Tree<T> {
+    /// Performance target: 60fps with 1000+ items (SC-004) - virtualized via UniformList
+    #[tracing::instrument(level = "trace", skip_all, name = "tree_render")]
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<TuskTheme>().clone();
         let item_count = self.visible_entries.len();
