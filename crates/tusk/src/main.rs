@@ -43,9 +43,10 @@ fn main() {
         register_global_actions(cx);
 
         // Quit when all windows are closed
+        // Defer quit to allow pending window messages to drain (helps on Windows)
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
-                cx.quit();
+                cx.defer(|cx| cx.quit());
             }
         })
         .detach();
