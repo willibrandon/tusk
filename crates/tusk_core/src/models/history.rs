@@ -16,9 +16,9 @@ pub struct QueryHistoryEntry {
     /// The executed SQL
     pub sql: String,
     /// Time to execute (None if not completed)
-    pub execution_time_ms: Option<u64>,
+    pub execution_time_ms: Option<i64>,
     /// Rows returned/affected
-    pub row_count: Option<u64>,
+    pub row_count: Option<i64>,
     /// Error message if query failed
     pub error_message: Option<String>,
     /// Execution timestamp
@@ -32,8 +32,8 @@ impl QueryHistoryEntry {
             id: 0, // Set by database
             connection_id,
             sql: sql.into(),
-            execution_time_ms: Some(result.execution_time_ms),
-            row_count: Some(result.rows.len() as u64),
+            execution_time_ms: Some(result.execution_time_ms as i64),
+            row_count: Some(result.rows.len() as i64),
             error_message: None,
             executed_at: Utc::now(),
         }

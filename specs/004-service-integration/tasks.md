@@ -24,11 +24,11 @@ This is a Rust workspace with multiple crates:
 
 **Purpose**: Project initialization and core type definitions
 
-- [ ] T001 Add ConnectionEntry struct to crates/tusk_core/src/state.rs wrapping pool with status tracking
-- [ ] T002 [P] Add ConnectionStatus enum (Disconnected, Connecting, Connected, Error) to crates/tusk_core/src/models/connection.rs
-- [ ] T003 [P] Add QueryEvent enum (Columns, Rows, Progress, Complete, Error) to crates/tusk_core/src/models/query.rs
-- [ ] T004 [P] Add SchemaCache struct with TTL support to crates/tusk_core/src/models/schema.rs
-- [ ] T005 [P] Add ColumnInfo struct for query column metadata to crates/tusk_core/src/models/query.rs
+- [X] T001 Add ConnectionEntry struct to crates/tusk_core/src/state.rs wrapping pool with status tracking
+- [X] T002 [P] Add ConnectionStatus enum (Disconnected, Connecting, Connected, Error) to crates/tusk_core/src/models/connection.rs
+- [X] T003 [P] Add QueryEvent enum (Columns, Rows, Progress, Complete, Error) to crates/tusk_core/src/models/query.rs
+- [X] T004 [P] Add SchemaCache struct with TTL support to crates/tusk_core/src/models/schema.rs
+- [X] T005 [P] Add ColumnInfo struct for query column metadata to crates/tusk_core/src/models/query.rs
 
 ---
 
@@ -38,18 +38,18 @@ This is a Rust workspace with multiple crates:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Implement TuskState.connect() method for establishing database connections in crates/tusk_core/src/state.rs
-- [ ] T007 Implement TuskState.disconnect() method for closing connections in crates/tusk_core/src/state.rs
-- [ ] T008 Implement TuskState.get_connection_status() method in crates/tusk_core/src/state.rs
-- [ ] T009 Implement TuskState.test_connection() method for connection validation in crates/tusk_core/src/state.rs
-- [ ] T010 [P] Update QueryService to support streaming via mpsc channel in crates/tusk_core/src/services/query.rs
-- [ ] T011 [P] Implement query cancellation with CancellationToken and tokio::select! in crates/tusk_core/src/services/query.rs
-- [ ] T012 [P] Implement TuskError to ErrorInfo conversion (to_error_info method) in crates/tusk_core/src/error.rs
-- [ ] T013 [P] Complete CredentialService store_password and get_password methods in crates/tusk_core/src/services/credentials.rs
-- [ ] T014 [P] Implement session-only password fallback when keychain unavailable in crates/tusk_core/src/services/credentials.rs
-- [ ] T015 Add tracing instrumentation for service calls at DEBUG level in crates/tusk_core/src/services/query.rs
-- [ ] T016 [P] Add tracing instrumentation for errors at WARN/ERROR level in crates/tusk_core/src/error.rs
-- [ ] T017 Ensure passwords are never logged (FR-026) by auditing all tracing calls in crates/tusk_core/src/
+- [X] T006 Implement TuskState.connect() method for establishing database connections in crates/tusk_core/src/state.rs
+- [X] T007 Implement TuskState.disconnect() method for closing connections in crates/tusk_core/src/state.rs
+- [X] T008 Implement TuskState.get_connection_status() method in crates/tusk_core/src/state.rs
+- [X] T009 Implement TuskState.test_connection() method for connection validation in crates/tusk_core/src/state.rs
+- [X] T010 [P] Update QueryService to support streaming via mpsc channel in crates/tusk_core/src/services/query.rs
+- [X] T011 [P] Implement query cancellation with CancellationToken and tokio::select! in crates/tusk_core/src/services/query.rs
+- [X] T012 [P] Implement TuskError to ErrorInfo conversion (to_error_info method) in crates/tusk_core/src/error.rs
+- [X] T013 [P] Complete CredentialService store_password and get_password methods in crates/tusk_core/src/services/credentials.rs
+- [X] T014 [P] Implement session-only password fallback when keychain unavailable in crates/tusk_core/src/services/credentials.rs
+- [X] T015 Add tracing instrumentation for service calls at DEBUG level in crates/tusk_core/src/services/query.rs
+- [X] T016 [P] Add tracing instrumentation for errors at WARN/ERROR level in crates/tusk_core/src/error.rs
+- [X] T017 Ensure passwords are never logged (FR-026) by auditing all tracing calls in crates/tusk_core/src/
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

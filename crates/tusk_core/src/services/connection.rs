@@ -24,6 +24,7 @@ const DEFAULT_IDLE_IN_TRANSACTION_TIMEOUT_SECS: u32 = 300;
 ///
 /// Wraps deadpool-postgres to provide connection reuse, health checking,
 /// and pool status monitoring.
+#[derive(Debug)]
 pub struct ConnectionPool {
     /// Unique identifier matching ConnectionConfig.id
     id: Uuid,
@@ -258,6 +259,17 @@ impl PooledConnection {
     pub async fn transaction(&mut self) -> Result<Transaction<'_>, TuskError> {
         let txn = self.client.transaction().await.map_err(TuskError::from)?;
         Ok(Transaction { txn })
+    }
+
+    /// Execute a query that returns a row stream (for streaming large results).
+    ///
+    /// This is used by QueryService for streaming query execution.
+    pub async fn query_raw(
+        &self,
+        sql: &str,
+        params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+    ) -> Result<tokio_postgres::RowStream, tokio_postgres::Error> {
+        self.client.query_raw(sql, params.iter().copied()).await
     }
 }
 

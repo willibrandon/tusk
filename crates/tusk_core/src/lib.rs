@@ -16,9 +16,10 @@ pub mod state;
 
 pub use error::TuskError;
 pub use models::{
-    ColumnDetail, ColumnInfo, ConnectionConfig, ConnectionOptions, DatabaseSchema, FunctionInfo,
-    PoolStatus, QueryHandle, QueryHistoryEntry, QueryResult, QueryType, SchemaInfo, SshAuthMethod,
-    SshTunnelConfig, SslMode, TableInfo, ViewInfo,
+    ColumnDetail, ColumnInfo, ConnectionConfig, ConnectionOptions, ConnectionStatus,
+    DatabaseSchema, FunctionInfo, PoolStatus, QueryEvent, QueryHandle, QueryHistoryEntry,
+    QueryResult, QueryType, SchemaCache, SchemaInfo, SshAuthMethod, SshTunnelConfig, SslMode,
+    TableInfo, ViewInfo,
 };
 pub use services::{ConnectionPool, CredentialService, LocalStorage, QueryService, SchemaService};
-pub use state::TuskState;
+pub use state::{ConnectionEntry, TuskState};
