@@ -63,11 +63,11 @@ impl TuskApp {
                         "Local PostgreSQL",
                         "localhost",
                         "postgres",
-                        "brandon",
+                        "postgres",
                     );
 
                     // Connect to database
-                    let pool = ConnectionPool::new(config, "2212").await?;
+                    let pool = ConnectionPool::new(config, "postgres").await?;
 
                     tracing::info!("Connected to database, loading schema...");
 
