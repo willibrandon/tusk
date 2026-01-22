@@ -4,7 +4,9 @@ mod app;
 mod app_menus;
 
 use app::TuskApp;
-use gpui::{px, size, App, AppContext, Application, Bounds, PromptLevel, Size, WindowBounds, WindowOptions};
+use gpui::{
+    px, size, App, AppContext, Application, Bounds, PromptLevel, Size, WindowBounds, WindowOptions,
+};
 use tusk_core::logging::{init_logging, LogConfig};
 use tusk_core::state::TuskState;
 use tusk_ui::key_bindings::{About, CloseWindow, Minimize, Quit, Zoom};
@@ -62,10 +64,8 @@ fn main() {
         };
 
         // Open the main window
-        cx.open_window(window_options, |window, cx| {
-            cx.new(|cx| TuskApp::new(window, cx))
-        })
-        .expect("Failed to open window");
+        cx.open_window(window_options, |window, cx| cx.new(|cx| TuskApp::new(window, cx)))
+            .expect("Failed to open window");
 
         // Activate the application (bring to front)
         cx.activate(true);
@@ -88,16 +88,18 @@ fn register_global_actions(cx: &mut App) {
         // Defer to run after current dispatch completes (window may be borrowed during menu action)
         cx.defer(|cx| {
             if let Some(window_handle) = cx.windows().first().copied() {
-                let result = window_handle
-                    .update(cx, |_, window, cx| {
-                        let version = env!("CARGO_PKG_VERSION");
-                        let message = format!("Tusk {version}");
-                        let detail = "A fast, native PostgreSQL client built with GPUI.";
-                        let prompt = window.prompt(PromptLevel::Info, &message, Some(detail), &["OK"], cx);
-                        cx.background_executor().spawn(async move {
+                let result = window_handle.update(cx, |_, window, cx| {
+                    let version = env!("CARGO_PKG_VERSION");
+                    let message = format!("Tusk {version}");
+                    let detail = "A fast, native PostgreSQL client built with GPUI.";
+                    let prompt =
+                        window.prompt(PromptLevel::Info, &message, Some(detail), &["OK"], cx);
+                    cx.background_executor()
+                        .spawn(async move {
                             let _ = prompt.await;
-                        }).detach();
-                    });
+                        })
+                        .detach();
+                });
                 if let Err(e) = result {
                     tracing::error!("About dialog failed: {e}");
                 }

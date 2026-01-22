@@ -9,7 +9,7 @@
 //! - Backdrop click to close (configurable)
 
 use gpui::{
-    actions, div, prelude::*, px, App, AnyElement, AnyView, Context, Entity, EventEmitter,
+    actions, div, prelude::*, px, AnyElement, AnyView, App, Context, Entity, EventEmitter,
     FocusHandle, Global, MouseButton, Render, SharedString, Subscription, Window,
 };
 
@@ -233,16 +233,10 @@ impl Modal {
     /// Trigger an action by ID.
     pub fn trigger_action(&mut self, action_id: SharedString, cx: &mut Context<Self>) {
         // Check if the action should dismiss
-        let should_dismiss = self
-            .actions
-            .iter()
-            .find(|a| a.id == action_id)
-            .map(|a| a.dismisses)
-            .unwrap_or(false);
+        let should_dismiss =
+            self.actions.iter().find(|a| a.id == action_id).map(|a| a.dismisses).unwrap_or(false);
 
-        cx.emit(ModalEvent::ActionTriggered {
-            action_id: action_id.clone(),
-        });
+        cx.emit(ModalEvent::ActionTriggered { action_id: action_id.clone() });
 
         if should_dismiss {
             cx.emit(ModalEvent::Dismissed);
@@ -250,7 +244,12 @@ impl Modal {
     }
 
     /// Render the modal header with pre-extracted colors.
-    fn render_header(&self, text_color: gpui::Hsla, text_muted: gpui::Hsla, border_color: gpui::Hsla) -> impl IntoElement {
+    fn render_header(
+        &self,
+        text_color: gpui::Hsla,
+        text_muted: gpui::Hsla,
+        border_color: gpui::Hsla,
+    ) -> impl IntoElement {
         div()
             .w_full()
             .flex()
@@ -267,22 +266,13 @@ impl Modal {
                     .child(self.title.clone()),
             )
             .when_some(self.subtitle.as_ref(), |d, subtitle| {
-                d.child(
-                    div()
-                        .text_size(px(14.0))
-                        .text_color(text_muted)
-                        .child(subtitle.clone()),
-                )
+                d.child(div().text_size(px(14.0)).text_color(text_muted).child(subtitle.clone()))
             })
     }
 
     /// Render the modal body.
     fn render_body(&self) -> impl IntoElement {
-        div()
-            .w_full()
-            .flex_1()
-            .py(px(16.0))
-            .children(self.body.clone())
+        div().w_full().flex_1().py(px(16.0)).children(self.body.clone())
     }
 
     /// Render the modal footer with action buttons.
@@ -352,9 +342,12 @@ impl Render for Modal {
             .bg(gpui::black().opacity(0.5))
             // Backdrop click to dismiss (T092)
             .when(closable, |d| {
-                d.on_mouse_down(MouseButton::Left, cx.listener(|this, _, _window, cx| {
-                    this.dismiss(cx);
-                }))
+                d.on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _window, cx| {
+                        this.dismiss(cx);
+                    }),
+                )
             })
             .when(!closable, |d| {
                 // Still stop propagation even if not closable
@@ -453,18 +446,16 @@ impl ModalLayer {
     pub fn show(&mut self, modal: Entity<Modal>, cx: &mut App) {
         // Subscribe to modal events to handle dismissal
         // App::subscribe takes (Entity<T>, &Event, &mut App)
-        let subscription = cx.subscribe(&modal, |_modal: Entity<Modal>, event: &ModalEvent, cx: &mut App| {
-            if matches!(event, ModalEvent::Dismissed) {
-                cx.update_global::<ModalLayer, _>(|layer: &mut ModalLayer, cx| {
-                    layer.dismiss(cx);
-                });
-            }
-        });
+        let subscription =
+            cx.subscribe(&modal, |_modal: Entity<Modal>, event: &ModalEvent, cx: &mut App| {
+                if matches!(event, ModalEvent::Dismissed) {
+                    cx.update_global::<ModalLayer, _>(|layer: &mut ModalLayer, cx| {
+                        layer.dismiss(cx);
+                    });
+                }
+            });
 
-        self.stack.push(ModalEntry {
-            modal,
-            _subscription: subscription,
-        });
+        self.stack.push(ModalEntry { modal, _subscription: subscription });
 
         cx.refresh_windows();
     }

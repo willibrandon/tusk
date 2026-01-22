@@ -47,16 +47,12 @@ impl RenderOnce for Resizer {
         let theme = cx.global::<TuskTheme>();
 
         let (width, height, cursor): (Length, Length, CursorStyle) = match self.axis {
-            Axis::Horizontal => (
-                RESIZER_SIZE.into(),
-                gpui::relative(1.0).into(),
-                CursorStyle::ResizeLeftRight,
-            ),
-            Axis::Vertical => (
-                gpui::relative(1.0).into(),
-                RESIZER_SIZE.into(),
-                CursorStyle::ResizeUpDown,
-            ),
+            Axis::Horizontal => {
+                (RESIZER_SIZE.into(), gpui::relative(1.0).into(), CursorStyle::ResizeLeftRight)
+            }
+            Axis::Vertical => {
+                (gpui::relative(1.0).into(), RESIZER_SIZE.into(), CursorStyle::ResizeUpDown)
+            }
         };
 
         let border_color = theme.colors.border;

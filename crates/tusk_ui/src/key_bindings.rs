@@ -56,15 +56,7 @@ actions!(
 // Query Actions
 // ============================================================================
 
-actions!(
-    query,
-    [
-        RunQuery,
-        ExplainQuery,
-        FormatQuery,
-        CancelQuery,
-    ]
-);
+actions!(query, [RunQuery, ExplainQuery, FormatQuery, CancelQuery,]);
 
 // ============================================================================
 // Tree Navigation Actions
@@ -92,16 +84,7 @@ pub mod tree {
 
 pub mod select {
     use gpui::actions;
-    actions!(
-        select,
-        [
-            Open,
-            Close,
-            SelectNextOption,
-            SelectPreviousOption,
-            Confirm,
-        ]
-    );
+    actions!(select, [Open, Close, SelectNextOption, SelectPreviousOption, Confirm,]);
 }
 
 // ============================================================================
@@ -122,14 +105,7 @@ pub mod context_menu {
     use gpui::actions;
     actions!(
         context_menu,
-        [
-            SelectNextItem,
-            SelectPreviousItem,
-            ConfirmItem,
-            DismissMenu,
-            OpenSubmenu,
-            CloseSubmenu,
-        ]
+        [SelectNextItem, SelectPreviousItem, ConfirmItem, DismissMenu, OpenSubmenu, CloseSubmenu,]
     );
 }
 

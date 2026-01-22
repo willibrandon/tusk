@@ -35,11 +35,7 @@ pub struct SelectOption<T: Clone> {
 impl<T: Clone> SelectOption<T> {
     /// Create a new select option.
     pub fn new(value: T, label: impl Into<SharedString>) -> Self {
-        Self {
-            value,
-            label: label.into(),
-            disabled: false,
-        }
+        Self { value, label: label.into(), disabled: false }
     }
 
     /// Mark this option as disabled.
@@ -125,10 +121,7 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
     /// Get the label for the currently selected value.
     fn selected_label(&self) -> Option<&SharedString> {
         self.selected.as_ref().and_then(|selected| {
-            self.options
-                .iter()
-                .find(|opt| &opt.value == selected)
-                .map(|opt| &opt.label)
+            self.options.iter().find(|opt| &opt.value == selected).map(|opt| &opt.label)
         })
     }
 
@@ -165,9 +158,7 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
             .selected
             .as_ref()
             .and_then(|selected| {
-                self.options
-                    .iter()
-                    .position(|opt| &opt.value == selected && !opt.disabled)
+                self.options.iter().position(|opt| &opt.value == selected && !opt.disabled)
             })
             .unwrap_or(0);
         // Focus the popover
@@ -208,7 +199,12 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
     }
 
     /// Select the previous option.
-    fn select_previous(&mut self, _: &SelectPreviousOption, _: &mut Window, cx: &mut Context<Self>) {
+    fn select_previous(
+        &mut self,
+        _: &SelectPreviousOption,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.open {
             return;
         }
@@ -275,9 +271,7 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
                 .selected
                 .as_ref()
                 .and_then(|selected| {
-                    self.options
-                        .iter()
-                        .position(|opt| &opt.value == selected && !opt.disabled)
+                    self.options.iter().position(|opt| &opt.value == selected && !opt.disabled)
                 })
                 .unwrap_or(0);
             window.focus(&self.popover_focus_handle, cx);
@@ -288,16 +282,11 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
 
     /// Render the closed state trigger button.
     fn render_trigger(&self, theme: &TuskTheme, is_focused: bool) -> impl IntoElement {
-        let display_text = self
-            .selected_label()
-            .cloned()
-            .unwrap_or_else(|| self.placeholder.clone());
+        let display_text =
+            self.selected_label().cloned().unwrap_or_else(|| self.placeholder.clone());
 
-        let text_color = if self.selected.is_some() {
-            theme.colors.text
-        } else {
-            theme.colors.text_muted
-        };
+        let text_color =
+            if self.selected.is_some() { theme.colors.text } else { theme.colors.text_muted };
 
         let opacity = if self.disabled { 0.5 } else { 1.0 };
 
@@ -319,24 +308,12 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
             .rounded(px(4.0))
             .opacity(opacity)
             .when(!self.disabled, |el| el.cursor(CursorStyle::PointingHand))
-            .when(!self.disabled, |el| {
-                el.hover(|style| style.bg(theme.colors.element_hover))
-            })
+            .when(!self.disabled, |el| el.hover(|style| style.bg(theme.colors.element_hover)))
+            .child(div().text_sm().text_color(text_color).overflow_hidden().child(display_text))
             .child(
-                div()
-                    .text_sm()
-                    .text_color(text_color)
-                    .overflow_hidden()
-                    .child(display_text),
-            )
-            .child(
-                Icon::new(if self.open {
-                    IconName::ChevronUp
-                } else {
-                    IconName::ChevronDown
-                })
-                .size(IconSize::Small)
-                .color(theme.colors.text_muted),
+                Icon::new(if self.open { IconName::ChevronUp } else { IconName::ChevronDown })
+                    .size(IconSize::Small)
+                    .color(theme.colors.text_muted),
             )
     }
 
@@ -363,11 +340,8 @@ impl<T: Clone + PartialEq + 'static> Select<T> {
             .py(px(4.0))
             .children((0..options_count).map(|index| {
                 let option = &self.options[index];
-                let is_selected = self
-                    .selected
-                    .as_ref()
-                    .map(|s| s == &option.value)
-                    .unwrap_or(false);
+                let is_selected =
+                    self.selected.as_ref().map(|s| s == &option.value).unwrap_or(false);
                 let is_highlighted = index == self.highlighted_index;
 
                 let bg_color = if is_highlighted {

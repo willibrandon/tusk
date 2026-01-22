@@ -82,26 +82,18 @@ impl StatusBar {
     /// Render the connection status section (left side).
     fn render_connection_status(&self, theme: &TuskTheme) -> impl IntoElement {
         let (icon, text, color): (IconName, String, gpui::Hsla) = match &self.connection_status {
-            ConnectionStatus::Disconnected => (
-                IconName::Database,
-                "Not connected".to_string(),
-                theme.colors.text_muted,
-            ),
-            ConnectionStatus::Connected { database, host } => (
-                IconName::Database,
-                format!("{} @ {}", database, host),
-                theme.colors.success,
-            ),
-            ConnectionStatus::Connecting => (
-                IconName::Database,
-                "Connecting...".to_string(),
-                theme.colors.warning,
-            ),
-            ConnectionStatus::Error(msg) => (
-                IconName::Database,
-                format!("Error: {}", msg),
-                theme.colors.error,
-            ),
+            ConnectionStatus::Disconnected => {
+                (IconName::Database, "Not connected".to_string(), theme.colors.text_muted)
+            }
+            ConnectionStatus::Connected { database, host } => {
+                (IconName::Database, format!("{} @ {}", database, host), theme.colors.success)
+            }
+            ConnectionStatus::Connecting => {
+                (IconName::Database, "Connecting...".to_string(), theme.colors.warning)
+            }
+            ConnectionStatus::Error(msg) => {
+                (IconName::Database, format!("Error: {}", msg), theme.colors.error)
+            }
         };
 
         div()
@@ -109,32 +101,22 @@ impl StatusBar {
             .items_center()
             .gap(px(6.0))
             .child(Icon::new(icon).size(IconSize::Small).color(color))
-            .child(
-                div()
-                    .text_color(color)
-                    .child(text),
-            )
+            .child(div().text_color(color).child(text))
     }
 
     /// Render the execution state section (right side).
     fn render_execution_state(&self, theme: &TuskTheme) -> impl IntoElement {
         match &self.execution_state {
             ExecutionState::Idle => {
-                div()
-                    .flex()
-                    .items_center()
-                    .text_color(theme.colors.text_muted)
-                    .child("Ready")
+                div().flex().items_center().text_color(theme.colors.text_muted).child("Ready")
             }
-            ExecutionState::Executing => {
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.0))
-                    .text_color(theme.colors.accent)
-                    .child(Spinner::new().size(SpinnerSize::Small))
-                    .child("Executing...")
-            }
+            ExecutionState::Executing => div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .text_color(theme.colors.accent)
+                .child(Spinner::new().size(SpinnerSize::Small))
+                .child("Executing..."),
             ExecutionState::Completed { rows, elapsed_ms } => {
                 let row_text = if *rows == 1 { "row" } else { "rows" };
                 let elapsed = format_elapsed(*elapsed_ms);
@@ -149,24 +131,22 @@ impl StatusBar {
                             .items_center()
                             .gap(px(4.0))
                             .text_color(theme.colors.success)
-                            .child(Icon::new(IconName::Check).size(IconSize::Small).color(theme.colors.success))
+                            .child(
+                                Icon::new(IconName::Check)
+                                    .size(IconSize::Small)
+                                    .color(theme.colors.success),
+                            )
                             .child(format!("{} {}", rows, row_text)),
                     )
-                    .child(
-                        div()
-                            .text_color(theme.colors.text_muted)
-                            .child(elapsed),
-                    )
+                    .child(div().text_color(theme.colors.text_muted).child(elapsed))
             }
-            ExecutionState::Failed(msg) => {
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.0))
-                    .text_color(theme.colors.error)
-                    .child(Icon::new(IconName::Warning).size(IconSize::Small).color(theme.colors.error))
-                    .child(msg.clone())
-            }
+            ExecutionState::Failed(msg) => div()
+                .flex()
+                .items_center()
+                .gap(px(6.0))
+                .text_color(theme.colors.error)
+                .child(Icon::new(IconName::Warning).size(IconSize::Small).color(theme.colors.error))
+                .child(msg.clone()),
         }
     }
 }
@@ -231,18 +211,9 @@ mod tests {
                 database: "postgres".into(),
                 host: "localhost".into(),
             })
-            .execution_state(ExecutionState::Completed {
-                rows: 100,
-                elapsed_ms: 150,
-            });
+            .execution_state(ExecutionState::Completed { rows: 100, elapsed_ms: 150 });
 
-        assert!(matches!(
-            status_bar.connection_status,
-            ConnectionStatus::Connected { .. }
-        ));
-        assert!(matches!(
-            status_bar.execution_state,
-            ExecutionState::Completed { .. }
-        ));
+        assert!(matches!(status_bar.connection_status, ConnectionStatus::Connected { .. }));
+        assert!(matches!(status_bar.execution_state, ExecutionState::Completed { .. }));
     }
 }

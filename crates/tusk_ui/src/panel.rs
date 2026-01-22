@@ -16,7 +16,9 @@ use gpui::{
 use crate::icon::IconName;
 
 /// Position of a dock in the workspace.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum DockPosition {
     /// Left side of the workspace.
     #[default]
@@ -172,9 +174,7 @@ pub struct PanelEntry {
 impl PanelEntry {
     /// Create a new panel entry from a panel entity.
     pub fn new<P: Panel>(entity: Entity<P>) -> Self {
-        Self {
-            panel: Arc::new(entity),
-        }
+        Self { panel: Arc::new(entity) }
     }
 
     /// Get the panel as a specific type if it matches.
@@ -185,8 +185,6 @@ impl PanelEntry {
 
 impl Clone for PanelEntry {
     fn clone(&self) -> Self {
-        Self {
-            panel: self.panel.boxed_clone(),
-        }
+        Self { panel: self.panel.boxed_clone() }
     }
 }

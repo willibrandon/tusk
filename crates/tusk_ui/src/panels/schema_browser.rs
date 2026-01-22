@@ -25,54 +25,21 @@ use crate::TuskTheme;
 #[derive(Clone, Debug)]
 pub enum SchemaItem {
     /// A database schema (namespace).
-    Schema {
-        id: String,
-        name: String,
-        children: Vec<SchemaItem>,
-    },
+    Schema { id: String, name: String, children: Vec<SchemaItem> },
     /// Folder for tables within a schema.
-    TablesFolder {
-        id: String,
-        children: Vec<SchemaItem>,
-    },
+    TablesFolder { id: String, children: Vec<SchemaItem> },
     /// Folder for views within a schema.
-    ViewsFolder {
-        id: String,
-        children: Vec<SchemaItem>,
-    },
+    ViewsFolder { id: String, children: Vec<SchemaItem> },
     /// Folder for functions within a schema.
-    FunctionsFolder {
-        id: String,
-        children: Vec<SchemaItem>,
-    },
+    FunctionsFolder { id: String, children: Vec<SchemaItem> },
     /// A table within a schema.
-    Table {
-        id: String,
-        name: String,
-        children: Vec<SchemaItem>,
-    },
+    Table { id: String, name: String, children: Vec<SchemaItem> },
     /// A view within a schema.
-    View {
-        id: String,
-        name: String,
-        is_materialized: bool,
-        children: Vec<SchemaItem>,
-    },
+    View { id: String, name: String, is_materialized: bool, children: Vec<SchemaItem> },
     /// A function within a schema.
-    Function {
-        id: String,
-        name: String,
-        arguments: String,
-        return_type: String,
-    },
+    Function { id: String, name: String, arguments: String, return_type: String },
     /// A column within a table or view.
-    Column {
-        id: String,
-        name: String,
-        data_type: String,
-        is_nullable: bool,
-        is_primary_key: bool,
-    },
+    Column { id: String, name: String, data_type: String, is_nullable: bool, is_primary_key: bool },
 }
 
 impl TreeItem for SchemaItem {
@@ -104,36 +71,21 @@ impl TreeItem for SchemaItem {
                 format!("Functions ({})", children.len()).into()
             }
             SchemaItem::Table { name, .. } => name.clone().into(),
-            SchemaItem::View {
-                name,
-                is_materialized,
-                ..
-            } => {
+            SchemaItem::View { name, is_materialized, .. } => {
                 if *is_materialized {
                     format!("{} (materialized)", name).into()
                 } else {
                     name.clone().into()
                 }
             }
-            SchemaItem::Function {
-                name,
-                arguments,
-                return_type,
-                ..
-            } => {
+            SchemaItem::Function { name, arguments, return_type, .. } => {
                 if arguments.is_empty() {
                     format!("{}() -> {}", name, return_type).into()
                 } else {
                     format!("{}({}) -> {}", name, arguments, return_type).into()
                 }
             }
-            SchemaItem::Column {
-                name,
-                data_type,
-                is_nullable,
-                is_primary_key,
-                ..
-            } => {
+            SchemaItem::Column { name, data_type, is_nullable, is_primary_key, .. } => {
                 let mut label = format!("{}: {}", name, data_type);
                 if *is_primary_key {
                     label.push_str(" PK");
@@ -304,11 +256,7 @@ pub fn database_schema_to_tree(schema: &DatabaseSchema) -> Vec<SchemaItem> {
                 });
             }
 
-            SchemaItem::Schema {
-                id: schema_name.clone(),
-                name: schema_name.clone(),
-                children,
-            }
+            SchemaItem::Schema { id: schema_name.clone(), name: schema_name.clone(), children }
         })
         .collect()
 }
@@ -475,11 +423,7 @@ impl SchemaBrowserPanel {
                     .shortcut("Cmd+C"),
                 ]
             }
-            SchemaItem::View {
-                name,
-                is_materialized,
-                ..
-            } => {
+            SchemaItem::View { name, is_materialized, .. } => {
                 let view_name = name.clone();
                 let view_id = id.to_string();
                 let copy_name = name.clone();
@@ -497,11 +441,7 @@ impl SchemaBrowserPanel {
                     })
                     .icon(IconName::File),
                     ContextMenuItem::action(
-                        if is_mat {
-                            "Refresh Materialized View"
-                        } else {
-                            "View Definition"
-                        },
+                        if is_mat { "Refresh Materialized View" } else { "View Definition" },
                         move |_cx| {
                             if is_mat {
                                 tracing::info!("Refresh materialized view requested");
@@ -520,12 +460,7 @@ impl SchemaBrowserPanel {
                     .shortcut("Cmd+C"),
                 ]
             }
-            SchemaItem::Function {
-                name,
-                arguments,
-                return_type,
-                ..
-            } => {
+            SchemaItem::Function { name, arguments, return_type, .. } => {
                 let func_name = name.clone();
                 let func_id = id.to_string();
                 let func_sig = format!("{}({})", name, arguments);
@@ -550,9 +485,7 @@ impl SchemaBrowserPanel {
                     .icon(IconName::Copy),
                 ]
             }
-            SchemaItem::Column {
-                name, data_type, ..
-            } => {
+            SchemaItem::Column { name, data_type, .. } => {
                 let col_name = name.clone();
                 let col_type = data_type.clone();
 
@@ -637,11 +570,7 @@ impl SchemaBrowserPanel {
             .px(spacing::SM)
             .border_b_1()
             .border_color(theme.colors.border)
-            .child(
-                Icon::new(IconName::Search)
-                    .size(IconSize::Small)
-                    .color(theme.colors.text_muted),
-            )
+            .child(Icon::new(IconName::Search).size(IconSize::Small).color(theme.colors.text_muted))
             .child(div().flex_1().child(self.filter_input.clone()))
     }
 
@@ -710,11 +639,7 @@ impl SchemaBrowserPanel {
             .size_full()
             .gap(px(12.0))
             .p(px(16.0))
-            .child(
-                Icon::new(IconName::Warning)
-                    .size(IconSize::XLarge)
-                    .color(theme.colors.error),
-            )
+            .child(Icon::new(IconName::Warning).size(IconSize::XLarge).color(theme.colors.error))
             .child(
                 div()
                     .text_color(theme.colors.error)
@@ -811,10 +736,7 @@ impl Render for SchemaBrowserPanel {
             )
             // Filter input (only show when there's data)
             .when(
-                self.tree
-                    .as_ref()
-                    .map(|t| !t.read(cx).items().is_empty())
-                    .unwrap_or(false),
+                self.tree.as_ref().map(|t| !t.read(cx).items().is_empty()).unwrap_or(false),
                 |d| d.child(self.render_filter_input(cx)),
             )
             .child(
@@ -850,11 +772,8 @@ mod tests {
 
     #[test]
     fn test_schema_item_icon() {
-        let table = SchemaItem::Table {
-            id: "t".to_string(),
-            name: "users".to_string(),
-            children: vec![],
-        };
+        let table =
+            SchemaItem::Table { id: "t".to_string(), name: "users".to_string(), children: vec![] };
         assert_eq!(table.icon(), Some(IconName::Table));
 
         let view = SchemaItem::View {
@@ -868,11 +787,8 @@ mod tests {
 
     #[test]
     fn test_schema_item_expandable() {
-        let table = SchemaItem::Table {
-            id: "t".to_string(),
-            name: "users".to_string(),
-            children: vec![],
-        };
+        let table =
+            SchemaItem::Table { id: "t".to_string(), name: "users".to_string(), children: vec![] };
         assert!(table.is_expandable()); // Tables can have children (columns)
 
         let column = SchemaItem::Column {
@@ -922,9 +838,6 @@ mod tests {
             arguments: "id bigint".to_string(),
             return_type: "users".to_string(),
         };
-        assert_eq!(
-            func_with_args.label().as_ref(),
-            "get_user(id bigint) -> users"
-        );
+        assert_eq!(func_with_args.label().as_ref(), "get_user(id bigint) -> users");
     }
 }

@@ -215,17 +215,14 @@ impl Button {
                 colors.text,               // text
             ),
             ButtonVariant::Ghost => (
-                gpui::transparent_black(), // background
+                gpui::transparent_black(),  // background
                 colors.ghost_element_hover, // hover background
                 colors.text,                // text
                 colors.text,                // text
             ),
-            ButtonVariant::Danger => (
-                colors.error,
-                colors.error.opacity(0.8),
-                colors.on_accent,
-                colors.on_accent,
-            ),
+            ButtonVariant::Danger => {
+                (colors.error, colors.error.opacity(0.8), colors.on_accent, colors.on_accent)
+            }
         }
     }
 }
@@ -278,9 +275,7 @@ impl RenderOnce for Button {
 
         // Add hover effect if interactive
         if is_interactive {
-            button = button
-                .cursor(CursorStyle::PointingHand)
-                .hover(|style| style.bg(hover_bg));
+            button = button.cursor(CursorStyle::PointingHand).hover(|style| style.bg(hover_bg));
         }
 
         // Add click handler if interactive

@@ -3,9 +3,7 @@
 //! Provides the IconName enum with all available icons and an Icon component
 //! for rendering them at various sizes.
 
-use gpui::{
-    div, prelude::*, px, App, Hsla, IntoElement, Pixels, RenderOnce, SharedString, Window,
-};
+use gpui::{div, prelude::*, px, App, Hsla, IntoElement, Pixels, RenderOnce, SharedString, Window};
 
 use crate::TuskTheme;
 
@@ -334,11 +332,7 @@ pub struct Icon {
 impl Icon {
     /// Create a new icon with the given name.
     pub fn new(name: IconName) -> Self {
-        Self {
-            name,
-            size: IconSize::default(),
-            color: None,
-        }
+        Self { name, size: IconSize::default(), color: None }
     }
 
     /// Set the icon size.

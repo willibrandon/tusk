@@ -41,14 +41,7 @@ impl SchemaService {
             view_columns.insert((view.schema.clone(), view.name.clone()), columns);
         }
 
-        Ok(DatabaseSchema {
-            schemas,
-            tables,
-            views,
-            functions,
-            table_columns,
-            view_columns,
-        })
+        Ok(DatabaseSchema { schemas, tables, views, functions, table_columns, view_columns })
     }
 
     /// Load all schemas (excluding system schemas by default).
@@ -70,10 +63,7 @@ impl SchemaService {
 
         Ok(rows
             .into_iter()
-            .map(|row| SchemaInfo {
-                name: row.get("name"),
-                owner: row.get("owner"),
-            })
+            .map(|row| SchemaInfo { name: row.get("name"), owner: row.get("owner") })
             .collect())
     }
 

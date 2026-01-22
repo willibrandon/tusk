@@ -48,9 +48,7 @@ pub struct Spinner {
 impl Spinner {
     /// Create a new spinner with default size.
     pub fn new() -> Self {
-        Self {
-            size: SpinnerSize::default(),
-        }
+        Self { size: SpinnerSize::default() }
     }
 
     /// Set the spinner size.
@@ -102,12 +100,8 @@ impl RenderOnce for Spinner {
                     .border_color(theme.colors.accent)
                     .with_animation(
                         "spinner-rotation",
-                        Animation::new(Duration::from_secs(1))
-                            .repeat()
-                            .with_easing(gpui::linear),
-                        move |element, _progress| {
-                            element.occlude()
-                        },
+                        Animation::new(Duration::from_secs(1)).repeat().with_easing(gpui::linear),
+                        move |element, _progress| element.occlude(),
                     ),
             )
     }

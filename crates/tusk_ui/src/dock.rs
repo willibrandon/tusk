@@ -247,11 +247,8 @@ impl Dock {
             .border_color(theme.colors.border)
             .child(
                 // Left side: panel tabs
-                div()
-                    .flex()
-                    .items_center()
-                    .gap(px(4.0))
-                    .children(self.panels.iter().enumerate().map(|(index, entry)| {
+                div().flex().items_center().gap(px(4.0)).children(
+                    self.panels.iter().enumerate().map(|(index, entry)| {
                         let is_active = index == self.active_panel_index;
                         let title = entry.panel.title(cx);
                         let icon = entry.panel.icon(cx);
@@ -262,11 +259,8 @@ impl Dock {
                             gpui::transparent_black()
                         };
 
-                        let text_color = if is_active {
-                            theme.colors.text
-                        } else {
-                            theme.colors.text_muted
-                        };
+                        let text_color =
+                            if is_active { theme.colors.text } else { theme.colors.text_muted };
 
                         div()
                             .id(("dock-tab", index))
@@ -283,7 +277,8 @@ impl Dock {
                             .hover(|style| style.bg(theme.colors.element_hover))
                             .child(self.render_panel_icon(icon, text_color))
                             .child(title.to_string())
-                    })),
+                    }),
+                ),
             )
             .child(
                 // Right side: collapse toggle button
@@ -299,7 +294,9 @@ impl Dock {
                     .on_click(cx.listener(move |this, _e, _window, cx| {
                         this.toggle_visibility(cx);
                     }))
-                    .child(Icon::new(toggle_icon).size(IconSize::Small).color(theme.colors.text_muted)),
+                    .child(
+                        Icon::new(toggle_icon).size(IconSize::Small).color(theme.colors.text_muted),
+                    ),
             )
     }
 
@@ -338,9 +335,15 @@ impl Dock {
 
         // Size the indicator based on dock position
         match position {
-            DockPosition::Left => base.h_full().w(px(24.0)).border_r_1().border_color(theme.colors.border),
-            DockPosition::Right => base.h_full().w(px(24.0)).border_l_1().border_color(theme.colors.border),
-            DockPosition::Bottom => base.w_full().h(px(24.0)).border_t_1().border_color(theme.colors.border),
+            DockPosition::Left => {
+                base.h_full().w(px(24.0)).border_r_1().border_color(theme.colors.border)
+            }
+            DockPosition::Right => {
+                base.h_full().w(px(24.0)).border_l_1().border_color(theme.colors.border)
+            }
+            DockPosition::Bottom => {
+                base.w_full().h(px(24.0)).border_t_1().border_color(theme.colors.border)
+            }
         }
     }
 
@@ -349,11 +352,7 @@ impl Dock {
         let theme = cx.global::<TuskTheme>();
 
         if let Some(panel) = self.active_panel() {
-            div()
-                .flex_1()
-                .overflow_hidden()
-                .bg(theme.colors.panel_background)
-                .child(panel.to_any())
+            div().flex_1().overflow_hidden().bg(theme.colors.panel_background).child(panel.to_any())
         } else {
             div()
                 .flex_1()

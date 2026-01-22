@@ -51,10 +51,7 @@ pub struct ResultsPanel {
 impl ResultsPanel {
     /// Create a new results panel.
     pub fn new(cx: &mut Context<Self>) -> Self {
-        Self {
-            focus_handle: cx.focus_handle(),
-            state: ResultsState::Empty,
-        }
+        Self { focus_handle: cx.focus_handle(), state: ResultsState::Empty }
     }
 
     /// Get the current state.
@@ -70,18 +67,13 @@ impl ResultsPanel {
 
     /// Set the panel to success state with results.
     pub fn set_success(&mut self, row_count: usize, elapsed_ms: u64, cx: &mut Context<Self>) {
-        self.state = ResultsState::Success {
-            row_count,
-            elapsed_ms,
-        };
+        self.state = ResultsState::Success { row_count, elapsed_ms };
         cx.notify();
     }
 
     /// Set the panel to error state.
     pub fn set_error(&mut self, message: impl Into<String>, cx: &mut Context<Self>) {
-        self.state = ResultsState::Error {
-            message: message.into(),
-        };
+        self.state = ResultsState::Error { message: message.into() };
         cx.notify();
     }
 
@@ -115,10 +107,7 @@ impl ResultsPanel {
                     ),
             )
             .child(
-                div()
-                    .text_color(theme.colors.text_muted)
-                    .text_size(px(13.0))
-                    .child("No results"),
+                div().text_color(theme.colors.text_muted).text_size(px(13.0)).child("No results"),
             )
             .child(
                 div()
@@ -160,21 +149,12 @@ impl ResultsPanel {
             .justify_center()
             .size_full()
             .gap(px(12.0))
-            .child(
-                Icon::new(IconName::Check)
-                    .size(IconSize::XLarge)
-                    .color(theme.colors.success),
-            )
-            .child(
-                div()
-                    .text_color(theme.colors.text)
-                    .text_size(px(13.0))
-                    .child(format!(
-                        "{} row{} returned",
-                        row_count,
-                        if row_count == 1 { "" } else { "s" }
-                    )),
-            )
+            .child(Icon::new(IconName::Check).size(IconSize::XLarge).color(theme.colors.success))
+            .child(div().text_color(theme.colors.text).text_size(px(13.0)).child(format!(
+                "{} row{} returned",
+                row_count,
+                if row_count == 1 { "" } else { "s" }
+            )))
             .child(
                 div()
                     .text_color(theme.colors.text_muted)
@@ -193,11 +173,7 @@ impl ResultsPanel {
             .size_full()
             .gap(px(12.0))
             .p(px(16.0))
-            .child(
-                Icon::new(IconName::Error)
-                    .size(IconSize::XLarge)
-                    .color(theme.colors.error),
-            )
+            .child(Icon::new(IconName::Error).size(IconSize::XLarge).color(theme.colors.error))
             .child(
                 div()
                     .text_color(theme.colors.error)
@@ -257,12 +233,9 @@ impl Render for ResultsPanel {
         let content = match &self.state {
             ResultsState::Empty => self.render_empty_state(theme).into_any_element(),
             ResultsState::Loading => self.render_loading_state(theme).into_any_element(),
-            ResultsState::Success {
-                row_count,
-                elapsed_ms,
-            } => self
-                .render_success_state(*row_count, *elapsed_ms, theme)
-                .into_any_element(),
+            ResultsState::Success { row_count, elapsed_ms } => {
+                self.render_success_state(*row_count, *elapsed_ms, theme).into_any_element()
+            }
             ResultsState::Error { message } => {
                 self.render_error_state(message, theme).into_any_element()
             }

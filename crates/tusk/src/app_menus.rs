@@ -78,11 +78,6 @@ pub fn app_menus(_cx: &mut App) -> Vec<Menu> {
             ],
         },
         // Help menu
-        Menu {
-            name: "Help".into(),
-            items: vec![
-                MenuItem::action("About Tusk", About),
-            ],
-        },
+        Menu { name: "Help".into(), items: vec![MenuItem::action("About Tusk", About)] },
     ]
 }

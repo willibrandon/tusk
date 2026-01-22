@@ -2,8 +2,8 @@
 //!
 //! Data structures representing PostgreSQL database objects for the schema browser.
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A PostgreSQL schema (namespace).
 #[derive(Debug, Clone, Serialize, Deserialize)]

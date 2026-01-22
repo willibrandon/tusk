@@ -312,9 +312,7 @@ impl EntityInputHandler for TextInput {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<Range<usize>> {
-        self.marked_range
-            .as_ref()
-            .map(|range| self.range_to_utf16(range))
+        self.marked_range.as_ref().map(|range| self.range_to_utf16(range))
     }
 
     fn unmark_text(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
@@ -383,14 +381,8 @@ impl EntityInputHandler for TextInput {
         let last_layout = self.last_layout.as_ref()?;
         let range = self.range_from_utf16(&range_utf16);
         Some(Bounds::from_corners(
-            point(
-                bounds.left() + last_layout.x_for_index(range.start),
-                bounds.top(),
-            ),
-            point(
-                bounds.left() + last_layout.x_for_index(range.end),
-                bounds.bottom(),
-            ),
+            point(bounds.left() + last_layout.x_for_index(range.start), bounds.top()),
+            point(bounds.left() + last_layout.x_for_index(range.end), bounds.bottom()),
         ))
     }
 
@@ -491,9 +483,7 @@ impl gpui::Element for TextInputElement {
         let runs = vec![run];
 
         let font_size = style.font_size.to_pixels(window.rem_size());
-        let line = window
-            .text_system()
-            .shape_line(display_text, font_size, &runs, None);
+        let line = window.text_system().shape_line(display_text, font_size, &runs, None);
 
         let cursor_pos = line.x_for_index(cursor);
         let (selection, cursor_quad) = if selected_range.is_empty() {
@@ -511,10 +501,7 @@ impl gpui::Element for TextInputElement {
             (
                 Some(fill(
                     Bounds::from_corners(
-                        point(
-                            bounds.left() + line.x_for_index(selected_range.start),
-                            bounds.top(),
-                        ),
+                        point(bounds.left() + line.x_for_index(selected_range.start), bounds.top()),
                         point(
                             bounds.left() + line.x_for_index(selected_range.end),
                             bounds.bottom(),
@@ -525,11 +512,7 @@ impl gpui::Element for TextInputElement {
                 None,
             )
         };
-        PrepaintState {
-            line: Some(line),
-            cursor: cursor_quad,
-            selection,
-        }
+        PrepaintState { line: Some(line), cursor: cursor_quad, selection }
     }
 
     fn paint(
@@ -552,15 +535,8 @@ impl gpui::Element for TextInputElement {
             window.paint_quad(selection)
         }
         let line = prepaint.line.take().unwrap();
-        line.paint(
-            bounds.origin,
-            window.line_height(),
-            gpui::TextAlign::Left,
-            None,
-            window,
-            cx,
-        )
-        .unwrap();
+        line.paint(bounds.origin, window.line_height(), gpui::TextAlign::Left, None, window, cx)
+            .unwrap();
 
         if focus_handle.is_focused(window) {
             if let Some(cursor) = prepaint.cursor.take() {
@@ -609,8 +585,6 @@ impl Render for TextInput {
             .border_color(theme.colors.border)
             .when(is_focused, |d| d.border_color(theme.colors.accent))
             .text_sm()
-            .child(TextInputElement {
-                input: cx.entity(),
-            })
+            .child(TextInputElement { input: cx.entity() })
     }
 }

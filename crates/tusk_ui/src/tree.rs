@@ -61,10 +61,7 @@ pub enum TreeEvent<Id> {
     /// An item was collapsed.
     Collapsed { id: Id },
     /// Context menu was requested for an item.
-    ContextMenu {
-        id: Id,
-        position: gpui::Point<gpui::Pixels>,
-    },
+    ContextMenu { id: Id, position: gpui::Point<gpui::Pixels> },
 }
 
 /// A visible entry in the flattened tree, including depth information.
@@ -216,10 +213,7 @@ impl<T: TreeItem> Tree<T> {
 
     fn flatten_items(&mut self, items: &[T], depth: usize) {
         for item in items {
-            self.visible_entries.push(VisibleEntry {
-                item: item.clone(),
-                depth,
-            });
+            self.visible_entries.push(VisibleEntry { item: item.clone(), depth });
 
             if item.is_expandable() && self.expanded.contains(&item.id()) {
                 if let Some(children) = item.children() {
@@ -235,15 +229,12 @@ impl<T: TreeItem> Tree<T> {
             let descendant_matches = self.has_matching_descendant(item, filter);
 
             if label_matches || descendant_matches {
-                self.visible_entries.push(VisibleEntry {
-                    item: item.clone(),
-                    depth,
-                });
+                self.visible_entries.push(VisibleEntry { item: item.clone(), depth });
 
                 // When filtering, auto-expand items with matching descendants
                 // or if the item is explicitly expanded
-                let should_show_children =
-                    descendant_matches || (item.is_expandable() && self.expanded.contains(&item.id()));
+                let should_show_children = descendant_matches
+                    || (item.is_expandable() && self.expanded.contains(&item.id()));
                 if should_show_children {
                     if let Some(children) = item.children() {
                         self.flatten_items_filtered(children, depth + 1, filter);
@@ -269,9 +260,7 @@ impl<T: TreeItem> Tree<T> {
 
     /// Find the index of an item in visible entries.
     fn find_visible_index(&self, id: &T::Id) -> Option<usize> {
-        self.visible_entries
-            .iter()
-            .position(|entry| entry.item.id() == *id)
+        self.visible_entries.iter().position(|entry| entry.item.id() == *id)
     }
 
     /// Select the next item in the tree.
@@ -292,8 +281,7 @@ impl<T: TreeItem> Tree<T> {
 
         let id = self.visible_entries[next_index].item.id();
         self.selected = Some(id.clone());
-        self.scroll_handle
-            .scroll_to_item(next_index, gpui::ScrollStrategy::Nearest);
+        self.scroll_handle.scroll_to_item(next_index, gpui::ScrollStrategy::Nearest);
         cx.emit(TreeEvent::Selected { id });
         cx.notify();
     }
@@ -316,8 +304,7 @@ impl<T: TreeItem> Tree<T> {
 
         let id = self.visible_entries[prev_index].item.id();
         self.selected = Some(id.clone());
-        self.scroll_handle
-            .scroll_to_item(prev_index, gpui::ScrollStrategy::Nearest);
+        self.scroll_handle.scroll_to_item(prev_index, gpui::ScrollStrategy::Nearest);
         cx.emit(TreeEvent::Selected { id });
         cx.notify();
     }
@@ -369,16 +356,8 @@ impl<T: TreeItem> Tree<T> {
             .pl(indent)
             .pr(spacing::SM)
             .cursor_pointer()
-            .when(is_selected, |d| {
-                d.bg(theme.colors.list_active_selection_background)
-            })
-            .hover(|d| {
-                if !is_selected {
-                    d.bg(theme.colors.list_hover_background)
-                } else {
-                    d
-                }
-            })
+            .when(is_selected, |d| d.bg(theme.colors.list_active_selection_background))
+            .hover(|d| if !is_selected { d.bg(theme.colors.list_hover_background) } else { d })
             .on_click(cx.listener(move |this, e: &gpui::ClickEvent, _window, cx| {
                 let id = item_id_for_click.clone();
                 this.selected = Some(id.clone());
@@ -394,10 +373,7 @@ impl<T: TreeItem> Tree<T> {
                 MouseButton::Right,
                 cx.listener(move |_this, e: &gpui::MouseDownEvent, _window, cx| {
                     let id = item_id_for_context.clone();
-                    cx.emit(TreeEvent::ContextMenu {
-                        id,
-                        position: e.position,
-                    });
+                    cx.emit(TreeEvent::ContextMenu { id, position: e.position });
                 }),
             )
             .child(
@@ -412,11 +388,11 @@ impl<T: TreeItem> Tree<T> {
                     .when(is_expandable, |d| {
                         let toggle_id = item_id_for_toggle.clone();
                         d.cursor_pointer()
-                            .on_click(
-                                cx.listener(move |this, _e: &gpui::ClickEvent, _window, cx| {
+                            .on_click(cx.listener(
+                                move |this, _e: &gpui::ClickEvent, _window, cx| {
                                     this.toggle_expanded(toggle_id.clone(), cx);
-                                }),
-                            )
+                                },
+                            ))
                             .child(
                                 Icon::new(if is_expanded {
                                     IconName::ChevronDown
@@ -438,13 +414,11 @@ impl<T: TreeItem> Tree<T> {
                     .justify_center()
                     .mr(spacing::XS)
                     .when_some(entry.item.icon(), |d, icon_name| {
-                        d.child(Icon::new(icon_name).size(IconSize::Small).color(
-                            if is_selected {
-                                theme.colors.text
-                            } else {
-                                theme.colors.text_muted
-                            },
-                        ))
+                        d.child(Icon::new(icon_name).size(IconSize::Small).color(if is_selected {
+                            theme.colors.text
+                        } else {
+                            theme.colors.text_muted
+                        }))
                     }),
             )
             .child({
@@ -487,27 +461,21 @@ impl<T: TreeItem> Render for Tree<T> {
             .track_focus(&self.focus_handle)
             // Visible focus indicator (2px accent border when focused)
             .focus(|style| style.border_color(focus_ring_color))
-            .on_action(cx.listener(|this, _: &SelectNext, _window, cx| {
-                this.select_next(cx)
-            }))
-            .on_action(cx.listener(|this, _: &SelectPrevious, _window, cx| {
-                this.select_previous(cx)
-            }))
-            .on_action(cx.listener(|this, _: &ExpandSelected, _window, cx| {
-                this.expand_selected(cx)
-            }))
-            .on_action(cx.listener(|this, _: &CollapseSelected, _window, cx| {
-                this.collapse_selected(cx)
-            }))
-            .on_action(cx.listener(|this, _: &ActivateSelected, _window, cx| {
-                this.activate_selected(cx)
-            }))
-            .on_action(cx.listener(|this, _: &ExpandAll, _window, cx| {
-                this.expand_all(cx)
-            }))
-            .on_action(cx.listener(|this, _: &CollapseAll, _window, cx| {
-                this.collapse_all(cx)
-            }))
+            .on_action(cx.listener(|this, _: &SelectNext, _window, cx| this.select_next(cx)))
+            .on_action(
+                cx.listener(|this, _: &SelectPrevious, _window, cx| this.select_previous(cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ExpandSelected, _window, cx| this.expand_selected(cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &CollapseSelected, _window, cx| this.collapse_selected(cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ActivateSelected, _window, cx| this.activate_selected(cx)),
+            )
+            .on_action(cx.listener(|this, _: &ExpandAll, _window, cx| this.expand_all(cx)))
+            .on_action(cx.listener(|this, _: &CollapseAll, _window, cx| this.collapse_all(cx)))
             .size_full()
             .overflow_hidden()
             .child(

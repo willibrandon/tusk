@@ -243,10 +243,7 @@ impl Pane {
         let dialog = cx.new(|cx| {
             ConfirmDialog::warning(
                 "Unsaved Changes",
-                format!(
-                    "\"{}\" has unsaved changes. Close anyway?",
-                    tab_title
-                ),
+                format!("\"{}\" has unsaved changes. Close anyway?", tab_title),
                 cx,
             )
             .with_confirm_label("Close Without Saving")
@@ -432,11 +429,7 @@ impl Pane {
             theme.colors.tab_inactive_background
         };
 
-        let text_color = if is_active {
-            theme.colors.text
-        } else {
-            theme.colors.text_muted
-        };
+        let text_color = if is_active { theme.colors.text } else { theme.colors.text_muted };
 
         let weak_pane = cx.entity().downgrade();
         let tab_icon = tab.icon;
@@ -460,13 +453,10 @@ impl Pane {
             .hover(|style| style.bg(hover_bg))
             .cursor_pointer()
             // Drag initiation - start dragging this tab
-            .on_drag(
-                DraggedTab { index, tab_id },
-                |dragged_tab, _, _, cx| {
-                    cx.stop_propagation();
-                    cx.new(|_| dragged_tab.clone())
-                },
-            )
+            .on_drag(DraggedTab { index, tab_id }, |dragged_tab, _, _, cx| {
+                cx.stop_propagation();
+                cx.new(|_| dragged_tab.clone())
+            })
             // Visual feedback when dragging over this tab
             .drag_over::<DraggedTab>(move |tab_div, dragged_tab: &DraggedTab, _, _cx| {
                 if dragged_tab.index != index {
@@ -508,11 +498,7 @@ impl Pane {
         }
 
         // Title with dirty indicator
-        let title_text = if tab_dirty {
-            format!("{}*", tab_title)
-        } else {
-            tab_title.to_string()
-        };
+        let title_text = if tab_dirty { format!("{}*", tab_title) } else { tab_title.to_string() };
 
         tab_div = tab_div.child(div().text_sm().text_color(text_color).child(title_text));
 
@@ -548,11 +534,7 @@ impl Pane {
         let theme = cx.global::<TuskTheme>();
 
         if let Some(tab) = self.active_tab() {
-            div()
-                .flex_1()
-                .w_full()
-                .bg(theme.colors.editor_background)
-                .child(tab.view.clone())
+            div().flex_1().w_full().bg(theme.colors.editor_background).child(tab.view.clone())
         } else {
             // Empty state
             div()
@@ -614,15 +596,8 @@ impl Render for Pane {
 
         // Render confirmation dialog overlay if present
         if let Some(dialog) = &self.confirm_dialog {
-            pane_div = pane_div.child(
-                deferred(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .child(dialog.clone()),
-                )
-                .with_priority(1),
-            );
+            pane_div = pane_div
+                .child(deferred(div().absolute().inset_0().child(dialog.clone())).with_priority(1));
         }
 
         pane_div
@@ -704,11 +679,7 @@ impl PaneNode {
     pub fn to_layout(&self) -> PaneLayout {
         match self {
             PaneNode::Single(_) => PaneLayout::Single,
-            PaneNode::Split {
-                axis,
-                children,
-                ratios,
-            } => PaneLayout::Split {
+            PaneNode::Split { axis, children, ratios } => PaneLayout::Split {
                 axis: (*axis).into(),
                 children: children.iter().map(|child| child.to_layout()).collect(),
                 ratios: ratios.iter().copied().collect(),
@@ -859,10 +830,7 @@ impl PaneGroup {
         };
 
         self.active_pane = new_pane.clone();
-        cx.emit(PaneGroupEvent::Split {
-            axis,
-            new_pane: new_pane.clone(),
-        });
+        cx.emit(PaneGroupEvent::Split { axis, new_pane: new_pane.clone() });
         cx.notify();
 
         new_pane
@@ -932,8 +900,10 @@ impl PaneGroup {
                 let min_ratio = (PANE_MIN_SIZE / total_size).max(0.1);
 
                 // Adjust ratios
-                ratios[split_index] = (ratios[split_index] + adjustment).clamp(min_ratio, 1.0 - min_ratio);
-                ratios[split_index + 1] = (ratios[split_index + 1] - adjustment).clamp(min_ratio, 1.0 - min_ratio);
+                ratios[split_index] =
+                    (ratios[split_index] + adjustment).clamp(min_ratio, 1.0 - min_ratio);
+                ratios[split_index + 1] =
+                    (ratios[split_index + 1] - adjustment).clamp(min_ratio, 1.0 - min_ratio);
 
                 // Normalize ratios to sum to 1.0
                 let total: f32 = ratios.iter().sum();
@@ -952,9 +922,7 @@ impl PaneGroup {
     /// Focus the next pane.
     pub fn focus_next_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let panes = self.panes();
-        if let Some(pos) = panes
-            .iter()
-            .position(|p| p.entity_id() == self.active_pane.entity_id())
+        if let Some(pos) = panes.iter().position(|p| p.entity_id() == self.active_pane.entity_id())
         {
             let next = (pos + 1) % panes.len();
             let next_pane = panes[next].clone();
@@ -968,9 +936,7 @@ impl PaneGroup {
     /// Focus the previous pane.
     pub fn focus_previous_pane(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let panes = self.panes();
-        if let Some(pos) = panes
-            .iter()
-            .position(|p| p.entity_id() == self.active_pane.entity_id())
+        if let Some(pos) = panes.iter().position(|p| p.entity_id() == self.active_pane.entity_id())
         {
             let prev = if pos == 0 { panes.len() - 1 } else { pos - 1 };
             let prev_pane = panes[prev].clone();
@@ -991,9 +957,8 @@ impl PaneGroup {
                 let theme = cx.global::<TuskTheme>();
                 let accent = theme.colors.accent;
 
-                let mut pane_div = div()
-                    .id(("pane-container", pane.entity_id().as_u64()))
-                    .size_full();
+                let mut pane_div =
+                    div().id(("pane-container", pane.entity_id().as_u64())).size_full();
 
                 if is_active {
                     pane_div = pane_div.border_2().border_color(accent);
@@ -1010,11 +975,7 @@ impl PaneGroup {
                     .child(pane.clone())
                     .into_any_element()
             }
-            PaneNode::Split {
-                axis,
-                children,
-                ratios,
-            } => {
+            PaneNode::Split { axis, children, ratios } => {
                 // Build the split container
                 let mut container = match axis {
                     Axis::Horizontal => div().flex().flex_row().size_full(),
@@ -1026,16 +987,10 @@ impl PaneGroup {
                     let child_element = self.render_node(child, cx);
                     container = match axis {
                         Axis::Horizontal => container.child(
-                            div()
-                                .h_full()
-                                .flex_basis(gpui::relative(*ratio))
-                                .child(child_element),
+                            div().h_full().flex_basis(gpui::relative(*ratio)).child(child_element),
                         ),
                         Axis::Vertical => container.child(
-                            div()
-                                .w_full()
-                                .flex_basis(gpui::relative(*ratio))
-                                .child(child_element),
+                            div().w_full().flex_basis(gpui::relative(*ratio)).child(child_element),
                         ),
                     };
 
@@ -1045,10 +1000,7 @@ impl PaneGroup {
                         let split_index = i;
                         let theme = cx.global::<TuskTheme>();
                         let border_color = theme.colors.border;
-                        let drag_value = DraggedPaneSplit {
-                            split_index,
-                            axis: split_axis,
-                        };
+                        let drag_value = DraggedPaneSplit { split_index, axis: split_axis };
 
                         let cursor = match split_axis {
                             Axis::Horizontal => CursorStyle::ResizeLeftRight,
@@ -1115,16 +1067,14 @@ impl Render for PaneGroup {
                 .size_full()
             })
             // Handle split resize via drag move
-            .on_drag_move(cx.listener(
-                |this, e: &DragMoveEvent<DraggedPaneSplit>, _window, cx| {
-                    // Avoid processing duplicate coordinates
-                    if this.previous_drag_coordinates != Some(e.event.position) {
-                        this.previous_drag_coordinates = Some(e.event.position);
-                        let drag = e.drag(cx);
-                        this.resize_split(drag.split_index, drag.axis, e.event.position, cx);
-                    }
-                },
-            ))
+            .on_drag_move(cx.listener(|this, e: &DragMoveEvent<DraggedPaneSplit>, _window, cx| {
+                // Avoid processing duplicate coordinates
+                if this.previous_drag_coordinates != Some(e.event.position) {
+                    this.previous_drag_coordinates = Some(e.event.position);
+                    let drag = e.drag(cx);
+                    this.resize_split(drag.split_index, drag.axis, e.event.position, cx);
+                }
+            }))
             .child(self.render_node(&self.root, cx))
     }
 }

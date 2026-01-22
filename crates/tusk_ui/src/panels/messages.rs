@@ -52,38 +52,22 @@ pub struct Message {
 impl Message {
     /// Create a new info message.
     pub fn info(text: impl Into<String>) -> Self {
-        Self {
-            severity: MessageSeverity::Info,
-            text: text.into(),
-            timestamp: None,
-        }
+        Self { severity: MessageSeverity::Info, text: text.into(), timestamp: None }
     }
 
     /// Create a new warning message.
     pub fn warning(text: impl Into<String>) -> Self {
-        Self {
-            severity: MessageSeverity::Warning,
-            text: text.into(),
-            timestamp: None,
-        }
+        Self { severity: MessageSeverity::Warning, text: text.into(), timestamp: None }
     }
 
     /// Create a new error message.
     pub fn error(text: impl Into<String>) -> Self {
-        Self {
-            severity: MessageSeverity::Error,
-            text: text.into(),
-            timestamp: None,
-        }
+        Self { severity: MessageSeverity::Error, text: text.into(), timestamp: None }
     }
 
     /// Create a new success message.
     pub fn success(text: impl Into<String>) -> Self {
-        Self {
-            severity: MessageSeverity::Success,
-            text: text.into(),
-            timestamp: None,
-        }
+        Self { severity: MessageSeverity::Success, text: text.into(), timestamp: None }
     }
 
     /// Add a timestamp to the message.
@@ -107,10 +91,7 @@ pub struct MessagesPanel {
 impl MessagesPanel {
     /// Create a new messages panel.
     pub fn new(cx: &mut Context<Self>) -> Self {
-        Self {
-            focus_handle: cx.focus_handle(),
-            messages: Vec::new(),
-        }
+        Self { focus_handle: cx.focus_handle(), messages: Vec::new() }
     }
 
     /// Get the messages.
@@ -160,10 +141,7 @@ impl MessagesPanel {
                     ),
             )
             .child(
-                div()
-                    .text_color(theme.colors.text_muted)
-                    .text_size(px(13.0))
-                    .child("No messages"),
+                div().text_color(theme.colors.text_muted).text_size(px(13.0)).child("No messages"),
             )
             .child(
                 div()
@@ -191,11 +169,7 @@ impl MessagesPanel {
             .gap(px(8.0))
             .border_b_1()
             .border_color(theme.colors.border.opacity(0.5))
-            .child(
-                Icon::new(message.severity.icon())
-                    .size(IconSize::Small)
-                    .color(icon_color),
-            )
+            .child(Icon::new(message.severity.icon()).size(IconSize::Small).color(icon_color))
             .child(
                 div()
                     .flex_1()

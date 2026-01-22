@@ -57,11 +57,7 @@ pub enum ContextMenuItem {
     /// A visual separator line.
     Separator,
     /// A nested submenu.
-    Submenu {
-        label: SharedString,
-        icon: Option<IconName>,
-        items: Vec<ContextMenuItem>,
-    },
+    Submenu { label: SharedString, icon: Option<IconName>, items: Vec<ContextMenuItem> },
 }
 
 impl ContextMenuItem {
@@ -107,22 +103,14 @@ impl ContextMenuItem {
 
     /// Create a submenu item.
     pub fn submenu(label: impl Into<SharedString>, items: Vec<ContextMenuItem>) -> Self {
-        Self::Submenu {
-            label: label.into(),
-            icon: None,
-            items,
-        }
+        Self::Submenu { label: label.into(), icon: None, items }
     }
 
     /// Builder: add an icon.
     pub fn icon(mut self, icon: IconName) -> Self {
         match &mut self {
-            Self::Action {
-                icon: ref mut i, ..
-            } => *i = Some(icon),
-            Self::Submenu {
-                icon: ref mut i, ..
-            } => *i = Some(icon),
+            Self::Action { icon: ref mut i, .. } => *i = Some(icon),
+            Self::Submenu { icon: ref mut i, .. } => *i = Some(icon),
             Self::Separator => {}
         }
         self
@@ -130,11 +118,7 @@ impl ContextMenuItem {
 
     /// Builder: add a shortcut hint.
     pub fn shortcut(mut self, shortcut: impl Into<SharedString>) -> Self {
-        if let Self::Action {
-            shortcut: ref mut s,
-            ..
-        } = &mut self
-        {
+        if let Self::Action { shortcut: ref mut s, .. } = &mut self {
             *s = Some(shortcut.into());
         }
         self
@@ -142,11 +126,7 @@ impl ContextMenuItem {
 
     /// Builder: set disabled state.
     pub fn disabled(mut self, disabled: bool) -> Self {
-        if let Self::Action {
-            disabled: ref mut d,
-            ..
-        } = &mut self
-        {
+        if let Self::Action { disabled: ref mut d, .. } = &mut self {
             *d = disabled;
         }
         self
@@ -304,10 +284,8 @@ impl ContextMenu {
         }
 
         let len = self.items.len();
-        let start = self
-            .highlighted_index
-            .map(|i| if i == 0 { len - 1 } else { i - 1 })
-            .unwrap_or(len - 1);
+        let start =
+            self.highlighted_index.map(|i| if i == 0 { len - 1 } else { i - 1 }).unwrap_or(len - 1);
 
         for offset in 0..len {
             let idx = (start + len - offset) % len;
@@ -331,12 +309,7 @@ impl ContextMenu {
         };
 
         match item {
-            ContextMenuItem::Action {
-                id,
-                disabled,
-                handler,
-                ..
-            } => {
+            ContextMenuItem::Action { id, disabled, handler, .. } => {
                 if !disabled {
                     // Emit item activated event
                     cx.emit(ContextMenuEvent::ItemActivated { id: id.clone() });
@@ -370,7 +343,7 @@ impl ContextMenu {
         // Calculate submenu position (to the right of the current menu)
         // This is a simplified position; real positioning happens in render
         let submenu_position = Point {
-            x: self.position.x + px(200.0), // Menu width
+            x: self.position.x + px(200.0),             // Menu width
             y: self.position.y + px(idx as f32 * 28.0), // Item height
         };
 
@@ -453,25 +426,13 @@ impl ContextMenu {
         cx: &Context<Self>,
     ) -> impl IntoElement {
         match item {
-            ContextMenuItem::Separator => div()
-                .h(px(1.0))
-                .w_full()
-                .my(px(4.0))
-                .bg(theme.colors.border)
-                .into_any_element(),
+            ContextMenuItem::Separator => {
+                div().h(px(1.0)).w_full().my(px(4.0)).bg(theme.colors.border).into_any_element()
+            }
 
-            ContextMenuItem::Action {
-                label,
-                icon,
-                shortcut,
-                disabled,
-                ..
-            } => {
-                let text_color = if *disabled {
-                    theme.colors.text_muted
-                } else {
-                    theme.colors.text
-                };
+            ContextMenuItem::Action { label, icon, shortcut, disabled, .. } => {
+                let text_color =
+                    if *disabled { theme.colors.text_muted } else { theme.colors.text };
 
                 let is_disabled = *disabled;
                 let shortcut_clone = shortcut.clone();
@@ -519,13 +480,7 @@ impl ContextMenu {
                             }),
                     )
                     // Label
-                    .child(
-                        div()
-                            .flex_1()
-                            .text_sm()
-                            .text_color(text_color)
-                            .child(label.clone()),
-                    )
+                    .child(div().flex_1().text_sm().text_color(text_color).child(label.clone()))
                     // Shortcut
                     .when_some(
                         shortcut_clone.as_ref(),
@@ -542,11 +497,8 @@ impl ContextMenu {
             }
 
             ContextMenuItem::Submenu { label, icon, .. } => {
-                let is_submenu_open = self
-                    .active_submenu
-                    .as_ref()
-                    .map(|(i, _)| *i == idx)
-                    .unwrap_or(false);
+                let is_submenu_open =
+                    self.active_submenu.as_ref().map(|(i, _)| *i == idx).unwrap_or(false);
 
                 div()
                     .id(format!("submenu-item-{}", idx))
@@ -590,19 +542,13 @@ impl ContextMenu {
                             .justify_center()
                             .when_some(icon.as_ref(), |d, icon| {
                                 d.child(
-                                    Icon::new(*icon)
-                                        .size(IconSize::Small)
-                                        .color(theme.colors.text),
+                                    Icon::new(*icon).size(IconSize::Small).color(theme.colors.text),
                                 )
                             }),
                     )
                     // Label
                     .child(
-                        div()
-                            .flex_1()
-                            .text_sm()
-                            .text_color(theme.colors.text)
-                            .child(label.clone()),
+                        div().flex_1().text_sm().text_color(theme.colors.text).child(label.clone()),
                     )
                     // Submenu arrow
                     .child(
@@ -631,13 +577,12 @@ impl Render for ContextMenu {
 
         // Menu dimensions
         let menu_width = px(200.0);
-        let approx_height = px(
-            self.items
-                .iter()
-                .map(|item| if item.is_separator() { 9.0 } else { 28.0 })
-                .sum::<f32>()
-                + 8.0,
-        ); // padding
+        let approx_height = px(self
+            .items
+            .iter()
+            .map(|item| if item.is_separator() { 9.0 } else { 28.0 })
+            .sum::<f32>()
+            + 8.0); // padding
 
         // Calculate position with viewport overflow handling (T099)
         let viewport_size = window.viewport_size();
@@ -708,9 +653,7 @@ impl Render for ContextMenu {
                 self.render_item(idx, item, is_highlighted, &theme, cx)
             }))
             // Active submenu
-            .when_some(self.active_submenu.as_ref(), |d, (_, submenu)| {
-                d.child(submenu.clone())
-            })
+            .when_some(self.active_submenu.as_ref(), |d, (_, submenu)| d.child(submenu.clone()))
     }
 }
 
@@ -777,10 +720,7 @@ impl ContextMenuLayer {
                 }
             });
 
-        self.active_menu = Some(MenuEntry {
-            menu,
-            _subscription: subscription,
-        });
+        self.active_menu = Some(MenuEntry { menu, _subscription: subscription });
 
         cx.refresh_windows();
     }
@@ -813,10 +753,7 @@ impl ContextMenuLayer {
                 }
             });
 
-        self.active_menu = Some(MenuEntry {
-            menu,
-            _subscription: subscription,
-        });
+        self.active_menu = Some(MenuEntry { menu, _subscription: subscription });
 
         cx.refresh_windows();
     }
@@ -889,9 +826,7 @@ mod tests {
         assert!(!sep.is_selectable());
 
         // Test action
-        let action = ContextMenuItem::action("Copy", |_| {})
-            .icon(IconName::Copy)
-            .shortcut("Cmd+C");
+        let action = ContextMenuItem::action("Copy", |_| {}).icon(IconName::Copy).shortcut("Cmd+C");
         assert!(!action.is_separator());
         assert!(action.is_selectable());
         assert_eq!(action.label().map(|l| l.as_ref()), Some("Copy"));

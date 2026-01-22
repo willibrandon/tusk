@@ -269,17 +269,8 @@ mod tests {
     #[test]
     fn test_confirm_dialog_kinds() {
         // Verify icon mapping works
-        assert_eq!(
-            ConfirmDialogKind::Standard as i32,
-            ConfirmDialogKind::Standard as i32
-        );
-        assert_eq!(
-            ConfirmDialogKind::Warning as i32,
-            ConfirmDialogKind::Warning as i32
-        );
-        assert_eq!(
-            ConfirmDialogKind::Destructive as i32,
-            ConfirmDialogKind::Destructive as i32
-        );
+        assert_eq!(ConfirmDialogKind::Standard as i32, ConfirmDialogKind::Standard as i32);
+        assert_eq!(ConfirmDialogKind::Warning as i32, ConfirmDialogKind::Warning as i32);
+        assert_eq!(ConfirmDialogKind::Destructive as i32, ConfirmDialogKind::Destructive as i32);
     }
 }

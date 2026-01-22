@@ -14,7 +14,6 @@ use std::sync::Arc;
 use crate::context_menu::ContextMenuLayer;
 use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::icon::IconName;
-use crate::modal::ModalLayer;
 use crate::key_bindings::{
     ActivateTab1, ActivateTab2, ActivateTab3, ActivateTab4, ActivateTab5, ActivateTab6,
     ActivateTab7, ActivateTab8, ActivateTab9, CloseActiveTab, ClosePane, FocusNextPane,
@@ -23,6 +22,7 @@ use crate::key_bindings::{
 };
 use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::layout::spacing;
+use crate::modal::ModalLayer;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, PaneLayout, TabItem};
 use crate::panel::{DockPosition, Focusable};
 use crate::panels::{MessagesPanel, ResultsPanel, SchemaBrowserPanel};
@@ -60,12 +60,7 @@ impl Render for QueryPlaceholderView {
             .justify_center()
             .bg(theme.colors.editor_background)
             .gap(spacing::MD)
-            .child(
-                div()
-                    .text_xl()
-                    .text_color(theme.colors.text)
-                    .child(self.title.clone()),
-            )
+            .child(div().text_xl().text_color(theme.colors.text).child(self.title.clone()))
             .child(
                 div()
                     .text_sm()
@@ -89,10 +84,7 @@ pub const WORKSPACE_STATE_KEY: &str = "workspace_state";
 #[derive(Debug, Clone)]
 pub enum WorkspaceEvent {
     /// Dock visibility changed.
-    DockToggled {
-        position: DockPosition,
-        visible: bool,
-    },
+    DockToggled { position: DockPosition, visible: bool },
     /// Active pane changed.
     ActivePaneChanged { pane: Entity<Pane> },
     /// Layout changed (split, close, resize).
@@ -222,21 +214,18 @@ impl Workspace {
             cx.notify();
         }));
 
-        subscriptions.push(cx.subscribe(
-            &bottom_dock,
-            |this, _dock, event: &DockEvent, cx| {
-                if let DockEvent::VisibilityChanged { visible } = event {
-                    cx.emit(WorkspaceEvent::DockToggled {
-                        position: DockPosition::Bottom,
-                        visible: *visible,
-                    });
-                }
-                cx.emit(WorkspaceEvent::LayoutChanged);
-                // Save state on dock changes
-                this.save_state_to_storage(cx);
-                cx.notify();
-            },
-        ));
+        subscriptions.push(cx.subscribe(&bottom_dock, |this, _dock, event: &DockEvent, cx| {
+            if let DockEvent::VisibilityChanged { visible } = event {
+                cx.emit(WorkspaceEvent::DockToggled {
+                    position: DockPosition::Bottom,
+                    visible: *visible,
+                });
+            }
+            cx.emit(WorkspaceEvent::LayoutChanged);
+            // Save state on dock changes
+            this.save_state_to_storage(cx);
+            cx.notify();
+        }));
 
         // Subscribe to center pane group events
         subscriptions.push(cx.subscribe(
@@ -306,7 +295,9 @@ impl Workspace {
             if let Some(tusk_state) = cx.try_global::<TuskState>() {
                 let state = self.save_state(cx);
                 if let Ok(json_value) = serde_json::to_value(&state) {
-                    if let Err(e) = tusk_state.storage().save_ui_state(WORKSPACE_STATE_KEY, &json_value) {
+                    if let Err(e) =
+                        tusk_state.storage().save_ui_state(WORKSPACE_STATE_KEY, &json_value)
+                    {
                         tracing::warn!(error = %e, "Failed to save workspace state");
                     } else {
                         tracing::trace!("Saved workspace state");
@@ -324,7 +315,8 @@ impl Workspace {
     /// to a maximum of 50% of the available viewport height.
     fn update_bottom_dock_max_height(&mut self, viewport_height: Pixels, cx: &mut Context<Self>) {
         // Only update if the height has changed significantly
-        let height_changed = (f32::from(viewport_height) - f32::from(self.last_viewport_height)).abs() > 1.0;
+        let height_changed =
+            (f32::from(viewport_height) - f32::from(self.last_viewport_height)).abs() > 1.0;
         if height_changed {
             self.last_viewport_height = viewport_height;
 
@@ -628,8 +620,9 @@ impl Workspace {
         if self.right_dock.is_none() {
             let right_dock = cx.new(|cx| Dock::new(DockPosition::Right, cx));
 
-            self._subscriptions
-                .push(cx.subscribe(&right_dock, |_this, _dock, event: &DockEvent, cx| {
+            self._subscriptions.push(cx.subscribe(
+                &right_dock,
+                |_this, _dock, event: &DockEvent, cx| {
                     if let DockEvent::VisibilityChanged { visible } = event {
                         cx.emit(WorkspaceEvent::DockToggled {
                             position: DockPosition::Right,
@@ -638,7 +631,8 @@ impl Workspace {
                     }
                     cx.emit(WorkspaceEvent::LayoutChanged);
                     cx.notify();
-                }));
+                },
+            ));
 
             self.right_dock = Some(right_dock);
             cx.notify();
@@ -708,32 +702,30 @@ impl Render for Workspace {
                 .size_full()
             })
             // Handle dock resize via drag move
-            .on_drag_move(cx.listener(
-                |this, e: &DragMoveEvent<DraggedDock>, _window, cx| {
-                    // Avoid processing duplicate coordinates
-                    if this.previous_dock_drag_coordinates != Some(e.event.position) {
-                        this.previous_dock_drag_coordinates = Some(e.event.position);
+            .on_drag_move(cx.listener(|this, e: &DragMoveEvent<DraggedDock>, _window, cx| {
+                // Avoid processing duplicate coordinates
+                if this.previous_dock_drag_coordinates != Some(e.event.position) {
+                    this.previous_dock_drag_coordinates = Some(e.event.position);
 
-                        match e.drag(cx).0 {
-                            DockPosition::Left => {
-                                // Left dock: width = mouse X position relative to workspace left
-                                let new_size = e.event.position.x - this.bounds.left();
-                                this.resize_left_dock(new_size, cx);
-                            }
-                            DockPosition::Right => {
-                                // Right dock: width = workspace right edge - mouse X position
-                                let new_size = this.bounds.right() - e.event.position.x;
-                                this.resize_right_dock(new_size, cx);
-                            }
-                            DockPosition::Bottom => {
-                                // Bottom dock: height = workspace bottom edge - mouse Y position
-                                let new_size = this.bounds.bottom() - e.event.position.y;
-                                this.resize_bottom_dock(new_size, cx);
-                            }
+                    match e.drag(cx).0 {
+                        DockPosition::Left => {
+                            // Left dock: width = mouse X position relative to workspace left
+                            let new_size = e.event.position.x - this.bounds.left();
+                            this.resize_left_dock(new_size, cx);
+                        }
+                        DockPosition::Right => {
+                            // Right dock: width = workspace right edge - mouse X position
+                            let new_size = this.bounds.right() - e.event.position.x;
+                            this.resize_right_dock(new_size, cx);
+                        }
+                        DockPosition::Bottom => {
+                            // Bottom dock: height = workspace bottom edge - mouse Y position
+                            let new_size = this.bounds.bottom() - e.event.position.y;
+                            this.resize_bottom_dock(new_size, cx);
                         }
                     }
-                },
-            ))
+                }
+            }))
             // Register action handlers
             .on_action(cx.listener(|this, _: &ToggleLeftDock, _window, cx| {
                 this.toggle_dock(DockPosition::Left, cx);
@@ -822,12 +814,7 @@ impl Render for Workspace {
                             .flex_col()
                             .overflow_hidden()
                             // Center pane group
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .overflow_hidden()
-                                    .child(self.center.clone()),
-                            )
+                            .child(div().flex_1().overflow_hidden().child(self.center.clone()))
                             // Bottom dock
                             .child(self.bottom_dock.clone()),
                     )
