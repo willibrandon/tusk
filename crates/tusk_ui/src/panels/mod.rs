@@ -14,4 +14,6 @@ pub use results::{
     DisplayColumn, DisplayError, DisplayRow, ResultsPanel, ResultsPanelState, ResultsState,
     ResultsStatus,
 };
-pub use schema_browser::{database_schema_to_tree, SchemaBrowserPanel, SchemaItem};
+pub use schema_browser::{
+    database_schema_to_tree, SchemaBrowserEvent, SchemaBrowserPanel, SchemaItem,
+};

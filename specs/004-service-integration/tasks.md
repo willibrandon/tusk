@@ -110,18 +110,18 @@ This is a Rust workspace with multiple crates:
 
 ### Implementation for User Story 3
 
-- [ ] T039 [US3] Create ConnectionDialog component with form fields in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T040 [US3] Add form fields for host, port, database, username, password in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T041 [US3] Add SSL mode selector to connection dialog in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T042 [US3] Implement Connect button action calling TuskState.connect() in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T043 [US3] Implement Test Connection button calling TuskState.test_connection() in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T044 [US3] Show connection progress indicator during connection attempt in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T045 [US3] Display connection error with actionable hints on failure in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T046 [US3] Add connection status indicator to workspace status bar in crates/tusk_ui/src/workspace.rs
-- [ ] T047 [US3] Update QueryEditor connection_id when connection established in crates/tusk_ui/src/query_editor.rs
-- [ ] T048 [US3] Update SchemaBrowser connection_id when connection established in crates/tusk_ui/src/panels/schema_browser.rs
-- [ ] T049 [US3] Handle connection lost during query gracefully (FR edge case) in crates/tusk_core/src/services/query.rs
-- [ ] T050 [US3] Store password in CredentialService after successful connection in crates/tusk_core/src/state.rs
+- [X] T039 [US3] Create ConnectionDialog component with form fields in crates/tusk_ui/src/connection_dialog.rs
+- [X] T040 [US3] Add form fields for host, port, database, username, password in crates/tusk_ui/src/connection_dialog.rs
+- [X] T041 [US3] Add SSL mode selector to connection dialog in crates/tusk_ui/src/connection_dialog.rs
+- [X] T042 [US3] Implement Connect button action calling TuskState.connect() in crates/tusk_ui/src/connection_dialog.rs
+- [X] T043 [US3] Implement Test Connection button calling TuskState.test_connection() in crates/tusk_ui/src/connection_dialog.rs
+- [X] T044 [US3] Show connection progress indicator during connection attempt in crates/tusk_ui/src/connection_dialog.rs
+- [X] T045 [US3] Display connection error with actionable hints on failure in crates/tusk_ui/src/connection_dialog.rs
+- [X] T046 [US3] Add connection status indicator to workspace status bar in crates/tusk_ui/src/workspace.rs
+- [X] T047 [US3] Update QueryEditor connection_id when connection established in crates/tusk_ui/src/query_editor.rs
+- [X] T048 [US3] Update SchemaBrowser connection_id when connection established in crates/tusk_ui/src/panels/schema_browser.rs
+- [X] T049 [US3] Handle connection lost during query gracefully (FR edge case) in crates/tusk_core/src/services/query.rs
+- [X] T050 [US3] Store password in CredentialService after successful connection in crates/tusk_core/src/state.rs
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently
 
@@ -135,15 +135,15 @@ This is a Rust workspace with multiple crates:
 
 ### Implementation for User Story 4
 
-- [ ] T051 [US4] Implement TuskState.get_schema() method with cache lookup in crates/tusk_core/src/state.rs
-- [ ] T052 [US4] Implement TuskState.refresh_schema() method invalidating cache in crates/tusk_core/src/state.rs
-- [ ] T053 [US4] Implement SchemaCache.is_expired() method with TTL check in crates/tusk_core/src/models/schema.rs
-- [ ] T054 [US4] Add SchemaBrowserState struct with loading, tree_items, expanded_nodes in crates/tusk_ui/src/panels/schema_browser.rs
-- [ ] T055 [US4] Implement SchemaBrowser.load_schema() using cx.spawn() pattern in crates/tusk_ui/src/panels/schema_browser.rs
-- [ ] T056 [US4] Add refresh button to schema browser toolbar in crates/tusk_ui/src/panels/schema_browser.rs
-- [ ] T057 [US4] Show loading indicator while schema loads in crates/tusk_ui/src/panels/schema_browser.rs
-- [ ] T058 [US4] Implement lazy loading for schema tree nodes in crates/tusk_ui/src/panels/schema_browser.rs
-- [ ] T059 [US4] Use separate pool connection for schema operations (FR-005) in crates/tusk_core/src/state.rs
+- [X] T051 [US4] Implement TuskState.get_schema() method with cache lookup in crates/tusk_core/src/state.rs
+- [X] T052 [US4] Implement TuskState.refresh_schema() method invalidating cache in crates/tusk_core/src/state.rs
+- [X] T053 [US4] Implement SchemaCache.is_expired() method with TTL check in crates/tusk_core/src/models/schema.rs
+- [X] T054 [US4] Add SchemaBrowserState struct with loading, tree_items, expanded_nodes in crates/tusk_ui/src/panels/schema_browser.rs
+- [X] T055 [US4] Implement SchemaBrowser.load_schema() using cx.spawn() pattern in crates/tusk_ui/src/panels/schema_browser.rs
+- [X] T056 [US4] Add refresh button to schema browser toolbar in crates/tusk_ui/src/panels/schema_browser.rs
+- [X] T057 [US4] Show loading indicator while schema loads in crates/tusk_ui/src/panels/schema_browser.rs
+- [X] T058 [US4] Implement lazy loading for schema tree nodes in crates/tusk_ui/src/panels/schema_browser.rs
+- [X] T059 [US4] Use separate pool connection for schema operations (FR-005) in crates/tusk_core/src/state.rs
 
 **Checkpoint**: At this point, User Stories 1-4 should all work independently
 

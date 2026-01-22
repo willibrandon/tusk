@@ -26,7 +26,7 @@ use crate::layout::spacing;
 use crate::modal::ModalLayer;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, PaneLayout, TabItem};
 use crate::panel::{DockPosition, Focusable};
-use crate::panels::{MessagesPanel, ResultsPanel, SchemaBrowserPanel};
+use crate::panels::{MessagesPanel, ResultsPanel, SchemaBrowserEvent, SchemaBrowserPanel};
 use crate::query_editor::QueryEditor;
 use crate::status_bar::{ConnectionStatus, ExecutionState, StatusBar};
 use crate::TuskTheme;
@@ -243,6 +243,18 @@ impl Workspace {
                 }
                 cx.emit(WorkspaceEvent::LayoutChanged);
                 cx.notify();
+            },
+        ));
+
+        // Subscribe to schema browser events (T056)
+        subscriptions.push(cx.subscribe(
+            &schema_browser,
+            |this, _panel, event: &SchemaBrowserEvent, cx| match event {
+                SchemaBrowserEvent::RefreshRequested => {
+                    if let Some(connection_id) = this.active_connection_id {
+                        this.refresh_schema(connection_id, cx);
+                    }
+                }
             },
         ));
 
