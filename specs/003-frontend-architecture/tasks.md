@@ -290,18 +290,18 @@
 
 ### Implementation for User Story 8
 
-- [ ] T095 [US8] Create `crates/tusk_ui/src/context_menu.rs` with ContextMenu struct implementing Render/Focusable/EventEmitter<ContextMenuEvent>
-- [ ] T096 [US8] Implement ContextMenuItem enum (Action/Separator/Submenu) with builder methods in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T097 [US8] Implement ContextMenu::render() with menu items, shortcut hints, and submenu arrows in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T098 [US8] Implement ContextMenuLayer global struct with show(), dismiss(), is_open() in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T099 [US8] Implement context menu positioning to avoid viewport overflow in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T100 [US8] Implement context menu keyboard navigation (SelectNext, SelectPrevious, Confirm, Dismiss, OpenSubmenu, CloseSubmenu) in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T101 [US8] Implement submenu rendering and hover activation in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T102 [US8] Implement click-outside-to-close behavior in `crates/tusk_ui/src/context_menu.rs`
-- [ ] T103 [US8] Register ContextMenuLayer as Global in app initialization in `crates/tusk/src/app.rs`
-- [ ] T104 [US8] Integrate ContextMenuLayer rendering in Workspace in `crates/tusk_ui/src/workspace.rs`
-- [ ] T105 [US8] Add right-click handler to Tree items emitting ContextMenu event in `crates/tusk_ui/src/tree.rs`
-- [ ] T106 [US8] Wire schema browser context menu with type-specific actions (Select Top 100, View DDL, Copy Name) in `crates/tusk_ui/src/panels/schema_browser.rs`
+- [x] T095 [US8] Create `crates/tusk_ui/src/context_menu.rs` with ContextMenu struct implementing Render/Focusable/EventEmitter<ContextMenuEvent>
+- [x] T096 [US8] Implement ContextMenuItem enum (Action/Separator/Submenu) with builder methods in `crates/tusk_ui/src/context_menu.rs`
+- [x] T097 [US8] Implement ContextMenu::render() with menu items, shortcut hints, and submenu arrows in `crates/tusk_ui/src/context_menu.rs`
+- [x] T098 [US8] Implement ContextMenuLayer global struct with show(), dismiss(), is_open() in `crates/tusk_ui/src/context_menu.rs`
+- [x] T099 [US8] Implement context menu positioning to avoid viewport overflow in `crates/tusk_ui/src/context_menu.rs`
+- [x] T100 [US8] Implement context menu keyboard navigation (SelectNext, SelectPrevious, Confirm, Dismiss, OpenSubmenu, CloseSubmenu) in `crates/tusk_ui/src/context_menu.rs`
+- [x] T101 [US8] Implement submenu rendering and hover activation in `crates/tusk_ui/src/context_menu.rs`
+- [x] T102 [US8] Implement click-outside-to-close behavior in `crates/tusk_ui/src/context_menu.rs`
+- [x] T103 [US8] Register ContextMenuLayer as Global in app initialization in `crates/tusk/src/app.rs`
+- [x] T104 [US8] Integrate ContextMenuLayer rendering in Workspace in `crates/tusk_ui/src/workspace.rs`
+- [x] T105 [US8] Add right-click handler to Tree items emitting ContextMenu event in `crates/tusk_ui/src/tree.rs`
+- [x] T106 [US8] Wire schema browser context menu with type-specific actions (Select Top 100, View DDL, Copy Name) in `crates/tusk_ui/src/panels/schema_browser.rs`
 
 **Checkpoint**: User Story 8 complete - context menus work with keyboard navigation and submenus
 

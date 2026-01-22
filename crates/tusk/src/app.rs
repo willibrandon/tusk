@@ -5,7 +5,8 @@ use tusk_core::state::TuskState;
 use tusk_core::{ConnectionConfig, ConnectionPool, SchemaService};
 use tusk_ui::key_bindings::register_key_bindings;
 use tusk_ui::{
-    database_schema_to_tree, register_text_input_bindings, ConnectionStatus, ModalLayer, Workspace,
+    database_schema_to_tree, register_text_input_bindings, ConnectionStatus, ContextMenuLayer,
+    ModalLayer, Workspace,
 };
 
 /// Root application component that manages the main window.
@@ -22,6 +23,9 @@ impl TuskApp {
 
         // Register ModalLayer as global for modal management (T093)
         cx.set_global(ModalLayer::new());
+
+        // Register ContextMenuLayer as global for context menu management (T103)
+        cx.set_global(ContextMenuLayer::new());
 
         // Create the workspace
         let workspace = cx.new(|cx| Workspace::new(window, cx));

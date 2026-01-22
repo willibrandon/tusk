@@ -7,12 +7,13 @@
 //! - Functions
 
 use gpui::{
-    div, prelude::*, px, App, Context, Entity, EventEmitter, FocusHandle, Render, SharedString,
-    Subscription, Window,
+    div, prelude::*, px, App, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Point,
+    Render, SharedString, Subscription, Window,
 };
 
 use tusk_core::models::schema::DatabaseSchema;
 
+use crate::context_menu::{ContextMenu, ContextMenuItem, ContextMenuLayer};
 use crate::icon::{Icon, IconName, IconSize};
 use crate::layout::spacing;
 use crate::panel::{DockPosition, Focusable, Panel, PanelEvent};
@@ -383,9 +384,9 @@ impl SchemaBrowserPanel {
     /// Handle events from the tree component.
     fn handle_tree_event(
         &mut self,
-        _tree: Entity<Tree<SchemaItem>>,
+        tree: Entity<Tree<SchemaItem>>,
         event: &TreeEvent<String>,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) {
         match event {
             TreeEvent::Selected { id: _ } => {
@@ -401,8 +402,189 @@ impl SchemaBrowserPanel {
             TreeEvent::Collapsed { id: _ } => {
                 // Item collapsed
             }
-            TreeEvent::ContextMenu { id: _, position: _ } => {
-                // Context menu requested
+            TreeEvent::ContextMenu { id, position } => {
+                // Find the item by ID and show appropriate context menu
+                self.show_context_menu(tree.clone(), id.clone(), *position, cx);
+            }
+        }
+    }
+
+    /// Show a context menu for the given schema item.
+    fn show_context_menu(
+        &mut self,
+        tree: Entity<Tree<SchemaItem>>,
+        id: String,
+        position: Point<gpui::Pixels>,
+        cx: &mut Context<Self>,
+    ) {
+        // Find the item in the tree's visible entries
+        let item = tree.read(cx).visible_entries().iter().find_map(|entry| {
+            if entry.item.id() == id {
+                Some(entry.item.clone())
+            } else {
+                None
+            }
+        });
+
+        let Some(item) = item else {
+            return;
+        };
+
+        // Create menu items based on the item type
+        let menu_items = self.create_menu_items_for_item(&item, &id);
+
+        if menu_items.is_empty() {
+            return;
+        }
+
+        // Create and show the context menu
+        let menu = cx.new(|cx| ContextMenu::new(position, cx).items(menu_items));
+
+        cx.update_global::<ContextMenuLayer, _>(|layer, cx| {
+            layer.show_deferred(menu, cx);
+        });
+    }
+
+    /// Create context menu items based on the schema item type.
+    fn create_menu_items_for_item(&self, item: &SchemaItem, id: &str) -> Vec<ContextMenuItem> {
+        match item {
+            SchemaItem::Table { name, .. } => {
+                let table_name = name.clone();
+                let table_id = id.to_string();
+                let copy_name = name.clone();
+
+                vec![
+                    ContextMenuItem::action("Select Top 100", move |_cx| {
+                        // Future: Execute SELECT * FROM table LIMIT 100
+                        tracing::info!(table = %table_name, "Select Top 100 requested");
+                    })
+                    .icon(IconName::Play)
+                    .shortcut("Cmd+Return"),
+                    ContextMenuItem::separator(),
+                    ContextMenuItem::action("View DDL", move |_cx| {
+                        // Future: Show CREATE TABLE statement
+                        tracing::info!(table = %table_id, "View DDL requested");
+                    })
+                    .icon(IconName::File),
+                    ContextMenuItem::separator(),
+                    ContextMenuItem::action("Copy Name", move |cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(copy_name.clone()));
+                        tracing::info!(name = %copy_name, "Copied table name to clipboard");
+                    })
+                    .icon(IconName::Copy)
+                    .shortcut("Cmd+C"),
+                ]
+            }
+            SchemaItem::View {
+                name,
+                is_materialized,
+                ..
+            } => {
+                let view_name = name.clone();
+                let view_id = id.to_string();
+                let copy_name = name.clone();
+                let is_mat = *is_materialized;
+
+                vec![
+                    ContextMenuItem::action("Select Top 100", move |_cx| {
+                        tracing::info!(view = %view_name, "Select Top 100 requested");
+                    })
+                    .icon(IconName::Play)
+                    .shortcut("Cmd+Return"),
+                    ContextMenuItem::separator(),
+                    ContextMenuItem::action("View DDL", move |_cx| {
+                        tracing::info!(view = %view_id, "View DDL requested");
+                    })
+                    .icon(IconName::File),
+                    ContextMenuItem::action(
+                        if is_mat {
+                            "Refresh Materialized View"
+                        } else {
+                            "View Definition"
+                        },
+                        move |_cx| {
+                            if is_mat {
+                                tracing::info!("Refresh materialized view requested");
+                            } else {
+                                tracing::info!("View definition requested");
+                            }
+                        },
+                    )
+                    .icon(IconName::Refresh),
+                    ContextMenuItem::separator(),
+                    ContextMenuItem::action("Copy Name", move |cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(copy_name.clone()));
+                        tracing::info!(name = %copy_name, "Copied view name to clipboard");
+                    })
+                    .icon(IconName::Copy)
+                    .shortcut("Cmd+C"),
+                ]
+            }
+            SchemaItem::Function {
+                name,
+                arguments,
+                return_type,
+                ..
+            } => {
+                let func_name = name.clone();
+                let func_id = id.to_string();
+                let func_sig = format!("{}({})", name, arguments);
+                let _return_type = return_type.clone();
+
+                vec![
+                    ContextMenuItem::action("View DDL", move |_cx| {
+                        tracing::info!(function = %func_id, "View DDL requested");
+                    })
+                    .icon(IconName::File),
+                    ContextMenuItem::separator(),
+                    ContextMenuItem::action("Copy Name", move |cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(func_name.clone()));
+                        tracing::info!(name = %func_name, "Copied function name to clipboard");
+                    })
+                    .icon(IconName::Copy)
+                    .shortcut("Cmd+C"),
+                    ContextMenuItem::action("Copy Signature", move |cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(func_sig.clone()));
+                        tracing::info!(signature = %func_sig, "Copied function signature to clipboard");
+                    })
+                    .icon(IconName::Copy),
+                ]
+            }
+            SchemaItem::Column {
+                name, data_type, ..
+            } => {
+                let col_name = name.clone();
+                let col_type = data_type.clone();
+
+                vec![
+                    ContextMenuItem::action("Copy Name", move |cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(col_name.clone()));
+                        tracing::info!(name = %col_name, "Copied column name to clipboard");
+                    })
+                    .icon(IconName::Copy)
+                    .shortcut("Cmd+C"),
+                    ContextMenuItem::action("Copy Type", move |cx| {
+                        cx.write_to_clipboard(ClipboardItem::new_string(col_type.clone()));
+                        tracing::info!(data_type = %col_type, "Copied column type to clipboard");
+                    })
+                    .icon(IconName::Copy),
+                ]
+            }
+            SchemaItem::Schema { name, .. } => {
+                let schema_name = name.clone();
+
+                vec![ContextMenuItem::action("Copy Name", move |cx| {
+                    cx.write_to_clipboard(ClipboardItem::new_string(schema_name.clone()));
+                    tracing::info!(name = %schema_name, "Copied schema name to clipboard");
+                })
+                .icon(IconName::Copy)
+                .shortcut("Cmd+C")]
+            }
+            // Folder items don't have context menu actions
+            SchemaItem::TablesFolder { .. }
+            | SchemaItem::ViewsFolder { .. }
+            | SchemaItem::FunctionsFolder { .. } => {
+                vec![]
             }
         }
     }

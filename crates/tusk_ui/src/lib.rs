@@ -10,6 +10,7 @@
 // Core modules
 pub mod button;
 pub mod confirm_dialog;
+pub mod context_menu;
 pub mod dock;
 pub mod modal;
 pub mod icon;
@@ -32,6 +33,7 @@ pub use button::{Button, ButtonSize, ButtonVariant, IconPosition};
 pub use confirm_dialog::{ConfirmDialog, ConfirmDialogEvent, ConfirmDialogKind};
 pub use dock::{Dock, DockEvent};
 pub use modal::{Modal, ModalAction, ModalEvent, ModalLayer};
+pub use context_menu::{ContextMenu, ContextMenuEvent, ContextMenuItem, ContextMenuLayer};
 pub use icon::{Icon, IconName, IconSize};
 pub use key_bindings::register_key_bindings;
 pub use layout::{radius, sizes, spacing};

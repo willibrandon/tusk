@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
+use crate::context_menu::ContextMenuLayer;
 use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::icon::IconName;
 use crate::modal::ModalLayer;
@@ -830,6 +831,8 @@ impl Render for Workspace {
             )
             // Status bar
             .child(self.render_status_bar(cx))
+            // Context menu layer (T104) - rendered above main content but below modals
+            .children(cx.try_global::<ContextMenuLayer>().and_then(|layer| layer.render()))
             // Modal layer (T094) - rendered above all content
             .children(cx.try_global::<ModalLayer>().and_then(|layer| layer.render()))
     }
