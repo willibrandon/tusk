@@ -193,7 +193,7 @@ impl Render for KeyboardShortcutsContent {
 ///
 /// This function creates and displays a modal containing all keyboard shortcuts.
 pub fn show_keyboard_shortcuts(cx: &mut App) {
-    let content = cx.new(|cx| KeyboardShortcutsContent::new(cx));
+    let content = cx.new(KeyboardShortcutsContent::new);
 
     let modal = cx.new(|cx| {
         Modal::new("Keyboard Shortcuts", cx)
