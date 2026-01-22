@@ -250,6 +250,16 @@ impl TuskError {
 
     // ========== Methods ==========
 
+    /// Check if this error represents a cancelled query.
+    pub fn is_cancelled(&self) -> bool {
+        matches!(self, Self::QueryCancelled { .. })
+    }
+
+    /// Check if this error represents a connection lost during query (T049).
+    pub fn is_connection_lost(&self) -> bool {
+        matches!(self, Self::Connection { .. })
+    }
+
     /// Get the error category name.
     pub fn category(&self) -> &'static str {
         match self {

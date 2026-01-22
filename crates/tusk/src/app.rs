@@ -1,6 +1,6 @@
 //! Tusk application root component.
 
-use gpui::{AppContext, Context, Entity, IntoElement, Render, Window};
+use gpui::{AppContext, Context, Entity, Global, IntoElement, Render, Window};
 use tusk_core::state::TuskState;
 use tusk_core::{ConnectionConfig, ConnectionPool, SchemaService};
 use tusk_ui::key_bindings::register_key_bindings;
@@ -8,6 +8,11 @@ use tusk_ui::{
     database_schema_to_tree, register_text_input_bindings, ConnectionStatus, ContextMenuLayer,
     ModalLayer, Workspace,
 };
+
+/// Global reference to the workspace entity for menu action dispatching.
+pub struct WorkspaceHandle(pub Entity<Workspace>);
+
+impl Global for WorkspaceHandle {}
 
 /// Root application component that manages the main window.
 pub struct TuskApp {
@@ -29,6 +34,9 @@ impl TuskApp {
 
         // Create the workspace
         let workspace = cx.new(|cx| Workspace::new(window, cx));
+
+        // Store workspace handle globally for menu action dispatching
+        cx.set_global(WorkspaceHandle(workspace.clone()));
 
         // Start loading schema from the database
         Self::load_schema(workspace.clone(), cx);

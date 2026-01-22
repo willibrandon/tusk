@@ -120,8 +120,10 @@ pub struct QueryHandle {
     connection_id: Uuid,
     /// The SQL being executed
     sql: String,
-    /// Cancellation token for interrupting the query
+    /// Cancellation token for interrupting the query (tokio-util)
     cancel_token: CancellationToken,
+    /// PostgreSQL cancel token for sending cancel to server
+    pg_cancel_token: std::sync::RwLock<Option<tokio_postgres::CancelToken>>,
     /// Execution start time
     started_at: DateTime<Utc>,
 }
@@ -134,8 +136,23 @@ impl QueryHandle {
             connection_id,
             sql: sql.into(),
             cancel_token: CancellationToken::new(),
+            pg_cancel_token: std::sync::RwLock::new(None),
             started_at: Utc::now(),
         }
+    }
+
+    /// Set the PostgreSQL cancel token for server-side cancellation.
+    ///
+    /// This should be called when the query starts executing on a connection.
+    pub fn set_pg_cancel_token(&self, token: tokio_postgres::CancelToken) {
+        if let Ok(mut guard) = self.pg_cancel_token.write() {
+            *guard = Some(token);
+        }
+    }
+
+    /// Get the PostgreSQL cancel token (if set).
+    pub fn get_pg_cancel_token(&self) -> Option<tokio_postgres::CancelToken> {
+        self.pg_cancel_token.read().ok().and_then(|guard| guard.clone())
     }
 
     /// Get the unique query identifier.

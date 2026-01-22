@@ -158,6 +158,19 @@ impl TuskState {
         self.connections.write().insert(id, entry);
     }
 
+    /// Add an Arc-wrapped connection pool to state.
+    pub fn add_connection_arc(&self, config: ConnectionConfig, pool: Arc<ConnectionPool>) {
+        let id = config.id;
+        let entry = ConnectionEntry::new(config, pool);
+        tracing::debug!(connection_id = %id, "Adding connection to state (arc)");
+        self.connections.write().insert(id, entry);
+    }
+
+    /// Store a password in the credential service.
+    pub fn store_password(&self, connection_id: Uuid, password: &str) -> Result<(), TuskError> {
+        self.credential_service.store_password(connection_id, password)
+    }
+
     /// Get a connection pool by ID.
     pub fn get_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
         self.connections.read().get(id).map(|entry| entry.pool().clone())
@@ -168,6 +181,11 @@ impl TuskState {
         self.connections.read().get(id).map(|entry| {
             (entry.config().clone(), entry.pool().clone(), entry.status().clone())
         })
+    }
+
+    /// Get a connection configuration by ID.
+    pub fn get_connection_config(&self, id: &Uuid) -> Option<ConnectionConfig> {
+        self.connections.read().get(id).map(|entry| entry.config().clone())
     }
 
     /// Remove a connection from state.
@@ -276,12 +294,39 @@ impl TuskState {
         handle
     }
 
-    /// Cancel a running query.
+    /// Cancel a running query (FR-013, T030, T031).
+    ///
+    /// This method:
+    /// 1. Signals the CancellationToken (for cooperative cancellation)
+    /// 2. Sends a PostgreSQL cancel request to the server (to interrupt the query)
     ///
     /// Returns true if the query was found and cancellation was requested.
     pub fn cancel_query(&self, id: &Uuid) -> bool {
         if let Some(handle) = self.active_queries.read().get(id) {
+            // Signal cooperative cancellation
             handle.cancel();
+
+            // Send PostgreSQL cancel request to server (T031)
+            if let Some(pg_cancel_token) = handle.get_pg_cancel_token() {
+                let query_id = *id;
+                self.spawn(async move {
+                    // Use NoTls for cancel request (same as connection)
+                    match pg_cancel_token.cancel_query(tokio_postgres::NoTls).await {
+                        Ok(()) => {
+                            tracing::debug!(query_id = %query_id, "PostgreSQL cancel request sent");
+                        }
+                        Err(e) => {
+                            // Cancel request failed, but cooperative cancellation still works
+                            tracing::warn!(
+                                query_id = %query_id,
+                                error = %e,
+                                "Failed to send PostgreSQL cancel request"
+                            );
+                        }
+                    }
+                });
+            }
+
             true
         } else {
             false

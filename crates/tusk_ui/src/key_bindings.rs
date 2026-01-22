@@ -11,6 +11,8 @@ use gpui::{actions, App, KeyBinding};
 actions!(
     workspace,
     [
+        // Connection
+        NewConnection,
         // Tab management
         NewQueryTab,
         CloseActiveTab,
@@ -89,6 +91,16 @@ pub mod select {
 }
 
 // ============================================================================
+// Form Actions
+// ============================================================================
+
+/// Form actions module (Tab navigation).
+pub mod form {
+    use gpui::actions;
+    actions!(form, [Tab, TabPrev,]);
+}
+
+// ============================================================================
 // Modal Actions
 // ============================================================================
 
@@ -119,6 +131,8 @@ pub mod context_menu {
 /// This should be called once during application initialization.
 pub fn register_key_bindings(cx: &mut App) {
     cx.bind_keys([
+        // Connection
+        KeyBinding::new("cmd-shift-n", NewConnection, Some("Workspace")),
         // Tab management
         KeyBinding::new("cmd-n", NewQueryTab, Some("Workspace")),
         KeyBinding::new("cmd-w", CloseActiveTab, Some("Workspace")),
@@ -199,5 +213,12 @@ pub fn register_key_bindings(cx: &mut App) {
         KeyBinding::new("escape", context_menu::DismissMenu, Some("ContextMenu")),
         KeyBinding::new("right", context_menu::OpenSubmenu, Some("ContextMenu")),
         KeyBinding::new("left", context_menu::CloseSubmenu, Some("ContextMenu")),
+    ]);
+
+    // Form navigation bindings (Tab to cycle fields)
+    // Note: Using None for context so Tab works when focus is on child elements
+    cx.bind_keys([
+        KeyBinding::new("tab", form::Tab, None),
+        KeyBinding::new("shift-tab", form::TabPrev, None),
     ]);
 }

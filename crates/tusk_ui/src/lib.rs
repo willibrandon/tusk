@@ -10,6 +10,7 @@
 // Core modules
 pub mod button;
 pub mod confirm_dialog;
+pub mod connection_dialog;
 pub mod context_menu;
 pub mod dock;
 pub mod icon;
@@ -20,6 +21,7 @@ pub mod modal;
 pub mod pane;
 pub mod panel;
 pub mod panels;
+pub mod query_editor;
 pub mod resizer;
 pub mod select;
 pub mod spinner;
@@ -33,6 +35,7 @@ pub mod workspace;
 // Re-exports for convenience
 pub use button::{Button, ButtonSize, ButtonVariant, IconPosition};
 pub use confirm_dialog::{ConfirmDialog, ConfirmDialogEvent, ConfirmDialogKind};
+pub use connection_dialog::{ConnectionDialog, ConnectionDialogEvent, ConnectionDialogState};
 pub use context_menu::{ContextMenu, ContextMenuEvent, ContextMenuItem, ContextMenuLayer};
 pub use dock::{Dock, DockEvent};
 pub use icon::{Icon, IconName, IconSize};
@@ -45,9 +48,11 @@ pub use pane::{
 };
 pub use panel::{DockPosition, Focusable, Panel, PanelEntry, PanelEvent, PanelHandle};
 pub use panels::{
-    database_schema_to_tree, Message, MessageSeverity, MessagesPanel, ResultsPanel, ResultsState,
-    SchemaBrowserPanel, SchemaItem,
+    database_schema_to_tree, DisplayColumn, DisplayError, DisplayRow, Message, MessageSeverity,
+    MessagesPanel, ResultsPanel, ResultsPanelState, ResultsState, ResultsStatus, SchemaBrowserPanel,
+    SchemaItem,
 };
+pub use query_editor::{QueryEditor, QueryEditorState, QueryEditorStatus};
 pub use resizer::Resizer;
 pub use select::{Select, SelectEvent, SelectOption};
 pub use spinner::{Spinner, SpinnerSize};

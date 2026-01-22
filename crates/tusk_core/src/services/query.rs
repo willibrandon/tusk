@@ -178,6 +178,9 @@ impl QueryService {
         let start = Instant::now();
         let query_type = Self::detect_query_type(sql);
 
+        // Store the PostgreSQL cancel token for server-side cancellation (T031)
+        handle.set_pg_cancel_token(conn.cancel_token());
+
         tracing::debug!(
             query_id = %handle.id(),
             query_type = ?query_type,

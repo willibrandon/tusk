@@ -63,18 +63,18 @@ This is a Rust workspace with multiple crates:
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Implement TuskState.execute_query() method returning QueryHandle in crates/tusk_core/src/state.rs
-- [ ] T019 [US1] Implement TuskState.execute_query_streaming() method with mpsc::Sender<QueryEvent> in crates/tusk_core/src/state.rs
-- [ ] T020 [US1] Add QueryEditorState struct with connection_id, active_query, and status fields to crates/tusk_ui/src/query_editor.rs
-- [ ] T021 [US1] Add QueryEditorStatus enum (Idle, Executing, Cancelled) to crates/tusk_ui/src/query_editor.rs
-- [ ] T022 [US1] Implement QueryEditor.execute_query() method using cx.spawn() pattern in crates/tusk_ui/src/query_editor.rs
-- [ ] T023 [US1] Add ResultsPanelState struct with columns, rows, status, and error fields to crates/tusk_ui/src/panels/results.rs
-- [ ] T024 [US1] Add ResultsStatus enum (Empty, Loading, Streaming, Complete, Error) to crates/tusk_ui/src/panels/results.rs
-- [ ] T025 [US1] Implement ResultsPanel.start_streaming() to receive QueryEvent stream in crates/tusk_ui/src/panels/results.rs
-- [ ] T026 [US1] Implement ResultsPanel.handle_event() to process Columns, Rows, Complete, Error events in crates/tusk_ui/src/panels/results.rs
-- [ ] T027 [US1] Wire query execution from QueryEditor to ResultsPanel via channel in crates/tusk_ui/src/workspace.rs
-- [ ] T028 [US1] Display execution time and row count in results panel status bar in crates/tusk_ui/src/panels/results.rs
-- [ ] T029 [US1] Implement batch size configuration (default 1000 rows) in QueryService in crates/tusk_core/src/services/query.rs
+- [X] T018 [US1] Implement TuskState.execute_query() method returning QueryHandle in crates/tusk_core/src/state.rs
+- [X] T019 [US1] Implement TuskState.execute_query_streaming() method with mpsc::Sender<QueryEvent> in crates/tusk_core/src/state.rs
+- [X] T020 [US1] Add QueryEditorState struct with connection_id, active_query, and status fields to crates/tusk_ui/src/query_editor.rs
+- [X] T021 [US1] Add QueryEditorStatus enum (Idle, Executing, Cancelled) to crates/tusk_ui/src/query_editor.rs
+- [X] T022 [US1] Implement QueryEditor.execute_query() method using cx.spawn() pattern in crates/tusk_ui/src/query_editor.rs
+- [X] T023 [US1] Add ResultsPanelState struct with columns, rows, status, and error fields to crates/tusk_ui/src/panels/results.rs
+- [X] T024 [US1] Add ResultsStatus enum (Empty, Loading, Streaming, Complete, Error) to crates/tusk_ui/src/panels/results.rs
+- [X] T025 [US1] Implement ResultsPanel.start_streaming() to receive QueryEvent stream in crates/tusk_ui/src/panels/results.rs
+- [X] T026 [US1] Implement ResultsPanel.handle_event() to process Columns, Rows, Complete, Error events in crates/tusk_ui/src/panels/results.rs
+- [X] T027 [US1] Wire query execution from QueryEditor to ResultsPanel via channel in crates/tusk_ui/src/workspace.rs
+- [X] T028 [US1] Display execution time and row count in results panel status bar in crates/tusk_ui/src/panels/results.rs
+- [X] T029 [US1] Implement batch size configuration (default 1000 rows) in QueryService in crates/tusk_core/src/services/query.rs
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -88,15 +88,15 @@ This is a Rust workspace with multiple crates:
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Implement TuskState.cancel_query() method signaling CancellationToken in crates/tusk_core/src/state.rs
-- [ ] T031 [US2] Send PostgreSQL cancel to server when query is cancelled in crates/tusk_core/src/services/query.rs
-- [ ] T032 [US2] Emit QueryEvent::Error(QueryCancelled) when cancellation occurs in crates/tusk_core/src/services/query.rs
-- [ ] T033 [US2] Add cancel button to QueryEditor toolbar in crates/tusk_ui/src/query_editor.rs
-- [ ] T034 [US2] Implement QueryEditor.cancel_query() method in crates/tusk_ui/src/query_editor.rs
-- [ ] T035 [US2] Preserve already-received results when query is cancelled in crates/tusk_ui/src/panels/results.rs
-- [ ] T036 [US2] Show "Query cancelled" toast notification on cancellation in crates/tusk_ui/src/query_editor.rs
-- [ ] T037 [US2] Reset QueryEditor status to Idle after cancellation in crates/tusk_ui/src/query_editor.rs
-- [ ] T038 [US2] Implement task replacement pattern for automatic cancellation in crates/tusk_ui/src/query_editor.rs
+- [X] T030 [US2] Implement TuskState.cancel_query() method signaling CancellationToken in crates/tusk_core/src/state.rs
+- [X] T031 [US2] Send PostgreSQL cancel to server when query is cancelled in crates/tusk_core/src/services/query.rs
+- [X] T032 [US2] Emit QueryEvent::Error(QueryCancelled) when cancellation occurs in crates/tusk_core/src/services/query.rs
+- [X] T033 [US2] Add cancel button to QueryEditor toolbar in crates/tusk_ui/src/query_editor.rs
+- [X] T034 [US2] Implement QueryEditor.cancel_query() method in crates/tusk_ui/src/query_editor.rs
+- [X] T035 [US2] Preserve already-received results when query is cancelled in crates/tusk_ui/src/panels/results.rs
+- [X] T036 [US2] Show "Query cancelled" toast notification on cancellation in crates/tusk_ui/src/query_editor.rs
+- [X] T037 [US2] Reset QueryEditor status to Idle after cancellation in crates/tusk_ui/src/query_editor.rs
+- [X] T038 [US2] Implement task replacement pattern for automatic cancellation in crates/tusk_ui/src/query_editor.rs
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 

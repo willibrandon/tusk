@@ -5,7 +5,7 @@
 
 use gpui::{App, Menu, MenuItem, OsAction};
 use tusk_ui::key_bindings::{
-    About, CloseActiveTab, CloseWindow, Minimize, NewQueryTab, Quit, Settings,
+    About, CloseActiveTab, CloseWindow, Minimize, NewConnection, NewQueryTab, Quit, Settings,
     ShowKeyboardShortcuts, SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, Zoom,
 };
 use tusk_ui::{Copy, Cut, Paste, Redo, SelectAll, Undo};
@@ -32,6 +32,7 @@ pub fn app_menus(_cx: &mut App) -> Vec<Menu> {
         Menu {
             name: "File".into(),
             items: vec![
+                MenuItem::action("New Connection...", NewConnection),
                 MenuItem::action("New Query Tab", NewQueryTab),
                 MenuItem::separator(),
                 MenuItem::action("Close Tab", CloseActiveTab),

@@ -232,6 +232,14 @@ impl PooledConnection {
         self.connection_id
     }
 
+    /// Get a cancel token for this connection.
+    ///
+    /// The cancel token can be used to request cancellation of a query
+    /// running on this connection. This sends a cancel request to PostgreSQL.
+    pub fn cancel_token(&self) -> tokio_postgres::CancelToken {
+        self.client.cancel_token()
+    }
+
     /// Execute a query that returns rows.
     pub async fn query(
         &self,

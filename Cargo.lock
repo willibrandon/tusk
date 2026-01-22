@@ -5722,6 +5722,8 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
+ "tokio",
+ "tokio-postgres",
  "tracing",
  "tusk_core",
  "unicode-segmentation",

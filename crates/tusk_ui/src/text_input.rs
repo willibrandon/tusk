@@ -3,10 +3,11 @@
 use std::ops::Range;
 
 use gpui::{
-    actions, div, fill, point, prelude::*, px, relative, size, App, Bounds, Context, ElementId,
-    ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable,
-    GlobalElementId, KeyBinding, LayoutId, Pixels, ShapedLine, SharedString, Style, Subscription,
-    TextRun, UTF16Selection, Window,
+    actions, div, fill, point, prelude::*, px, relative, size, App, Bounds, ClipboardItem, Context,
+    ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle,
+    Focusable, GlobalElementId, KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, Pixels, ShapedLine, SharedString, Style, Subscription, TextRun, UTF16Selection,
+    Window,
 };
 use unicode_segmentation::*;
 
@@ -48,6 +49,12 @@ pub fn register_text_input_bindings(cx: &mut App) {
         KeyBinding::new("home", Home, Some("TextInput")),
         KeyBinding::new("end", End, Some("TextInput")),
         KeyBinding::new("enter", Submit, Some("TextInput")),
+        KeyBinding::new("cmd-c", Copy, Some("TextInput")),
+        KeyBinding::new("cmd-x", Cut, Some("TextInput")),
+        KeyBinding::new("cmd-v", Paste, Some("TextInput")),
+        // Note: Tab/Shift-Tab are intentionally NOT bound here.
+        // Parent components should handle focus navigation via form::Tab/form::TabPrev
+        // or their own capture_action handlers to control field ordering.
     ]);
 }
 
@@ -74,6 +81,12 @@ pub struct TextInput {
     marked_range: Option<Range<usize>>,
     last_layout: Option<ShapedLine>,
     last_bounds: Option<Bounds<Pixels>>,
+    /// Whether this is a password field (displays bullets instead of text).
+    password_mode: bool,
+    /// Whether user is currently selecting with mouse.
+    is_selecting: bool,
+    /// Optional tab index for form navigation.
+    tab_index: Option<isize>,
     #[allow(dead_code)]
     focus_subscription: Option<Subscription>,
     #[allow(dead_code)]
@@ -95,9 +108,82 @@ impl TextInput {
             marked_range: None,
             last_layout: None,
             last_bounds: None,
+            password_mode: false,
+            is_selecting: false,
+            tab_index: None,
             focus_subscription: None,
             blur_subscription: None,
         }
+    }
+
+    /// Set the tab index for form navigation.
+    pub fn set_tab_index(&mut self, index: isize) {
+        self.tab_index = Some(index);
+    }
+
+    /// Set whether this is a password field (displays bullets instead of text).
+    pub fn set_password(&mut self, password: bool) {
+        self.password_mode = password;
+    }
+
+    /// Check if this is a password field.
+    pub fn is_password(&self) -> bool {
+        self.password_mode
+    }
+
+    /// Get the display text (obscured for password fields).
+    pub fn display_text(&self) -> String {
+        if self.password_mode {
+            // Use bullet character for each grapheme
+            self.content.graphemes(true).map(|_| '•').collect()
+        } else {
+            self.content.clone()
+        }
+    }
+
+    /// Convert a byte offset in the original content to a byte offset in the display text.
+    /// In password mode, each grapheme becomes a bullet (•) which is 3 bytes.
+    fn content_offset_to_display_offset(&self, content_offset: usize) -> usize {
+        if !self.password_mode {
+            return content_offset;
+        }
+
+        // Count graphemes up to the content offset
+        let mut grapheme_count = 0;
+        let mut byte_count = 0;
+        for grapheme in self.content.graphemes(true) {
+            if byte_count >= content_offset {
+                break;
+            }
+            byte_count += grapheme.len();
+            grapheme_count += 1;
+        }
+
+        // In display text, each grapheme is represented by a bullet (•) which is 3 bytes
+        grapheme_count * '•'.len_utf8()
+    }
+
+    /// Convert a byte offset in the display text to a byte offset in the original content.
+    /// In password mode, each bullet (•) which is 3 bytes maps to one grapheme in the original.
+    fn display_offset_to_content_offset(&self, display_offset: usize) -> usize {
+        if !self.password_mode {
+            return display_offset;
+        }
+
+        // In display text, each bullet is 3 bytes
+        let bullet_len = '•'.len_utf8();
+        let grapheme_index = display_offset / bullet_len;
+
+        // Find the byte offset of that grapheme in the original content
+        let mut byte_offset = 0;
+        for (i, grapheme) in self.content.graphemes(true).enumerate() {
+            if i >= grapheme_index {
+                break;
+            }
+            byte_offset += grapheme.len();
+        }
+
+        byte_offset
     }
 
     /// Subscribe to focus and blur events.
@@ -184,6 +270,73 @@ impl TextInput {
 
     fn submit(&mut self, _: &Submit, _: &mut Window, cx: &mut Context<Self>) {
         cx.emit(TextInputEvent::Submitted(self.content.clone()));
+    }
+
+    fn on_mouse_down(&mut self, event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        self.is_selecting = true;
+
+        if event.modifiers.shift {
+            self.select_to(self.index_for_mouse_position(event.position), cx);
+        } else {
+            self.move_to(self.index_for_mouse_position(event.position), cx)
+        }
+    }
+
+    fn on_mouse_up(&mut self, _: &MouseUpEvent, _window: &mut Window, _cx: &mut Context<Self>) {
+        self.is_selecting = false;
+    }
+
+    fn on_mouse_move(&mut self, event: &MouseMoveEvent, _: &mut Window, cx: &mut Context<Self>) {
+        if self.is_selecting {
+            self.select_to(self.index_for_mouse_position(event.position), cx);
+        }
+    }
+
+    fn index_for_mouse_position(&self, position: gpui::Point<Pixels>) -> usize {
+        if self.content.is_empty() {
+            return 0;
+        }
+
+        let (Some(bounds), Some(line)) = (self.last_bounds.as_ref(), self.last_layout.as_ref())
+        else {
+            return 0;
+        };
+
+        if position.y < bounds.top() {
+            return 0;
+        }
+        if position.y > bounds.bottom() {
+            return self.content.len();
+        }
+
+        // Get display offset from x position
+        let display_offset = line.closest_index_for_x(position.x - bounds.left());
+        // Convert display offset to content offset (important for password mode)
+        self.display_offset_to_content_offset(display_offset)
+    }
+
+    fn paste(&mut self, _: &Paste, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+            // Replace newlines with spaces for single-line input
+            self.replace_text_in_range(None, &text.replace('\n', " "), window, cx);
+        }
+    }
+
+    fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
+        if !self.selected_range.is_empty() {
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                self.content[self.selected_range.clone()].to_string(),
+            ));
+        }
+    }
+
+    fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.selected_range.is_empty() {
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                self.content[self.selected_range.clone()].to_string(),
+            ));
+            self.replace_text_in_range(None, "", window, cx);
+        }
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
@@ -380,9 +533,12 @@ impl EntityInputHandler for TextInput {
     ) -> Option<Bounds<Pixels>> {
         let last_layout = self.last_layout.as_ref()?;
         let range = self.range_from_utf16(&range_utf16);
+        // Convert content offsets to display offsets (important for password mode)
+        let display_start = self.content_offset_to_display_offset(range.start);
+        let display_end = self.content_offset_to_display_offset(range.end);
         Some(Bounds::from_corners(
-            point(bounds.left() + last_layout.x_for_index(range.start), bounds.top()),
-            point(bounds.left() + last_layout.x_for_index(range.end), bounds.bottom()),
+            point(bounds.left() + last_layout.x_for_index(display_start), bounds.top()),
+            point(bounds.left() + last_layout.x_for_index(display_end), bounds.bottom()),
         ))
     }
 
@@ -395,7 +551,9 @@ impl EntityInputHandler for TextInput {
         let line_point = self.last_bounds?.localize(&point)?;
         let last_layout = self.last_layout.as_ref()?;
 
-        let utf8_index = last_layout.index_for_x(point.x - line_point.x)?;
+        let display_index = last_layout.index_for_x(point.x - line_point.x)?;
+        // Convert from display text index to content index (important for password mode)
+        let utf8_index = self.display_offset_to_content_offset(display_index);
         Some(self.offset_to_utf16(utf8_index))
     }
 }
@@ -463,11 +621,15 @@ impl gpui::Element for TextInputElement {
         let content = input.content.clone();
         let selected_range = input.selected_range.clone();
         let cursor = input.cursor_offset();
+        let password_mode = input.password_mode;
         let style = window.text_style();
         let theme = cx.global::<TuskTheme>();
 
         let (display_text, text_color): (SharedString, _) = if content.is_empty() {
             (input.placeholder.clone(), theme.colors.text_muted)
+        } else if password_mode {
+            // Display bullets for password mode
+            (input.display_text().into(), theme.colors.text)
         } else {
             (content.into(), theme.colors.text)
         };
@@ -485,7 +647,12 @@ impl gpui::Element for TextInputElement {
         let font_size = style.font_size.to_pixels(window.rem_size());
         let line = window.text_system().shape_line(display_text, font_size, &runs, None);
 
-        let cursor_pos = line.x_for_index(cursor);
+        // Convert content offsets to display offsets for cursor/selection rendering
+        let display_cursor = input.content_offset_to_display_offset(cursor);
+        let display_selection_start = input.content_offset_to_display_offset(selected_range.start);
+        let display_selection_end = input.content_offset_to_display_offset(selected_range.end);
+
+        let cursor_pos = line.x_for_index(display_cursor);
         let (selection, cursor_quad) = if selected_range.is_empty() {
             (
                 None,
@@ -501,9 +668,9 @@ impl gpui::Element for TextInputElement {
             (
                 Some(fill(
                     Bounds::from_corners(
-                        point(bounds.left() + line.x_for_index(selected_range.start), bounds.top()),
+                        point(bounds.left() + line.x_for_index(display_selection_start), bounds.top()),
                         point(
-                            bounds.left() + line.x_for_index(selected_range.end),
+                            bounds.left() + line.x_for_index(display_selection_end),
                             bounds.bottom(),
                         ),
                     ),
@@ -563,6 +730,7 @@ impl Render for TextInput {
             .id("text-input")
             .key_context("TextInput")
             .track_focus(&self.focus_handle)
+            .when_some(self.tab_index, |el, idx| el.tab_index(idx))
             .cursor_text()
             .on_action(cx.listener(Self::backspace))
             .on_action(cx.listener(Self::delete))
@@ -574,6 +742,13 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::home))
             .on_action(cx.listener(Self::end))
             .on_action(cx.listener(Self::submit))
+            .on_action(cx.listener(Self::paste))
+            .on_action(cx.listener(Self::copy))
+            .on_action(cx.listener(Self::cut))
+            .on_mouse_down(MouseButton::Left, cx.listener(Self::on_mouse_down))
+            .on_mouse_up(MouseButton::Left, cx.listener(Self::on_mouse_up))
+            .on_mouse_up_out(MouseButton::Left, cx.listener(Self::on_mouse_up))
+            .on_mouse_move(cx.listener(Self::on_mouse_move))
             .h(px(24.0))
             .w_full()
             .px(px(8.0))
