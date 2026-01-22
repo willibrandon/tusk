@@ -42,15 +42,6 @@ fn main() {
         // Register global action handlers
         register_global_actions(cx);
 
-        // Quit when all windows are closed
-        // Defer quit to allow pending window messages to drain (helps on Windows)
-        cx.on_window_closed(|cx| {
-            if cx.windows().is_empty() {
-                cx.defer(|cx| cx.quit());
-            }
-        })
-        .detach();
-
         // Configure window bounds: 1400x900 centered on primary display
         let window_size = size(px(1400.0), px(900.0));
         let bounds = Bounds::centered(None, window_size, cx);
@@ -66,10 +57,14 @@ fn main() {
 
         // Open the main window
         cx.open_window(window_options, |window, cx| {
-            // Register should_close handler for proper window cleanup on Windows
-            window.on_window_should_close(cx, |_window, _cx| {
-                // Allow close - returning true permits the window to close
-                true
+            // Handle window close manually to avoid Windows race condition.
+            // Returning false prevents the standard Windows close sequence (which
+            // triggers WM_ACTIVATE messages that race with window destruction).
+            // Instead, we manually remove the window and quit the app.
+            window.on_window_should_close(cx, |window, cx| {
+                window.remove_window();
+                cx.quit();
+                false // Prevent standard close, we handled it manually
             });
 
             cx.new(|cx| TuskApp::new(window, cx))
