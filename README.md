@@ -6,7 +6,7 @@ Tusk aims to be a complete replacement for pgAdmin and DBeaver for PostgreSQL wo
 
 ## Status
 
-**Early Development** - Backend services implemented. The application builds and runs on macOS, Windows, and Linux with connection pooling, local storage, credential management, and structured logging.
+**Active Development** - Backend services and frontend architecture implemented. The application builds and runs on macOS, Windows, and Linux with a functional workspace UI, connection pooling, local storage, credential management, and structured logging.
 
 ## Goals
 
@@ -16,14 +16,23 @@ Tusk aims to be a complete replacement for pgAdmin and DBeaver for PostgreSQL wo
 - **Fully Local**: No cloud sync, no telemetry, no network calls except to your databases
 - **Secure**: Credentials stored in OS keychain, never in config files
 
+## Current Features
+
+- **Workspace Layout**: Resizable docks (schema browser, results panel) with persistent state
+- **Tabbed Query Editors**: Multiple tabs with drag-and-drop reordering and dirty state tracking
+- **Pane Splitting**: Split editors horizontally/vertically with keyboard navigation
+- **Schema Browser**: Tree view of databases, schemas, tables, views, and functions
+- **Results Panel**: Virtualized data grid for query results with messages panel
+- **Native Menus**: Full application menu bar (File, Edit, View, Window, Help)
+- **Keyboard Shortcuts**: Comprehensive shortcuts with Help > Keyboard Shortcuts reference (Cmd+/)
+- **Theming**: Catppuccin color palette with consistent styling throughout
+
 ## Planned Features
 
 - SQL editor with schema-aware autocomplete and syntax highlighting
-- Virtualized results grid for large datasets
-- Schema browser with search and DDL generation
 - Query plan visualization (EXPLAIN ANALYZE)
 - Inline data editing with transaction support
-- Connection management with SSH tunneling and SSL/TLS
+- Connection management UI with SSH tunneling and SSL/TLS
 - Admin dashboard (activity monitor, table/index stats, locks)
 - Import/export (CSV, JSON, pg_dump/pg_restore)
 - ER diagram generation
@@ -135,6 +144,21 @@ tusk/
 │   └── features/       # Feature implementation documents
 └── specs/              # Implementation specifications
 ```
+
+## Keyboard Shortcuts
+
+| Action | macOS | Windows/Linux |
+|--------|-------|---------------|
+| New Query Tab | Cmd+N | Ctrl+N |
+| Close Tab | Cmd+W | Ctrl+W |
+| Run Query | Cmd+Enter | Ctrl+Enter |
+| Toggle Schema Browser | Cmd+B | Ctrl+B |
+| Toggle Results Panel | Cmd+J | Ctrl+J |
+| Split Right | Cmd+\\ | Ctrl+\\ |
+| Split Down | Cmd+\| | Ctrl+\| |
+| Show All Shortcuts | Cmd+/ | Ctrl+/ |
+
+See Help > Keyboard Shortcuts for the complete list.
 
 ## Contributing
 

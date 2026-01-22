@@ -8,8 +8,20 @@ authors.workspace = true
 repository.workspace = true
 description = "UI components and theming for Tusk PostgreSQL client"
 
+[features]
+default = ["persistence"]
+persistence = ["tusk_core"]
+
 [dependencies]
 gpui.workspace = true
+smallvec = { version = "1.11", features = ["union"] }
+uuid = { version = "1.6", features = ["v4"] }
+parking_lot = "0.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tusk_core = { path = "../tusk_core", features = ["gpui"], optional = true }
+tracing = "0.1"
+unicode-segmentation = "1.10"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-text.workspace = true

@@ -397,6 +397,7 @@ Key GPUI concepts (see `/Users/brandon/src/zed/crates/gpui/src/` for implementat
 When in doubt, grep Zed's codebase for real-world usage patterns.
 
 ## Active Technologies
+- Local SQLite via rusqlite (for persistence of dock sizes, workspace state) (003-frontend-architecture)
 
 - Rust 1.80+ with 2021 edition
 - GPUI (from Zed repository) for GPU-accelerated UI
@@ -407,3 +408,12 @@ When in doubt, grep Zed's codebase for real-world usage patterns.
 - tracing, tracing-appender for structured logging
 - parking_lot for synchronization primitives
 - serde/serde_json for serialization
+
+## Recent Changes
+- 003-frontend-architecture: Complete workspace UI with docks, panes, tabs, and panels
+- 003-frontend-architecture: Native application menu bar (File, Edit, View, Window, Help)
+- 003-frontend-architecture: Keyboard shortcuts help modal (Cmd+/)
+- 003-frontend-architecture: Schema browser with tree navigation
+- 003-frontend-architecture: Results panel with virtualized data grid
+- 003-frontend-architecture: Context menus, modals, tooltips, and select components
+- 003-frontend-architecture: Added Rust 1.80+ with 2021 edition
