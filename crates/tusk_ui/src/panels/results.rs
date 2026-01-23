@@ -17,6 +17,7 @@ use gpui::{
 use crate::icon::{Icon, IconName, IconSize};
 use crate::panel::{DockPosition, Focusable, Panel, PanelEvent};
 use crate::spinner::{Spinner, SpinnerSize};
+use crate::tooltip::Tooltip;
 use crate::TuskTheme;
 
 #[cfg(feature = "persistence")]
@@ -482,36 +483,46 @@ impl ResultsPanel {
                     .bg(theme.colors.element_background)
                     .border_b_1()
                     .border_color(theme.colors.border)
-                    .children(self.state.columns.iter().map(|col| {
+                    .children(self.state.columns.iter().enumerate().map(|(col_idx, col)| {
+                        let col_name = col.name.clone();
+                        let col_name_for_tooltip = col.name.clone();
                         div()
+                            .id(("results-header-col", col_idx))
                             .flex_1()
                             .min_w(px(100.0))
                             .px(px(8.0))
                             .text_size(px(11.0))
                             .font_weight(gpui::FontWeight::MEDIUM)
                             .text_color(theme.colors.text_muted)
-                            .overflow_hidden()
-                            .child(col.name.clone())
+                            .truncate()
+                            .tooltip(Tooltip::text(col_name_for_tooltip))
+                            .child(col_name)
                     })),
             )
             // Results body with rows (simplified - no virtualization yet)
             .child(div().id("results-body").flex_1().overflow_y_scroll().children(
-                self.state.rows.iter().take(100).enumerate().map(|(i, row)| {
-                    let bg = if i % 2 == 0 {
+                self.state.rows.iter().take(100).enumerate().map(|(row_idx, row)| {
+                    let bg = if row_idx % 2 == 0 {
                         theme.colors.panel_background
                     } else {
                         theme.colors.element_background
                     };
                     div().flex().items_center().h(px(24.0)).px(px(8.0)).bg(bg).children(
-                        row.cells.iter().map(|cell| {
+                        row.cells.iter().enumerate().map(|(col_idx, cell)| {
+                            let cell_text = cell.clone();
+                            let cell_text_for_tooltip = cell.clone();
+                            // Combine row and col into a unique ID (row * 1000 + col allows up to 1000 columns)
+                            let cell_id = row_idx * 1000 + col_idx;
                             div()
+                                .id(("results-cell", cell_id))
                                 .flex_1()
                                 .min_w(px(100.0))
                                 .px(px(8.0))
                                 .text_size(px(12.0))
                                 .text_color(theme.colors.text)
-                                .overflow_hidden()
-                                .child(cell.clone())
+                                .truncate()
+                                .tooltip(Tooltip::text(cell_text_for_tooltip))
+                                .child(cell_text)
                         }),
                     )
                 }),
