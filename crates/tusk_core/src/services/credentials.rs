@@ -217,10 +217,16 @@ pub struct KeychainCredentialsProvider {
     service: String,
 }
 
+impl Default for KeychainCredentialsProvider {
+    fn default() -> Self {
+        Self { service: KEYRING_SERVICE.to_string() }
+    }
+}
+
 impl KeychainCredentialsProvider {
     /// Create a new keychain credentials provider (T099).
     pub fn new() -> Self {
-        Self { service: KEYRING_SERVICE.to_string() }
+        Self::default()
     }
 
     /// Create with a custom service name (for testing).
@@ -343,7 +349,7 @@ fn select_provider() -> Box<dyn CredentialsProvider> {
                     reason = "debug build",
                     "Using file-based credential storage"
                 );
-                return Box::new(provider);
+                Box::new(provider)
             }
             Err(e) => {
                 tracing::warn!(error = %e, "Failed to create file provider, falling back to session");
@@ -352,7 +358,7 @@ fn select_provider() -> Box<dyn CredentialsProvider> {
                     reason = "file provider failed",
                     "Using session-only credential storage"
                 );
-                return Box::new(SessionCredentialsProvider::new());
+                Box::new(SessionCredentialsProvider::new())
             }
         }
     }

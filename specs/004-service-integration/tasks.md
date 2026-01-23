@@ -219,19 +219,19 @@ This is a Rust workspace with multiple crates:
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T084 Verify SC-001: UI responsive within 100ms during query execution
-- [ ] T085 Verify SC-002: First batch results within 500ms for simple queries
-- [ ] T086 Verify SC-003: Query cancellation within 1 second
-- [ ] T087 Verify SC-004: Schema load within 300ms for 1000+ tables
-- [ ] T088 Verify SC-005: Cached schema navigation under 30ms
-- [ ] T089 Verify SC-007: Streaming handles 1M+ rows without memory exhaustion
-- [ ] T090 Verify SC-008: Connection pool supports 10 concurrent queries
-- [ ] T091 [P] Audit all service calls have DEBUG level tracing (FR-024)
-- [ ] T092 [P] Audit all error paths have WARN/ERROR level tracing (FR-025)
-- [ ] T093 [P] Final audit that no passwords appear in logs (FR-026)
-- [ ] T094 Run quickstart.md validation scenarios
-- [ ] T095 Code cleanup and documentation
-- [ ] T096 Verify SC-006: All 21 documented error scenarios (E01-E21) display actionable hints per error-handling.md
+- [X] T084 Verify SC-001: UI responsive within 100ms during query execution
+- [X] T085 Verify SC-002: First batch results within 500ms for simple queries
+- [X] T086 Verify SC-003: Query cancellation within 1 second
+- [X] T087 Verify SC-004: Schema load within 300ms for 1000+ tables
+- [X] T088 Verify SC-005: Cached schema navigation under 30ms
+- [X] T089 Verify SC-007: Streaming handles 1M+ rows without memory exhaustion
+- [X] T090 Verify SC-008: Connection pool supports 10 concurrent queries
+- [X] T091 [P] Audit all service calls have DEBUG level tracing (FR-024)
+- [X] T092 [P] Audit all error paths have WARN/ERROR level tracing (FR-025)
+- [X] T093 [P] Final audit that no passwords appear in logs (FR-026)
+- [X] T094 Run quickstart.md validation scenarios
+- [X] T095 Code cleanup and documentation
+- [X] T096 Verify SC-006: All 21 documented error scenarios (E01-E21) display actionable hints per error-handling.md
 
 ---
 

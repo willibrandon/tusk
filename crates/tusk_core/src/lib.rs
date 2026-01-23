@@ -14,6 +14,9 @@ pub mod models;
 pub mod services;
 pub mod state;
 
+#[cfg(test)]
+mod verification_tests;
+
 pub use error::TuskError;
 pub use models::{
     ColumnDetail, ColumnInfo, ConnectionConfig, ConnectionOptions, ConnectionStatus,
