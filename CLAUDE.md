@@ -407,6 +407,8 @@ When in doubt, grep Zed's codebase for real-world usage patterns.
 - tracing, tracing-appender for structured logging
 - parking_lot 0.12 for synchronization primitives
 - serde/serde_json for serialization
+- Rust 1.80+ with 2021 edition + rusqlite 0.38 (bundled), serde/serde_json 1.0, chrono 0.4, uuid 1.0, dirs 6.0, parking_lot 0.12 (005-local-storage)
+- SQLite with WAL mode (already configured) (005-local-storage)
 
 ## Recent Changes
 - 004-service-integration: Connection dialog with form validation and database connectivity
