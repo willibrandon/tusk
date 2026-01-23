@@ -579,12 +579,7 @@ impl From<tokio_postgres::Error> for TuskError {
                         source: Some(Box::new(err)),
                     }
                 }
-                "08001" => {
-                    return TuskError::Connection {
-                        message,
-                        source: Some(Box::new(err)),
-                    }
-                }
+                "08001" => return TuskError::Connection { message, source: Some(Box::new(err)) },
                 "08003" => {
                     return TuskError::Connection {
                         message: "Connection lost. Reconnect to continue".to_string(),
@@ -634,7 +629,7 @@ impl From<tokio_postgres::Error> for TuskError {
                         hint: Some("Query was cancelled by database administrator".to_string()),
                         position,
                         code,
-                    }
+                    };
                 }
 
                 // Other connection exceptions

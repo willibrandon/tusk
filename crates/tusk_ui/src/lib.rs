@@ -52,8 +52,8 @@ pub use pane::{
 pub use panel::{DockPosition, Focusable, Panel, PanelEntry, PanelEvent, PanelHandle};
 pub use panels::{
     database_schema_to_tree, DisplayColumn, DisplayError, DisplayRow, Message, MessageSeverity,
-    MessagesPanel, ResultsPanel, ResultsPanelState, ResultsState, ResultsStatus, SchemaBrowserPanel,
-    SchemaItem,
+    MessagesPanel, ResultsPanel, ResultsPanelState, ResultsState, ResultsStatus,
+    SchemaBrowserPanel, SchemaItem,
 };
 pub use query_editor::{QueryEditor, QueryEditorState, QueryEditorStatus};
 pub use resizer::Resizer;

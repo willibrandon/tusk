@@ -624,9 +624,7 @@ impl SchemaBrowserPanel {
                                         .color(theme.colors.text_muted),
                                 )
                         })
-                        .when(is_loading, |el| {
-                            el.child(Spinner::new().size(SpinnerSize::Small))
-                        }),
+                        .when(is_loading, |el| el.child(Spinner::new().size(SpinnerSize::Small))),
                 )
             })
     }

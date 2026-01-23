@@ -36,12 +36,7 @@ pub struct ConnectionEntry {
 impl ConnectionEntry {
     /// Create a new connection entry with Connected status.
     pub fn new(config: ConnectionConfig, pool: Arc<ConnectionPool>) -> Self {
-        Self {
-            config,
-            pool,
-            status: ConnectionStatus::Connected,
-            connected_at: Utc::now(),
-        }
+        Self { config, pool, status: ConnectionStatus::Connected, connected_at: Utc::now() }
     }
 
     /// Get the connection configuration.
@@ -177,10 +172,14 @@ impl TuskState {
     }
 
     /// Get a connection entry by ID.
-    pub fn get_connection_entry(&self, id: &Uuid) -> Option<(ConnectionConfig, Arc<ConnectionPool>, ConnectionStatus)> {
-        self.connections.read().get(id).map(|entry| {
-            (entry.config().clone(), entry.pool().clone(), entry.status().clone())
-        })
+    pub fn get_connection_entry(
+        &self,
+        id: &Uuid,
+    ) -> Option<(ConnectionConfig, Arc<ConnectionPool>, ConnectionStatus)> {
+        self.connections
+            .read()
+            .get(id)
+            .map(|entry| (entry.config().clone(), entry.pool().clone(), entry.status().clone()))
     }
 
     /// Get a connection configuration by ID.
@@ -262,11 +261,7 @@ impl TuskState {
 
     /// Check if schema cache exists and is valid for a connection.
     pub fn has_valid_schema_cache(&self, connection_id: &Uuid) -> bool {
-        self.schema_caches
-            .read()
-            .get(connection_id)
-            .map(|cache| cache.is_valid())
-            .unwrap_or(false)
+        self.schema_caches.read().get(connection_id).map(|cache| cache.is_valid()).unwrap_or(false)
     }
 
     // ========== Query Tracking (FR-008) ==========
@@ -554,9 +549,9 @@ impl TuskState {
         sql: &str,
     ) -> Result<Arc<QueryHandle>, TuskError> {
         // Validate connection exists (pool returned but not used here - execution is separate)
-        let _pool = self.get_connection(&connection_id).ok_or_else(|| {
-            TuskError::internal(format!("No active connection: {connection_id}"))
-        })?;
+        let _pool = self
+            .get_connection(&connection_id)
+            .ok_or_else(|| TuskError::internal(format!("No active connection: {connection_id}")))?;
 
         // Create and register query handle
         let handle = QueryHandle::new(connection_id, sql);
@@ -584,9 +579,9 @@ impl TuskState {
         tx: mpsc::Sender<QueryEvent>,
     ) -> Result<Arc<QueryHandle>, TuskError> {
         // Get connection pool
-        let pool = self.get_connection(&connection_id).ok_or_else(|| {
-            TuskError::internal(format!("No active connection: {connection_id}"))
-        })?;
+        let pool = self
+            .get_connection(&connection_id)
+            .ok_or_else(|| TuskError::internal(format!("No active connection: {connection_id}")))?;
 
         // Create and register query handle
         let handle = QueryHandle::new(connection_id, sql.to_string());
@@ -602,8 +597,7 @@ impl TuskState {
         // Spawn the streaming execution
         let query_id = handle.id();
         self.spawn(async move {
-            let result =
-                QueryService::execute_streaming(&conn, &sql_owned, &handle_ref, tx).await;
+            let result = QueryService::execute_streaming(&conn, &sql_owned, &handle_ref, tx).await;
 
             if let Err(e) = result {
                 tracing::warn!(

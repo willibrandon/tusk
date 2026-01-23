@@ -417,12 +417,7 @@ impl ConnectionDialog {
 
         let port: u16 = port_str.parse().ok()?;
 
-        let ssl_mode = match self
-            .ssl_mode_select
-            .read(cx)
-            .selected_value()
-            .map(|v| v.0.as_str())
-        {
+        let ssl_mode = match self.ssl_mode_select.read(cx).selected_value().map(|v| v.0.as_str()) {
             Some("disable") => SslMode::Disable,
             Some("require") => SslMode::Require,
             Some("verify-ca") => SslMode::VerifyCa,
@@ -511,15 +506,17 @@ impl ConnectionDialog {
         self._connection_task = Some(cx.spawn(async move |this, cx| {
             // Create connection pool on tokio runtime
             let pool_result = runtime_handle
-                .spawn(async move { ConnectionPool::new(config_clone.clone(), &password_clone).await })
+                .spawn(
+                    async move { ConnectionPool::new(config_clone.clone(), &password_clone).await },
+                )
                 .await;
 
             let result = match pool_result {
                 Ok(Ok(pool)) => Ok((config.clone(), Arc::new(pool))),
                 Ok(Err(e)) => Err(e),
-                Err(e) => Err(tusk_core::TuskError::internal(format!(
-                    "Connection task panicked: {e}"
-                ))),
+                Err(e) => {
+                    Err(tusk_core::TuskError::internal(format!("Connection task panicked: {e}")))
+                }
             };
 
             let _ = this.update(cx, |dialog, cx| {
@@ -556,12 +553,9 @@ impl ConnectionDialog {
                             }
                         }
 
-                        dialog.state = ConnectionDialogState::Connected {
-                            connection_id: config.id,
-                        };
-                        cx.emit(ConnectionDialogEvent::Connected {
-                            connection_id: config.id,
-                        });
+                        dialog.state =
+                            ConnectionDialogState::Connected { connection_id: config.id };
+                        cx.emit(ConnectionDialogEvent::Connected { connection_id: config.id });
                     }
                     Err(e) => {
                         // Extract error info for display (T045)
@@ -713,11 +707,7 @@ impl ConnectionDialog {
         ];
 
         if let Some(current) = handles.iter().position(|h| h.is_focused(window)) {
-            let next = if current == 0 {
-                handles.len() - 1
-            } else {
-                current - 1
-            };
+            let next = if current == 0 { handles.len() - 1 } else { current - 1 };
             handles[next].focus(window, cx);
         }
     }
@@ -940,15 +930,14 @@ impl ConnectionDialog {
                     .items_center()
                     .justify_center()
                     .when(is_checked, |el| {
-                        el.child(Icon::new(IconName::Check).size(IconSize::XSmall).color(theme.colors.on_accent))
+                        el.child(
+                            Icon::new(IconName::Check)
+                                .size(IconSize::XSmall)
+                                .color(theme.colors.on_accent),
+                        )
                     }),
             )
-            .child(
-                div()
-                    .text_size(px(13.0))
-                    .text_color(theme.colors.text)
-                    .child("Save connection"),
-            )
+            .child(div().text_size(px(13.0)).text_color(theme.colors.text).child("Save connection"))
     }
 
     /// Render the button section.
@@ -974,11 +963,11 @@ impl ConnectionDialog {
                     .border_1()
                     .border_color(theme.colors.border)
                     .when(!is_loading, |el| {
-                        el.hover(|s| s.bg(theme.colors.element_hover))
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| {
+                        el.hover(|s| s.bg(theme.colors.element_hover)).cursor_pointer().on_click(
+                            cx.listener(|this, _, _, cx| {
                                 this.test_connection(cx);
-                            }))
+                            }),
+                        )
                     })
                     .when(is_loading, |el| el.opacity(0.5).cursor_not_allowed())
                     .when(is_testing, |el| el.child(Spinner::new().size(SpinnerSize::Small)))
@@ -986,11 +975,7 @@ impl ConnectionDialog {
                         div()
                             .text_size(px(13.0))
                             .text_color(theme.colors.text)
-                            .child(if is_testing {
-                                "Testing..."
-                            } else {
-                                "Test Connection"
-                            }),
+                            .child(if is_testing { "Testing..." } else { "Test Connection" }),
                     ),
             )
             .child(
@@ -1044,11 +1029,7 @@ impl ConnectionDialog {
                                 div()
                                     .text_size(px(13.0))
                                     .text_color(theme.colors.on_accent)
-                                    .child(if is_connecting {
-                                        "Connecting..."
-                                    } else {
-                                        "Connect"
-                                    }),
+                                    .child(if is_connecting { "Connecting..." } else { "Connect" }),
                             ),
                     ),
             )
@@ -1119,16 +1100,16 @@ impl Render for ConnectionDialog {
                         div()
                             .flex()
                             .gap(px(12.0))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .child(self.render_field("Host", self.host_input.clone(), &theme)),
-                            )
-                            .child(
-                                div()
-                                    .w(px(100.0))
-                                    .child(self.render_field("Port", self.port_input.clone(), &theme)),
-                            ),
+                            .child(div().flex_1().child(self.render_field(
+                                "Host",
+                                self.host_input.clone(),
+                                &theme,
+                            )))
+                            .child(div().w(px(100.0)).child(self.render_field(
+                                "Port",
+                                self.port_input.clone(),
+                                &theme,
+                            ))),
                     )
                     // Database
                     .child(self.render_field("Database", self.database_input.clone(), &theme))

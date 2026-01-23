@@ -272,7 +272,12 @@ impl TextInput {
         cx.emit(TextInputEvent::Submitted(self.content.clone()));
     }
 
-    fn on_mouse_down(&mut self, event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_mouse_down(
+        &mut self,
+        event: &MouseDownEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.is_selecting = true;
 
         if event.modifiers.shift {
@@ -668,7 +673,10 @@ impl gpui::Element for TextInputElement {
             (
                 Some(fill(
                     Bounds::from_corners(
-                        point(bounds.left() + line.x_for_index(display_selection_start), bounds.top()),
+                        point(
+                            bounds.left() + line.x_for_index(display_selection_start),
+                            bounds.top(),
+                        ),
                         point(
                             bounds.left() + line.x_for_index(display_selection_end),
                             bounds.bottom(),

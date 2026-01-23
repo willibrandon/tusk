@@ -271,10 +271,8 @@ impl QueryService {
 
                     // Send batch when full (FR-012)
                     if batch.len() >= batch_size {
-                        let rows_to_send = std::mem::replace(
-                            &mut batch,
-                            Vec::with_capacity(batch_size),
-                        );
+                        let rows_to_send =
+                            std::mem::replace(&mut batch, Vec::with_capacity(batch_size));
                         if tx.send(QueryEvent::rows(rows_to_send, total_rows)).await.is_err() {
                             return Ok(());
                         }

@@ -305,9 +305,8 @@ impl ResultsPanel {
             QueryEvent::Rows { rows, total_so_far } => {
                 // Convert tokio_postgres::Row to DisplayRow
                 for row in rows {
-                    let cells: Vec<String> = (0..self.state.columns.len())
-                        .map(|i| Self::format_cell(&row, i))
-                        .collect();
+                    let cells: Vec<String> =
+                        (0..self.state.columns.len()).map(|i| Self::format_cell(&row, i)).collect();
                     self.state.rows.push(DisplayRow { cells });
                 }
                 self.state.total_rows = total_so_far;
@@ -407,10 +406,7 @@ impl ResultsPanel {
         }
 
         // Non-NULL string value
-        row.try_get::<_, Option<String>>(index)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "NULL".to_string())
+        row.try_get::<_, Option<String>>(index).ok().flatten().unwrap_or_else(|| "NULL".to_string())
     }
 
     /// Render the empty state.
@@ -499,35 +495,27 @@ impl ResultsPanel {
                     })),
             )
             // Results body with rows (simplified - no virtualization yet)
-            .child(
-                div()
-                    .id("results-body")
-                    .flex_1()
-                    .overflow_y_scroll()
-                    .children(self.state.rows.iter().take(100).enumerate().map(|(i, row)| {
-                        let bg = if i % 2 == 0 {
-                            theme.colors.panel_background
-                        } else {
-                            theme.colors.element_background
-                        };
-                        div()
-                            .flex()
-                            .items_center()
-                            .h(px(24.0))
-                            .px(px(8.0))
-                            .bg(bg)
-                            .children(row.cells.iter().map(|cell| {
-                                div()
-                                    .flex_1()
-                                    .min_w(px(100.0))
-                                    .px(px(8.0))
-                                    .text_size(px(12.0))
-                                    .text_color(theme.colors.text)
-                                    .overflow_hidden()
-                                    .child(cell.clone())
-                            }))
-                    })),
-            )
+            .child(div().id("results-body").flex_1().overflow_y_scroll().children(
+                self.state.rows.iter().take(100).enumerate().map(|(i, row)| {
+                    let bg = if i % 2 == 0 {
+                        theme.colors.panel_background
+                    } else {
+                        theme.colors.element_background
+                    };
+                    div().flex().items_center().h(px(24.0)).px(px(8.0)).bg(bg).children(
+                        row.cells.iter().map(|cell| {
+                            div()
+                                .flex_1()
+                                .min_w(px(100.0))
+                                .px(px(8.0))
+                                .text_size(px(12.0))
+                                .text_color(theme.colors.text)
+                                .overflow_hidden()
+                                .child(cell.clone())
+                        }),
+                    )
+                }),
+            ))
             // Status bar
             .child(
                 div()
@@ -545,7 +533,9 @@ impl ResultsPanel {
                             .flex()
                             .items_center()
                             .gap(px(4.0))
-                            .when(is_streaming, |s| s.child(Spinner::new().size(SpinnerSize::Small)))
+                            .when(is_streaming, |s| {
+                                s.child(Spinner::new().size(SpinnerSize::Small))
+                            })
                             .child(
                                 div()
                                     .text_size(px(11.0))
@@ -575,21 +565,14 @@ impl ResultsPanel {
                             div()
                                 .text_size(px(11.0))
                                 .text_color(theme.colors.text_muted)
-                                .child(format!(
-                                    "{}ms",
-                                    self.state.execution_time_ms.unwrap_or(0)
-                                )),
+                                .child(format!("{}ms", self.state.execution_time_ms.unwrap_or(0))),
                         )
                     })
                     .when(self.state.rows_affected.is_some(), |s| {
                         s.child(
-                            div()
-                                .text_size(px(11.0))
-                                .text_color(theme.colors.text_muted)
-                                .child(format!(
-                                    "{} affected",
-                                    self.state.rows_affected.unwrap_or(0)
-                                )),
+                            div().text_size(px(11.0)).text_color(theme.colors.text_muted).child(
+                                format!("{} affected", self.state.rows_affected.unwrap_or(0)),
+                            ),
                         )
                     }),
             )

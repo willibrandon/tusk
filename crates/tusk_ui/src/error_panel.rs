@@ -107,11 +107,7 @@ impl From<ErrorInfo> for ErrorPanelContent {
 impl ErrorPanel {
     /// Create a new error panel.
     pub fn new(cx: &mut Context<Self>) -> Self {
-        Self {
-            focus_handle: cx.focus_handle(),
-            error: None,
-            detail_expanded: false,
-        }
+        Self { focus_handle: cx.focus_handle(), error: None, detail_expanded: false }
     }
 
     /// Show an error in the panel.
@@ -144,7 +140,6 @@ impl ErrorPanel {
         self.detail_expanded = !self.detail_expanded;
         cx.notify();
     }
-
 }
 
 impl Focusable for ErrorPanel {
@@ -174,12 +169,7 @@ impl Render for ErrorPanel {
                 .items_center()
                 .justify_center()
                 .bg(panel_bg)
-                .child(
-                    div()
-                        .text_size(px(12.0))
-                        .text_color(text_muted)
-                        .child("No errors"),
-                )
+                .child(div().text_size(px(12.0)).text_color(text_muted).child("No errors"))
                 .into_any_element();
         };
 
@@ -257,12 +247,7 @@ impl Render for ErrorPanel {
                     .gap(px(16.0))
                     .p(px(16.0))
                     // Error message
-                    .child(
-                        div()
-                            .text_size(px(13.0))
-                            .text_color(text_color)
-                            .child(error_message),
-                    )
+                    .child(div().text_size(px(13.0)).text_color(text_color).child(error_message))
                     // Position indicator (T063)
                     .when_some(error_position, |s, pos| {
                         s.child(
@@ -343,17 +328,22 @@ impl Render for ErrorPanel {
                                         .gap(px(4.0))
                                         .cursor_pointer()
                                         .hover(|s| s.opacity(0.8))
-                                        .on_click(cx.listener(|this, _, _, cx| this.toggle_detail(cx)))
+                                        .on_click(
+                                            cx.listener(|this, _, _, cx| this.toggle_detail(cx)),
+                                        )
                                         .child(
                                             Icon::new(chevron_icon)
                                                 .size(IconSize::Small)
                                                 .color(text_muted),
                                         )
                                         .child(
-                                            div()
-                                                .text_size(px(11.0))
-                                                .text_color(text_muted)
-                                                .child(if is_expanded { "Hide Details" } else { "Show Details" }),
+                                            div().text_size(px(11.0)).text_color(text_muted).child(
+                                                if is_expanded {
+                                                    "Hide Details"
+                                                } else {
+                                                    "Show Details"
+                                                },
+                                            ),
                                         ),
                                 )
                                 // Detail content (when expanded)

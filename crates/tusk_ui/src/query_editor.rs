@@ -69,11 +69,7 @@ pub struct QueryEditorState {
 
 impl Default for QueryEditorState {
     fn default() -> Self {
-        Self {
-            connection_id: None,
-            active_query: None,
-            status: QueryEditorStatus::Idle,
-        }
+        Self { connection_id: None, active_query: None, status: QueryEditorStatus::Idle }
     }
 }
 
@@ -123,9 +119,8 @@ pub struct QueryEditor {
 impl QueryEditor {
     /// Create a new query editor.
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let sql_input = cx.new(|cx| {
-            TextInput::new("Enter SQL query (e.g., SELECT * FROM users)", cx)
-        });
+        let sql_input =
+            cx.new(|cx| TextInput::new("Enter SQL query (e.g., SELECT * FROM users)", cx));
 
         // Subscribe to text input changes
         cx.subscribe(&sql_input, Self::on_sql_input_event).detach();
@@ -143,9 +138,8 @@ impl QueryEditor {
 
     /// Create a new query editor with a connection.
     pub fn with_connection(connection_id: Uuid, cx: &mut Context<Self>) -> Self {
-        let sql_input = cx.new(|cx| {
-            TextInput::new("Enter SQL query (e.g., SELECT * FROM users)", cx)
-        });
+        let sql_input =
+            cx.new(|cx| TextInput::new("Enter SQL query (e.g., SELECT * FROM users)", cx));
 
         // Subscribe to text input changes
         cx.subscribe(&sql_input, Self::on_sql_input_event).detach();
@@ -407,108 +401,91 @@ impl QueryEditor {
             .border_b_1()
             .border_color(theme.colors.border)
             .bg(theme.colors.panel_background)
-            .child(
-                if is_executing {
-                    // Cancel button while executing
-                    div()
-                        .id("cancel-button")
-                        .flex()
-                        .items_center()
-                        .gap(px(6.0))
-                        .px(px(12.0))
-                        .py(px(4.0))
-                        .rounded(px(4.0))
-                        .bg(theme.colors.error.opacity(0.1))
-                        .hover(|s| s.bg(theme.colors.error.opacity(0.2)))
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.cancel_query(cx);
-                        }))
-                        .child(Spinner::new().size(SpinnerSize::Small))
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(theme.colors.error)
-                                .child("Cancel"),
-                        )
-                        .into_any_element()
-                } else {
-                    // Execute button when idle
-                    div()
-                        .id("execute-button")
-                        .flex()
-                        .items_center()
-                        .gap(px(6.0))
-                        .px(px(12.0))
-                        .py(px(4.0))
-                        .rounded(px(4.0))
-                        .when(can_execute, |s| {
-                            s.bg(theme.colors.accent.opacity(0.1))
-                                .hover(|s| s.bg(theme.colors.accent.opacity(0.2)))
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.execute_query(cx);
-                                }))
-                        })
-                        .when(!can_execute, |s| {
-                            s.opacity(0.5)
-                                .cursor_not_allowed()
-                        })
-                        .child(
-                            Icon::new(IconName::Play)
-                                .size(IconSize::Small)
-                                .color(if can_execute { theme.colors.accent } else { theme.colors.text_muted }),
-                        )
-                        .child(
-                            div()
-                                .text_size(px(12.0))
-                                .text_color(if can_execute { theme.colors.accent } else { theme.colors.text_muted })
-                                .child("Execute"),
-                        )
-                        .into_any_element()
-                },
-            )
-            // Connection status indicator
-            .child(
+            .child(if is_executing {
+                // Cancel button while executing
                 div()
-                    .flex_1()
+                    .id("cancel-button")
                     .flex()
-                    .justify_end()
+                    .items_center()
+                    .gap(px(6.0))
+                    .px(px(12.0))
+                    .py(px(4.0))
+                    .rounded(px(4.0))
+                    .bg(theme.colors.error.opacity(0.1))
+                    .hover(|s| s.bg(theme.colors.error.opacity(0.2)))
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.cancel_query(cx);
+                    }))
+                    .child(Spinner::new().size(SpinnerSize::Small))
+                    .child(div().text_size(px(12.0)).text_color(theme.colors.error).child("Cancel"))
+                    .into_any_element()
+            } else {
+                // Execute button when idle
+                div()
+                    .id("execute-button")
+                    .flex()
+                    .items_center()
+                    .gap(px(6.0))
+                    .px(px(12.0))
+                    .py(px(4.0))
+                    .rounded(px(4.0))
+                    .when(can_execute, |s| {
+                        s.bg(theme.colors.accent.opacity(0.1))
+                            .hover(|s| s.bg(theme.colors.accent.opacity(0.2)))
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                this.execute_query(cx);
+                            }))
+                    })
+                    .when(!can_execute, |s| s.opacity(0.5).cursor_not_allowed())
+                    .child(Icon::new(IconName::Play).size(IconSize::Small).color(if can_execute {
+                        theme.colors.accent
+                    } else {
+                        theme.colors.text_muted
+                    }))
                     .child(
                         div()
-                            .text_size(px(11.0))
-                            .text_color(theme.colors.text_muted)
-                            .child(if has_connection {
-                                "Connected".to_string()
+                            .text_size(px(12.0))
+                            .text_color(if can_execute {
+                                theme.colors.accent
                             } else {
-                                "Not connected".to_string()
-                            }),
-                    ),
-            )
+                                theme.colors.text_muted
+                            })
+                            .child("Execute"),
+                    )
+                    .into_any_element()
+            })
+            // Connection status indicator
+            .child(div().flex_1().flex().justify_end().child(
+                div().text_size(px(11.0)).text_color(theme.colors.text_muted).child(
+                    if has_connection {
+                        "Connected".to_string()
+                    } else {
+                        "Not connected".to_string()
+                    },
+                ),
+            ))
     }
 
     /// Render the editor content area.
     fn render_content(&self, theme: &TuskTheme) -> impl IntoElement {
-        div()
-            .flex_1()
-            .p(px(12.0))
-            .bg(theme.colors.editor_background)
-            .child(
-                div()
-                    .size_full()
-                    .flex()
-                    .flex_col()
-                    .gap(px(8.0))
-                    // SQL input field
-                    .child(self.sql_input.clone())
-                    // Help text
-                    .child(
-                        div()
-                            .text_color(theme.colors.text_muted)
-                            .text_size(px(11.0))
-                            .child("Press Cmd+Enter to execute, or click Execute button"),
-                    ),
-            )
+        div().flex_1().p(px(12.0)).bg(theme.colors.editor_background).child(
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .gap(px(8.0))
+                // SQL input field
+                .child(self.sql_input.clone())
+                // Help text
+                .child(
+                    div()
+                        .text_color(theme.colors.text_muted)
+                        .text_size(px(11.0))
+                        .child("Press Cmd+Enter to execute, or click Execute button"),
+                ),
+        )
     }
 }
 

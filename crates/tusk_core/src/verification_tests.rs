@@ -126,14 +126,8 @@ mod tests {
     /// Verify correct query type detection.
     #[test]
     fn test_sc002_query_type_detection_correctness() {
-        assert_eq!(
-            QueryService::detect_query_type("SELECT * FROM users"),
-            QueryType::Select
-        );
-        assert_eq!(
-            QueryService::detect_query_type("  select * from users"),
-            QueryType::Select
-        );
+        assert_eq!(QueryService::detect_query_type("SELECT * FROM users"), QueryType::Select);
+        assert_eq!(QueryService::detect_query_type("  select * from users"), QueryType::Select);
         assert_eq!(
             QueryService::detect_query_type("WITH cte AS (SELECT 1) SELECT * FROM cte"),
             QueryType::Select
@@ -142,18 +136,9 @@ mod tests {
             QueryService::detect_query_type("INSERT INTO users VALUES (1)"),
             QueryType::Insert
         );
-        assert_eq!(
-            QueryService::detect_query_type("UPDATE users SET x = 1"),
-            QueryType::Update
-        );
-        assert_eq!(
-            QueryService::detect_query_type("DELETE FROM users"),
-            QueryType::Delete
-        );
-        assert_eq!(
-            QueryService::detect_query_type("CREATE TABLE test (id INT)"),
-            QueryType::Other
-        );
+        assert_eq!(QueryService::detect_query_type("UPDATE users SET x = 1"), QueryType::Update);
+        assert_eq!(QueryService::detect_query_type("DELETE FROM users"), QueryType::Delete);
+        assert_eq!(QueryService::detect_query_type("CREATE TABLE test (id INT)"), QueryType::Other);
     }
 
     // =========================================================================
@@ -605,7 +590,8 @@ mod tests {
     /// E16: Keychain access denied
     #[test]
     fn test_e16_keychain_access_denied_has_hint() {
-        let error = TuskError::keyring("access denied", Some("Grant Tusk access in system preferences"));
+        let error =
+            TuskError::keyring("access denied", Some("Grant Tusk access in system preferences"));
         let info = error.to_error_info();
         assert!(info.hint.is_some());
     }
@@ -665,11 +651,7 @@ mod tests {
         // Verify that QueryEvent::complete with 0 rows doesn't create an error
         let event = QueryEvent::complete(0, 50, None);
         match event {
-            QueryEvent::Complete {
-                total_rows,
-                execution_time_ms,
-                rows_affected,
-            } => {
+            QueryEvent::Complete { total_rows, execution_time_ms, rows_affected } => {
                 assert_eq!(total_rows, 0);
                 assert_eq!(execution_time_ms, 50);
                 assert!(rows_affected.is_none());
@@ -712,26 +694,22 @@ mod tests {
     #[test]
     fn test_pg_error_code_hints_complete() {
         let codes_with_hints = vec![
-            ("28P01", "password"),  // Invalid password
-            ("28000", "Authentication"), // Auth failed
-            ("3D000", "does not exist"), // Database not exist
-            ("42601", "syntax"),    // Syntax error
-            ("42P01", "does not exist"), // Undefined table
-            ("42703", "does not exist"), // Undefined column
-            ("42501", "privileges"), // Permission denied
+            ("28P01", "password"),         // Invalid password
+            ("28000", "Authentication"),   // Auth failed
+            ("3D000", "does not exist"),   // Database not exist
+            ("42601", "syntax"),           // Syntax error
+            ("42P01", "does not exist"),   // Undefined table
+            ("42703", "does not exist"),   // Undefined column
+            ("42501", "privileges"),       // Permission denied
             ("53300", "connection limit"), // Too many connections
-            ("57014", "cancelled"), // Query cancelled
-            ("57P01", "shutting down"), // Admin shutdown
+            ("57014", "cancelled"),        // Query cancelled
+            ("57P01", "shutting down"),    // Admin shutdown
         ];
 
         for (code, expected_contains) in codes_with_hints {
             let error = TuskError::query("test", None, None, None, Some(code.to_string()));
             let info = error.to_error_info();
-            assert!(
-                info.hint.is_some(),
-                "Error code {} should have a hint",
-                code
-            );
+            assert!(info.hint.is_some(), "Error code {} should have a hint", code);
             assert!(
                 info.hint
                     .as_ref()
@@ -767,11 +745,7 @@ mod tests {
 
         for error in recoverable_errors {
             let info = error.to_error_info();
-            assert!(
-                info.recoverable,
-                "{:?} should be recoverable",
-                error.category()
-            );
+            assert!(info.recoverable, "{:?} should be recoverable", error.category());
         }
 
         // Non-recoverable errors (should be false)
@@ -786,18 +760,15 @@ mod tests {
 
         for error in non_recoverable_errors {
             let info = error.to_error_info();
-            assert!(
-                !info.recoverable,
-                "{:?} should NOT be recoverable",
-                error.category()
-            );
+            assert!(!info.recoverable, "{:?} should NOT be recoverable", error.category());
         }
     }
 
     /// Verify query errors with position include position info.
     #[test]
     fn test_query_errors_preserve_position() {
-        let error = TuskError::query("syntax error", None, None, Some(42), Some("42601".to_string()));
+        let error =
+            TuskError::query("syntax error", None, None, Some(42), Some("42601".to_string()));
         let info = error.to_error_info();
         assert_eq!(info.position, Some(42));
         assert_eq!(info.code, Some("42601".to_string()));

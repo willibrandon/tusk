@@ -148,8 +148,9 @@ impl FileCredentialsProvider {
     fn save_to_file(&self) -> Result<(), TuskError> {
         let creds_file = CredentialsFile { credentials: self.cache.read().clone() };
 
-        let json = serde_json::to_string_pretty(&creds_file)
-            .map_err(|e| TuskError::storage(format!("Failed to serialize credentials: {e}"), None))?;
+        let json = serde_json::to_string_pretty(&creds_file).map_err(|e| {
+            TuskError::storage(format!("Failed to serialize credentials: {e}"), None)
+        })?;
 
         // Create file with restricted permissions on Unix (T102)
         #[cfg(unix)]
@@ -394,10 +395,7 @@ impl CredentialService {
     /// Logs the selected provider at DEBUG level (T103).
     pub fn new() -> Self {
         let provider = select_provider();
-        tracing::info!(
-            provider = provider.name(),
-            "Credential service initialized"
-        );
+        tracing::info!(provider = provider.name(), "Credential service initialized");
         Self { provider }
     }
 
@@ -484,9 +482,7 @@ impl Default for CredentialService {
 
 impl std::fmt::Debug for CredentialService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CredentialService")
-            .field("provider", &self.provider.name())
-            .finish()
+        f.debug_struct("CredentialService").field("provider", &self.provider.name()).finish()
     }
 }
 

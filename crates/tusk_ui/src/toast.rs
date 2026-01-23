@@ -152,11 +152,7 @@ impl Render for Toast {
             .bg(theme.colors.panel_background)
             .shadow_md()
             // Icon
-            .child(
-                Icon::new(self.severity.icon())
-                    .size(IconSize::Medium)
-                    .color(icon_color),
-            )
+            .child(Icon::new(self.severity.icon()).size(IconSize::Medium).color(icon_color))
             // Content
             .child(
                 div()
@@ -193,7 +189,11 @@ impl Render for Toast {
                     .cursor_pointer()
                     .hover(|s| s.bg(theme.colors.element_hover))
                     .on_click(cx.listener(|this, _, _, cx| this.dismiss(cx)))
-                    .child(Icon::new(IconName::Close).size(IconSize::Small).color(theme.colors.text_muted)),
+                    .child(
+                        Icon::new(IconName::Close)
+                            .size(IconSize::Small)
+                            .color(theme.colors.text_muted),
+                    ),
             )
     }
 }
@@ -263,20 +263,15 @@ impl ToastLayer {
     pub fn render(&self) -> Option<impl IntoElement> {
         let active_toast = self.active_toast.as_ref()?;
         Some(
-            div()
-                .absolute()
-                .size_full()
-                .bottom_0()
-                .left_0()
-                .child(
-                    div()
-                        .absolute()
-                        .w_full()
-                        .bottom(px(60.0)) // Above status bar
-                        .flex()
-                        .justify_center()
-                        .child(active_toast.toast.clone()),
-                ),
+            div().absolute().size_full().bottom_0().left_0().child(
+                div()
+                    .absolute()
+                    .w_full()
+                    .bottom(px(60.0)) // Above status bar
+                    .flex()
+                    .justify_center()
+                    .child(active_toast.toast.clone()),
+            ),
         )
     }
 }
@@ -289,20 +284,15 @@ impl Render for ToastLayer {
             return div();
         };
 
-        div()
-            .absolute()
-            .size_full()
-            .bottom_0()
-            .left_0()
-            .child(
-                div()
-                    .absolute()
-                    .w_full()
-                    .bottom(px(60.0)) // Above status bar
-                    .flex()
-                    .justify_center()
-                    .child(active_toast.toast.clone()),
-            )
+        div().absolute().size_full().bottom_0().left_0().child(
+            div()
+                .absolute()
+                .w_full()
+                .bottom(px(60.0)) // Above status bar
+                .flex()
+                .justify_center()
+                .child(active_toast.toast.clone()),
+        )
     }
 }
 
