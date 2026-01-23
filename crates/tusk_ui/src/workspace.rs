@@ -497,7 +497,7 @@ impl Workspace {
                 })
                 .await;
 
-            let _ = schema_browser.update(cx, |panel, cx| {
+            schema_browser.update(cx, |panel, cx| {
                 panel.set_loading(false, cx);
                 match result {
                     Ok(Ok(schema)) => {

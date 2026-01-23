@@ -238,7 +238,7 @@ impl ToastLayer {
         let dismiss_task = cx.spawn(async move |this, cx| {
             cx.background_executor().timer(DEFAULT_TOAST_DURATION).await;
             if let Some(this) = this.upgrade() {
-                let _ = this.update(cx, |this, cx| this.hide_toast(cx));
+                this.update(cx, |this, cx| this.hide_toast(cx));
             }
         });
 

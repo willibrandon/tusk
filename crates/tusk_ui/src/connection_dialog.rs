@@ -381,7 +381,7 @@ impl ConnectionDialog {
         });
 
         self.port_input.update(cx, |input, cx| {
-            input.set_text(&config.port.to_string(), cx);
+            input.set_text(config.port.to_string(), cx);
         });
 
         self.database_input.update(cx, |input, cx| {
