@@ -10,5 +10,10 @@ pub mod results;
 pub mod schema_browser;
 
 pub use messages::{Message, MessageSeverity, MessagesPanel};
-pub use results::{ResultsPanel, ResultsState};
-pub use schema_browser::{database_schema_to_tree, SchemaBrowserPanel, SchemaItem};
+pub use results::{
+    DisplayColumn, DisplayError, DisplayRow, ResultsPanel, ResultsPanelState, ResultsState,
+    ResultsStatus,
+};
+pub use schema_browser::{
+    database_schema_to_tree, SchemaBrowserEvent, SchemaBrowserPanel, SchemaItem,
+};

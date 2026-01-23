@@ -8,10 +8,13 @@
 //! - Keyboard bindings and actions
 
 // Core modules
+pub mod application_menu;
 pub mod button;
 pub mod confirm_dialog;
+pub mod connection_dialog;
 pub mod context_menu;
 pub mod dock;
+pub mod error_panel;
 pub mod icon;
 pub mod key_bindings;
 pub mod keyboard_shortcuts;
@@ -20,21 +23,27 @@ pub mod modal;
 pub mod pane;
 pub mod panel;
 pub mod panels;
+pub mod popover_menu;
+pub mod query_editor;
 pub mod resizer;
 pub mod select;
 pub mod spinner;
 pub mod status_bar;
 pub mod text_input;
 pub mod theme;
+pub mod toast;
 pub mod tooltip;
 pub mod tree;
 pub mod workspace;
 
 // Re-exports for convenience
-pub use button::{Button, ButtonSize, ButtonVariant, IconPosition};
+pub use application_menu::ApplicationMenu;
+pub use button::{Button, ButtonSize, ButtonStyle, ButtonVariant, IconPosition};
 pub use confirm_dialog::{ConfirmDialog, ConfirmDialogEvent, ConfirmDialogKind};
+pub use connection_dialog::{ConnectionDialog, ConnectionDialogEvent, ConnectionDialogState};
 pub use context_menu::{ContextMenu, ContextMenuEvent, ContextMenuItem, ContextMenuLayer};
 pub use dock::{Dock, DockEvent};
+pub use error_panel::{ErrorPanel, ErrorPanelContent};
 pub use icon::{Icon, IconName, IconSize};
 pub use key_bindings::register_key_bindings;
 pub use keyboard_shortcuts::show_keyboard_shortcuts;
@@ -45,9 +54,12 @@ pub use pane::{
 };
 pub use panel::{DockPosition, Focusable, Panel, PanelEntry, PanelEvent, PanelHandle};
 pub use panels::{
-    database_schema_to_tree, Message, MessageSeverity, MessagesPanel, ResultsPanel, ResultsState,
+    database_schema_to_tree, DisplayColumn, DisplayError, DisplayRow, Message, MessageSeverity,
+    MessagesPanel, ResultsPanel, ResultsPanelState, ResultsState, ResultsStatus,
     SchemaBrowserPanel, SchemaItem,
 };
+pub use popover_menu::{PopoverMenu, PopoverMenuHandle};
+pub use query_editor::{QueryEditor, QueryEditorState, QueryEditorStatus};
 pub use resizer::Resizer;
 pub use select::{Select, SelectEvent, SelectOption};
 pub use spinner::{Spinner, SpinnerSize};
@@ -57,6 +69,7 @@ pub use text_input::{
     Undo,
 };
 pub use theme::{ThemeColors, TuskTheme};
+pub use toast::{Toast, ToastLayer, ToastSeverity};
 pub use tooltip::Tooltip;
 pub use tree::{Tree, TreeEvent, TreeItem, VisibleEntry};
 pub use workspace::{Workspace, WorkspaceEvent, WorkspaceState};

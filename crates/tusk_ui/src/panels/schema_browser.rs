@@ -7,8 +7,8 @@
 //! - Functions
 
 use gpui::{
-    div, prelude::*, px, App, ClipboardItem, Context, Entity, EventEmitter, FocusHandle, Point,
-    Render, SharedString, Subscription, Window,
+    div, prelude::*, px, App, ClipboardItem, Context, Entity, EventEmitter, FocusHandle,
+    FontWeight, Point, Render, SharedString, Subscription, Window,
 };
 
 use tusk_core::models::schema::DatabaseSchema;
@@ -17,9 +17,17 @@ use crate::context_menu::{ContextMenu, ContextMenuItem, ContextMenuLayer};
 use crate::icon::{Icon, IconName, IconSize};
 use crate::layout::spacing;
 use crate::panel::{DockPosition, Focusable, Panel, PanelEvent};
+use crate::spinner::{Spinner, SpinnerSize};
 use crate::text_input::{TextInput, TextInputEvent};
 use crate::tree::{Tree, TreeEvent, TreeItem};
 use crate::TuskTheme;
+
+/// Events emitted by the schema browser panel (T056).
+#[derive(Debug, Clone)]
+pub enum SchemaBrowserEvent {
+    /// User requested a schema refresh.
+    RefreshRequested,
+}
 
 /// Schema item types for the tree view.
 #[derive(Clone, Debug)]
@@ -557,6 +565,70 @@ impl SchemaBrowserPanel {
         cx.notify();
     }
 
+    /// Request a schema refresh (T056).
+    ///
+    /// Emits a RefreshRequested event that the workspace can handle.
+    pub fn request_refresh(&mut self, cx: &mut Context<Self>) {
+        if !self.is_loading {
+            cx.emit(SchemaBrowserEvent::RefreshRequested);
+        }
+    }
+
+    /// Render the header with title and refresh button (T056).
+    fn render_header(&self, theme: &TuskTheme, cx: &mut Context<Self>) -> impl IntoElement {
+        let is_loading = self.is_loading;
+        let has_data = self.tree.as_ref().map(|t| !t.read(cx).items().is_empty()).unwrap_or(false);
+
+        div()
+            .h(px(32.0))
+            .w_full()
+            .flex()
+            .items_center()
+            .justify_between()
+            .px(px(12.0))
+            .border_b_1()
+            .border_color(theme.colors.border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(6.0))
+                    .child(Icon::new(IconName::Database).size(IconSize::Small))
+                    .child(
+                        div()
+                            .text_size(px(12.0))
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.colors.text)
+                            .child("Schema Browser"),
+                    ),
+            )
+            // Refresh button (T056)
+            .when(has_data || is_loading, |el| {
+                el.child(
+                    div()
+                        .id("refresh-schema-button")
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(px(24.0))
+                        .rounded(px(4.0))
+                        .when(!is_loading, |el| {
+                            el.hover(|s| s.bg(theme.colors.element_hover))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.request_refresh(cx);
+                                }))
+                                .child(
+                                    Icon::new(IconName::Refresh)
+                                        .size(IconSize::Small)
+                                        .color(theme.colors.text_muted),
+                                )
+                        })
+                        .when(is_loading, |el| el.child(Spinner::new().size(SpinnerSize::Small))),
+                )
+            })
+    }
+
     /// Render the filter input.
     fn render_filter_input(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.global::<TuskTheme>();
@@ -651,6 +723,7 @@ impl SchemaBrowserPanel {
 }
 
 impl EventEmitter<PanelEvent> for SchemaBrowserPanel {}
+impl EventEmitter<SchemaBrowserEvent> for SchemaBrowserPanel {}
 
 impl Focusable for SchemaBrowserPanel {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
@@ -686,22 +759,24 @@ impl Panel for SchemaBrowserPanel {
 
 impl Render for SchemaBrowserPanel {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.global::<TuskTheme>();
+        let theme = cx.global::<TuskTheme>().clone();
 
         let content = if self.is_loading {
-            self.render_loading_state(theme).into_any_element()
+            self.render_loading_state(&theme).into_any_element()
         } else if let Some(error) = &self.error {
-            self.render_error_state(error, theme).into_any_element()
+            self.render_error_state(error, &theme).into_any_element()
         } else if let Some(tree) = &self.tree {
             // Show empty state when tree has no items
             if tree.read(cx).items().is_empty() {
-                self.render_empty_state(theme).into_any_element()
+                self.render_empty_state(&theme).into_any_element()
             } else {
                 tree.clone().into_any_element()
             }
         } else {
-            self.render_empty_state(theme).into_any_element()
+            self.render_empty_state(&theme).into_any_element()
         };
+
+        let has_data = self.tree.as_ref().map(|t| !t.read(cx).items().is_empty()).unwrap_or(false);
 
         div()
             .track_focus(&self.focus_handle)
@@ -709,36 +784,10 @@ impl Render for SchemaBrowserPanel {
             .flex()
             .flex_col()
             .bg(theme.colors.panel_background)
-            .child(
-                // Panel header
-                div()
-                    .h(px(32.0))
-                    .w_full()
-                    .flex()
-                    .items_center()
-                    .px(px(12.0))
-                    .border_b_1()
-                    .border_color(theme.colors.border)
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(px(6.0))
-                            .child(Icon::new(IconName::Database).size(IconSize::Small))
-                            .child(
-                                div()
-                                    .text_size(px(12.0))
-                                    .font_weight(gpui::FontWeight::MEDIUM)
-                                    .text_color(theme.colors.text)
-                                    .child("Schema Browser"),
-                            ),
-                    ),
-            )
+            // Panel header with refresh button (T056)
+            .child(self.render_header(&theme, cx))
             // Filter input (only show when there's data)
-            .when(
-                self.tree.as_ref().map(|t| !t.read(cx).items().is_empty()).unwrap_or(false),
-                |d| d.child(self.render_filter_input(cx)),
-            )
+            .when(has_data, |d| d.child(self.render_filter_input(cx)))
             .child(
                 // Panel content
                 div().flex_1().overflow_hidden().child(content),

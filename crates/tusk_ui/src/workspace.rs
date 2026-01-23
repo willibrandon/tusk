@@ -11,23 +11,28 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
+#[cfg(not(target_os = "macos"))]
+use crate::application_menu::ApplicationMenu;
+use crate::connection_dialog::{ConnectionDialog, ConnectionDialogEvent};
 use crate::context_menu::ContextMenuLayer;
 use crate::dock::{Dock, DockEvent, DraggedDock};
 use crate::icon::IconName;
 use crate::key_bindings::{
     ActivateTab1, ActivateTab2, ActivateTab3, ActivateTab4, ActivateTab5, ActivateTab6,
     ActivateTab7, ActivateTab8, ActivateTab9, CloseActiveTab, ClosePane, FocusNextPane,
-    FocusPreviousPane, FocusResults, FocusSchemaBrowser, NewQueryTab, NextTab, PreviousTab,
-    SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
+    FocusPreviousPane, FocusResults, FocusSchemaBrowser, NewConnection, NewQueryTab, NextTab,
+    PreviousTab, SplitDown, SplitRight, ToggleBottomDock, ToggleLeftDock, ToggleRightDock,
 };
 use crate::layout::sizes::STATUS_BAR_HEIGHT;
 use crate::layout::spacing;
 use crate::modal::ModalLayer;
 use crate::pane::{Pane, PaneGroup, PaneGroupEvent, PaneLayout, TabItem};
 use crate::panel::{DockPosition, Focusable};
-use crate::panels::{MessagesPanel, ResultsPanel, SchemaBrowserPanel};
+use crate::panels::{MessagesPanel, ResultsPanel, SchemaBrowserEvent, SchemaBrowserPanel};
+use crate::query_editor::QueryEditor;
 use crate::status_bar::{ConnectionStatus, ExecutionState, StatusBar};
 use crate::TuskTheme;
+use uuid::Uuid;
 
 // ============================================================================
 // QueryPlaceholderView - Placeholder for query editor tabs
@@ -127,11 +132,15 @@ impl Default for WorkspaceState {
 /// The main workspace component.
 ///
 /// Manages the overall application layout including:
+/// - Application menu bar (Windows/Linux only)
 /// - Left dock (schema browser, etc.)
 /// - Right dock (optional, for secondary panels)
 /// - Bottom dock (results, messages, etc.)
 /// - Center pane group (query editors)
 pub struct Workspace {
+    /// Application menu bar (Windows/Linux only).
+    #[cfg(not(target_os = "macos"))]
+    application_menu: Entity<ApplicationMenu>,
     /// Left dock entity.
     left_dock: Entity<Dock>,
     /// Right dock entity (optional).
@@ -146,6 +155,8 @@ pub struct Workspace {
     results_panel: Entity<ResultsPanel>,
     /// Messages panel entity.
     messages_panel: Entity<MessagesPanel>,
+    /// Connection dialog entity.
+    connection_dialog: Option<Entity<ConnectionDialog>>,
     /// Focus handle for the workspace.
     focus_handle: FocusHandle,
     /// Subscriptions to child component events.
@@ -160,6 +171,8 @@ pub struct Workspace {
     connection_status: ConnectionStatus,
     /// Current query execution state for the status bar.
     execution_state: ExecutionState,
+    /// Current active connection ID.
+    active_connection_id: Option<Uuid>,
 }
 
 impl Workspace {
@@ -173,6 +186,10 @@ impl Workspace {
     #[tracing::instrument(level = "debug", skip_all, name = "workspace_new")]
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
+
+        // Create application menu for non-macOS platforms
+        #[cfg(not(target_os = "macos"))]
+        let application_menu = cx.new(|cx| ApplicationMenu::new(window, cx));
 
         // Try to load persisted state
         let persisted_state = Self::load_persisted_state(cx);
@@ -239,7 +256,21 @@ impl Workspace {
             },
         ));
 
+        // Subscribe to schema browser events (T056)
+        subscriptions.push(cx.subscribe(
+            &schema_browser,
+            |this, _panel, event: &SchemaBrowserEvent, cx| match event {
+                SchemaBrowserEvent::RefreshRequested => {
+                    if let Some(connection_id) = this.active_connection_id {
+                        this.refresh_schema(connection_id, cx);
+                    }
+                }
+            },
+        ));
+
         let mut workspace = Self {
+            #[cfg(not(target_os = "macos"))]
+            application_menu,
             left_dock,
             right_dock: None,
             bottom_dock,
@@ -247,6 +278,7 @@ impl Workspace {
             schema_browser,
             results_panel,
             messages_panel,
+            connection_dialog: None,
             focus_handle,
             _subscriptions: subscriptions,
             bounds: Bounds::default(),
@@ -254,6 +286,7 @@ impl Workspace {
             last_viewport_height: px(800.0), // Default, will be updated on first render
             connection_status: ConnectionStatus::default(),
             execution_state: ExecutionState::default(),
+            active_connection_id: None,
         };
 
         // Restore persisted state if available
@@ -374,6 +407,132 @@ impl Workspace {
     pub fn set_connection_status(&mut self, status: ConnectionStatus, cx: &mut Context<Self>) {
         self.connection_status = status;
         cx.notify();
+    }
+
+    /// Get the active connection ID.
+    pub fn active_connection_id(&self) -> Option<Uuid> {
+        self.active_connection_id
+    }
+
+    /// Show the connection dialog (T046).
+    pub fn show_connection_dialog(&mut self, cx: &mut Context<Self>) {
+        // Create and show the connection dialog
+        let dialog = cx.new(ConnectionDialog::new);
+
+        // Subscribe to connection dialog events
+        self._subscriptions.push(cx.subscribe(&dialog, Self::handle_connection_dialog_event));
+
+        self.connection_dialog = Some(dialog);
+        cx.notify();
+    }
+
+    /// Handle connection dialog events (T046, T047, T048).
+    fn handle_connection_dialog_event(
+        &mut self,
+        _dialog: Entity<ConnectionDialog>,
+        event: &ConnectionDialogEvent,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            ConnectionDialogEvent::Connected { connection_id } => {
+                // Store the active connection ID
+                self.active_connection_id = Some(*connection_id);
+
+                // Update status bar connection status (T046)
+                #[cfg(feature = "persistence")]
+                {
+                    use tusk_core::TuskState;
+                    if let Some(state) = cx.try_global::<TuskState>() {
+                        if let Some(config) = state.get_connection_config(connection_id) {
+                            self.connection_status = ConnectionStatus::Connected {
+                                database: config.database.clone().into(),
+                                host: config.host.clone().into(),
+                            };
+                        }
+                    }
+                }
+
+                // Close the connection dialog
+                self.connection_dialog = None;
+
+                // Trigger schema refresh (T048)
+                self.refresh_schema(*connection_id, cx);
+
+                cx.notify();
+            }
+            ConnectionDialogEvent::Cancelled => {
+                // Close the connection dialog
+                self.connection_dialog = None;
+                cx.notify();
+            }
+        }
+    }
+
+    /// Refresh schema data from the database (T048).
+    #[cfg(feature = "persistence")]
+    fn refresh_schema(&mut self, connection_id: Uuid, cx: &mut Context<Self>) {
+        use crate::panels::database_schema_to_tree;
+        use tusk_core::services::SchemaService;
+        use tusk_core::TuskState;
+
+        // Set loading state
+        self.schema_browser.update(cx, |panel, cx| {
+            panel.set_loading(true, cx);
+        });
+
+        // Get runtime handle and connection pool
+        let Some(state) = cx.try_global::<TuskState>() else {
+            self.schema_browser.update(cx, |panel, cx| {
+                panel.set_loading(false, cx);
+                panel.set_error(Some("Application not initialized".into()), cx);
+            });
+            return;
+        };
+
+        let Some(pool) = state.get_connection(&connection_id) else {
+            self.schema_browser.update(cx, |panel, cx| {
+                panel.set_loading(false, cx);
+                panel.set_error(Some("Connection not found".into()), cx);
+            });
+            return;
+        };
+
+        let runtime_handle = state.runtime().handle().clone();
+        let schema_browser = self.schema_browser.clone();
+
+        cx.spawn(async move |_this, cx| {
+            // Fetch schema on tokio runtime
+            let result = runtime_handle
+                .spawn(async move {
+                    let conn = pool.get().await?;
+                    SchemaService::load_schema(&conn).await
+                })
+                .await;
+
+            schema_browser.update(cx, |panel, cx| {
+                panel.set_loading(false, cx);
+                match result {
+                    Ok(Ok(schema)) => {
+                        let tree_items = database_schema_to_tree(&schema);
+                        panel.set_schema(tree_items, cx);
+                        panel.set_error(None, cx);
+                    }
+                    Ok(Err(e)) => {
+                        panel.set_error(Some(e.to_string().into()), cx);
+                    }
+                    Err(e) => {
+                        panel.set_error(Some(format!("Schema fetch task failed: {e}").into()), cx);
+                    }
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// Refresh schema placeholder for non-persistence builds.
+    #[cfg(not(feature = "persistence"))]
+    fn refresh_schema(&mut self, _connection_id: Uuid, _cx: &mut Context<Self>) {
+        // No-op for non-persistence builds
     }
 
     /// Get the current execution state.
@@ -521,19 +680,33 @@ impl Workspace {
         });
     }
 
-    /// Create a new query tab in the active pane.
+    /// Create a new query tab in the active pane (T047).
     ///
-    /// This creates a placeholder query tab. The actual SQL editor component
-    /// will be implemented in a later feature.
+    /// Creates a QueryEditor with the active connection ID and links it
+    /// to the results and messages panels for query output.
     pub fn new_query_tab(&mut self, cx: &mut Context<Self>) {
         // Count existing tabs to generate a unique title
         let query_count = self.center.read(cx).active_pane().read(cx).tabs().len() + 1;
         let title = format!("Query {}", query_count);
 
-        // Create a placeholder view for the query editor
-        let placeholder_view = cx.new(|_cx| QueryPlaceholderView::new(title.clone()));
+        // Create a QueryEditor with the active connection (T047)
+        let results_panel = self.results_panel.clone();
+        let messages_panel = self.messages_panel.clone();
+        let connection_id = self.active_connection_id;
 
-        let tab = TabItem::new(title, placeholder_view).with_icon(IconName::Code);
+        let query_editor = cx.new(|cx| {
+            let mut editor = if let Some(conn_id) = connection_id {
+                QueryEditor::with_connection(conn_id, cx)
+            } else {
+                QueryEditor::new(cx)
+            };
+            // Link to results and messages panels for query output
+            editor.set_results_panel(results_panel);
+            editor.set_messages_panel(messages_panel);
+            editor
+        });
+
+        let tab = TabItem::new(title, query_editor).with_icon(IconName::Code);
 
         self.open_tab(tab, cx);
     }
@@ -727,6 +900,9 @@ impl Render for Workspace {
                 }
             }))
             // Register action handlers
+            .on_action(cx.listener(|this, _: &NewConnection, _window, cx| {
+                this.show_connection_dialog(cx);
+            }))
             .on_action(cx.listener(|this, _: &ToggleLeftDock, _window, cx| {
                 this.toggle_dock(DockPosition::Left, cx);
             }))
@@ -798,6 +974,17 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &FocusResults, window, cx| {
                 this.focus_results(window, cx);
             }))
+            // Application menu bar (Windows/Linux only)
+            .when(cfg!(not(target_os = "macos")), |el| {
+                #[cfg(not(target_os = "macos"))]
+                {
+                    el.child(self.application_menu.clone())
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    el
+                }
+            })
             // Main content area (horizontal: left dock | center | right dock)
             .child(
                 div()
@@ -823,6 +1010,19 @@ impl Render for Workspace {
             )
             // Status bar
             .child(self.render_status_bar(cx))
+            // Connection dialog (shown as modal overlay)
+            .when_some(self.connection_dialog.clone(), |el, dialog| {
+                el.child(
+                    div()
+                        .absolute()
+                        .inset_0()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .bg(gpui::black().opacity(0.5))
+                        .child(dialog),
+                )
+            })
             // Context menu layer (T104) - rendered above main content but below modals
             .children(cx.try_global::<ContextMenuLayer>().and_then(|layer| layer.render()))
             // Modal layer (T094) - rendered above all content

@@ -4,21 +4,75 @@
 //! Implements `gpui::Global` for use with GPUI's context system.
 
 use crate::error::TuskError;
-use crate::models::{ConnectionConfig, PoolStatus, QueryHandle};
-use crate::services::{ConnectionPool, CredentialService, LocalStorage};
+use crate::models::{
+    ConnectionConfig, ConnectionStatus, PoolStatus, QueryEvent, QueryHandle, SchemaCache,
+};
+use crate::services::{ConnectionPool, CredentialService, LocalStorage, QueryService};
 
+use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
-/// Placeholder for schema cache (implemented in future feature).
-#[derive(Debug, Clone, Default)]
-pub struct SchemaCache {
-    /// Connection this cache belongs to
-    pub connection_id: Uuid,
-    // Future: tables, views, functions, etc.
+/// Wrapper for connection pool with status tracking (FR-006).
+///
+/// Stores a connection pool along with its current status and metadata.
+/// This enables tracking connection lifecycle and providing status to UI.
+#[derive(Debug)]
+pub struct ConnectionEntry {
+    /// Connection configuration (no password)
+    config: ConnectionConfig,
+    /// The actual connection pool
+    pool: Arc<ConnectionPool>,
+    /// Current connection status
+    status: ConnectionStatus,
+    /// When connection was established
+    connected_at: DateTime<Utc>,
+}
+
+impl ConnectionEntry {
+    /// Create a new connection entry with Connected status.
+    pub fn new(config: ConnectionConfig, pool: Arc<ConnectionPool>) -> Self {
+        Self { config, pool, status: ConnectionStatus::Connected, connected_at: Utc::now() }
+    }
+
+    /// Get the connection configuration.
+    pub fn config(&self) -> &ConnectionConfig {
+        &self.config
+    }
+
+    /// Get the connection pool.
+    pub fn pool(&self) -> &Arc<ConnectionPool> {
+        &self.pool
+    }
+
+    /// Get the current connection status.
+    pub fn status(&self) -> &ConnectionStatus {
+        &self.status
+    }
+
+    /// Update the connection status.
+    pub fn set_status(&mut self, status: ConnectionStatus) {
+        self.status = status;
+    }
+
+    /// Get when the connection was established.
+    pub fn connected_at(&self) -> DateTime<Utc> {
+        self.connected_at
+    }
+
+    /// Get the connection ID.
+    pub fn id(&self) -> Uuid {
+        self.config.id
+    }
+
+    /// Get pool status.
+    pub fn pool_status(&self) -> PoolStatus {
+        self.pool.status()
+    }
 }
 
 /// Central application state (FR-005).
@@ -26,8 +80,8 @@ pub struct SchemaCache {
 /// Holds all runtime state including connections, caches, and services.
 /// Thread-safe via `parking_lot::RwLock` (FR-009).
 pub struct TuskState {
-    /// Active connection pools (FR-006)
-    connections: RwLock<HashMap<Uuid, Arc<ConnectionPool>>>,
+    /// Active connection entries with status tracking (FR-006)
+    connections: RwLock<HashMap<Uuid, ConnectionEntry>>,
     /// Schema caches per connection (FR-007)
     schema_caches: RwLock<HashMap<Uuid, SchemaCache>>,
     /// Active queries with cancellation support (FR-008)
@@ -84,30 +138,77 @@ impl TuskState {
 
     // ========== Connection Management (FR-006) ==========
 
-    /// Add a connection pool to state.
-    pub fn add_connection(&self, pool: ConnectionPool) {
-        let id = pool.id();
+    /// Add a connection entry to state.
+    pub fn add_connection_entry(&self, entry: ConnectionEntry) {
+        let id = entry.id();
         tracing::debug!(connection_id = %id, "Adding connection to state");
-        self.connections.write().insert(id, Arc::new(pool));
+        self.connections.write().insert(id, entry);
+    }
+
+    /// Add a connection pool to state (convenience method).
+    pub fn add_connection(&self, config: ConnectionConfig, pool: ConnectionPool) {
+        let id = config.id;
+        let entry = ConnectionEntry::new(config, Arc::new(pool));
+        tracing::debug!(connection_id = %id, "Adding connection to state");
+        self.connections.write().insert(id, entry);
+    }
+
+    /// Add an Arc-wrapped connection pool to state.
+    pub fn add_connection_arc(&self, config: ConnectionConfig, pool: Arc<ConnectionPool>) {
+        let id = config.id;
+        let entry = ConnectionEntry::new(config, pool);
+        tracing::debug!(connection_id = %id, "Adding connection to state (arc)");
+        self.connections.write().insert(id, entry);
+    }
+
+    /// Store a password in the credential service.
+    pub fn store_password(&self, connection_id: Uuid, password: &str) -> Result<(), TuskError> {
+        self.credential_service.store_password(connection_id, password)
     }
 
     /// Get a connection pool by ID.
     pub fn get_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
-        self.connections.read().get(id).cloned()
+        self.connections.read().get(id).map(|entry| entry.pool().clone())
     }
 
-    /// Remove a connection pool from state.
+    /// Get a connection entry by ID.
+    pub fn get_connection_entry(
+        &self,
+        id: &Uuid,
+    ) -> Option<(ConnectionConfig, Arc<ConnectionPool>, ConnectionStatus)> {
+        self.connections
+            .read()
+            .get(id)
+            .map(|entry| (entry.config().clone(), entry.pool().clone(), entry.status().clone()))
+    }
+
+    /// Get a connection configuration by ID.
+    pub fn get_connection_config(&self, id: &Uuid) -> Option<ConnectionConfig> {
+        self.connections.read().get(id).map(|entry| entry.config().clone())
+    }
+
+    /// Remove a connection from state.
     ///
     /// Also removes the associated schema cache (invariant from spec).
     pub fn remove_connection(&self, id: &Uuid) -> Option<Arc<ConnectionPool>> {
         // Remove schema cache for this connection
         self.schema_caches.write().remove(id);
 
-        let pool = self.connections.write().remove(id);
-        if pool.is_some() {
+        let entry = self.connections.write().remove(id);
+        if let Some(ref e) = entry {
             tracing::debug!(connection_id = %id, "Removed connection from state");
+            Some(e.pool().clone())
+        } else {
+            None
         }
-        pool
+    }
+
+    /// Update connection status.
+    pub fn set_connection_status(&self, id: &Uuid, status: ConnectionStatus) {
+        if let Some(entry) = self.connections.write().get_mut(id) {
+            entry.set_status(status);
+            tracing::debug!(connection_id = %id, "Updated connection status");
+        }
     }
 
     /// Get all connection IDs.
@@ -117,24 +218,50 @@ impl TuskState {
 
     /// Get status of all connection pools (SC-010).
     pub fn all_pool_statuses(&self) -> HashMap<Uuid, PoolStatus> {
-        self.connections.read().iter().map(|(id, pool)| (*id, pool.status())).collect()
+        self.connections.read().iter().map(|(id, entry)| (*id, entry.pool_status())).collect()
     }
 
-    // ========== Schema Cache Management (FR-007) ==========
+    /// Get all connection entries (ID, name, status).
+    pub fn all_connections(&self) -> Vec<(Uuid, String, ConnectionStatus)> {
+        self.connections
+            .read()
+            .values()
+            .map(|entry| (entry.id(), entry.config().name.clone(), entry.status().clone()))
+            .collect()
+    }
 
-    /// Get schema cache for a connection.
+    // ========== Schema Cache Management (FR-016, FR-017, FR-018) ==========
+
+    /// Get schema cache for a connection if it exists and is valid.
     pub fn get_schema_cache(&self, connection_id: &Uuid) -> Option<SchemaCache> {
+        let caches = self.schema_caches.read();
+        caches.get(connection_id).filter(|cache| cache.is_valid()).cloned()
+    }
+
+    /// Get schema cache for a connection even if expired.
+    pub fn get_schema_cache_any(&self, connection_id: &Uuid) -> Option<SchemaCache> {
         self.schema_caches.read().get(connection_id).cloned()
     }
 
     /// Set schema cache for a connection.
-    pub fn set_schema_cache(&self, connection_id: Uuid, cache: SchemaCache) {
+    pub fn set_schema_cache(&self, cache: SchemaCache) {
+        let connection_id = cache.connection_id();
         self.schema_caches.write().insert(connection_id, cache);
+        tracing::debug!(connection_id = %connection_id, "Schema cache updated");
     }
 
     /// Remove schema cache for a connection.
     pub fn remove_schema_cache(&self, connection_id: &Uuid) -> Option<SchemaCache> {
-        self.schema_caches.write().remove(connection_id)
+        let cache = self.schema_caches.write().remove(connection_id);
+        if cache.is_some() {
+            tracing::debug!(connection_id = %connection_id, "Schema cache removed");
+        }
+        cache
+    }
+
+    /// Check if schema cache exists and is valid for a connection.
+    pub fn has_valid_schema_cache(&self, connection_id: &Uuid) -> bool {
+        self.schema_caches.read().get(connection_id).map(|cache| cache.is_valid()).unwrap_or(false)
     }
 
     // ========== Query Tracking (FR-008) ==========
@@ -162,12 +289,39 @@ impl TuskState {
         handle
     }
 
-    /// Cancel a running query.
+    /// Cancel a running query (FR-013, T030, T031).
+    ///
+    /// This method:
+    /// 1. Signals the CancellationToken (for cooperative cancellation)
+    /// 2. Sends a PostgreSQL cancel request to the server (to interrupt the query)
     ///
     /// Returns true if the query was found and cancellation was requested.
     pub fn cancel_query(&self, id: &Uuid) -> bool {
         if let Some(handle) = self.active_queries.read().get(id) {
+            // Signal cooperative cancellation
             handle.cancel();
+
+            // Send PostgreSQL cancel request to server (T031)
+            if let Some(pg_cancel_token) = handle.get_pg_cancel_token() {
+                let query_id = *id;
+                self.spawn(async move {
+                    // Use NoTls for cancel request (same as connection)
+                    match pg_cancel_token.cancel_query(tokio_postgres::NoTls).await {
+                        Ok(()) => {
+                            tracing::debug!(query_id = %query_id, "PostgreSQL cancel request sent");
+                        }
+                        Err(e) => {
+                            // Cancel request failed, but cooperative cancellation still works
+                            tracing::warn!(
+                                query_id = %query_id,
+                                error = %e,
+                                "Failed to send PostgreSQL cancel request"
+                            );
+                        }
+                    }
+                });
+            }
+
             true
         } else {
             false
@@ -233,6 +387,228 @@ impl TuskState {
     /// Save a connection configuration to storage.
     pub fn save_connection(&self, config: &ConnectionConfig) -> Result<(), TuskError> {
         self.storage.save_connection(config)
+    }
+
+    // ========== High-Level Connection API (FR-005, FR-006, FR-007, FR-008) ==========
+
+    /// Establish a new database connection (FR-005, FR-006, FR-007).
+    ///
+    /// Creates a connection pool, validates connectivity, and adds to state.
+    /// Optionally stores password in OS keychain for future use.
+    ///
+    /// # Arguments
+    /// * `config` - Connection configuration
+    /// * `password` - Database password (not stored in config)
+    ///
+    /// # Returns
+    /// Connection ID on success, or TuskError on failure.
+    pub async fn connect(
+        &self,
+        config: &ConnectionConfig,
+        password: &str,
+    ) -> Result<Uuid, TuskError> {
+        let connection_id = config.id;
+
+        tracing::debug!(
+            connection_id = %connection_id,
+            host = %config.host,
+            database = %config.database,
+            "Establishing connection"
+        );
+
+        // Create and validate connection pool
+        let pool = ConnectionPool::new(config.clone(), password).await?;
+
+        // Store password in credential service (FR-009, FR-028)
+        // Note: password is intentionally NOT logged (FR-026)
+        if let Err(e) = self.credential_service.store_password(connection_id, password) {
+            tracing::warn!(
+                connection_id = %connection_id,
+                error = %e,
+                "Failed to store password in keychain, using session storage"
+            );
+            // Continue anyway - password is already in session store as fallback
+        }
+
+        // Add connection entry with Connected status
+        let entry = ConnectionEntry::new(config.clone(), Arc::new(pool));
+        self.connections.write().insert(connection_id, entry);
+
+        tracing::info!(
+            connection_id = %connection_id,
+            host = %config.host,
+            database = %config.database,
+            "Connection established"
+        );
+
+        Ok(connection_id)
+    }
+
+    /// Close a database connection (FR-008).
+    ///
+    /// Cancels all active queries on this connection, closes the pool,
+    /// and removes from state. Also removes the associated schema cache.
+    ///
+    /// # Arguments
+    /// * `connection_id` - ID of connection to close
+    pub async fn disconnect(&self, connection_id: Uuid) -> Result<(), TuskError> {
+        tracing::debug!(connection_id = %connection_id, "Disconnecting");
+
+        // Cancel all active queries on this connection
+        let query_ids: Vec<Uuid> = self
+            .active_queries
+            .read()
+            .iter()
+            .filter(|(_, handle)| handle.connection_id() == connection_id)
+            .map(|(id, _)| *id)
+            .collect();
+
+        for query_id in query_ids {
+            self.cancel_query(&query_id);
+            self.unregister_query(&query_id);
+        }
+
+        // Remove schema cache
+        self.schema_caches.write().remove(&connection_id);
+
+        // Remove and close connection pool
+        let entry = self.connections.write().remove(&connection_id);
+        if let Some(entry) = entry {
+            entry.pool().close();
+            tracing::info!(connection_id = %connection_id, "Connection closed");
+            Ok(())
+        } else {
+            Err(TuskError::internal(format!("Connection not found: {connection_id}")))
+        }
+    }
+
+    /// Get the current status of a connection (FR-006).
+    ///
+    /// Returns ConnectionStatus for a connection ID.
+    /// Returns Disconnected if connection not found.
+    pub fn get_connection_status(&self, connection_id: Uuid) -> ConnectionStatus {
+        self.connections
+            .read()
+            .get(&connection_id)
+            .map(|entry| entry.status().clone())
+            .unwrap_or(ConnectionStatus::Disconnected)
+    }
+
+    /// Test connection without establishing a persistent session.
+    ///
+    /// Validates connectivity and authentication without adding to state.
+    /// Useful for the "Test Connection" button in connection dialog.
+    ///
+    /// # Arguments
+    /// * `config` - Connection configuration to test
+    /// * `password` - Password for authentication
+    pub async fn test_connection(
+        &self,
+        config: &ConnectionConfig,
+        password: &str,
+    ) -> Result<(), TuskError> {
+        tracing::debug!(
+            host = %config.host,
+            database = %config.database,
+            "Testing connection"
+        );
+
+        // Create a temporary pool to validate connectivity
+        // The pool will be dropped after this function returns
+        let pool = ConnectionPool::new(config.clone(), password).await?;
+
+        // Get a connection to fully validate
+        let _conn = pool.get().await?;
+
+        tracing::debug!(
+            host = %config.host,
+            database = %config.database,
+            "Connection test successful"
+        );
+
+        // Pool is dropped here, closing connections
+        Ok(())
+    }
+
+    // ========== Query Execution API (FR-010, FR-011, FR-012, FR-013) ==========
+
+    /// Execute a query and return a handle for tracking (FR-010, FR-013).
+    ///
+    /// Creates a query handle, registers it for tracking, and executes.
+    /// Use cancel_query() with the returned handle's ID to cancel.
+    ///
+    /// # Arguments
+    /// * `connection_id` - Connection to execute on
+    /// * `sql` - SQL query to execute
+    ///
+    /// # Returns
+    /// Query handle for tracking and cancellation.
+    pub async fn execute_query(
+        &self,
+        connection_id: Uuid,
+        sql: &str,
+    ) -> Result<Arc<QueryHandle>, TuskError> {
+        // Validate connection exists (pool returned but not used here - execution is separate)
+        let _pool = self
+            .get_connection(&connection_id)
+            .ok_or_else(|| TuskError::internal(format!("No active connection: {connection_id}")))?;
+
+        // Create and register query handle
+        let handle = QueryHandle::new(connection_id, sql);
+        let handle = self.register_query(handle);
+
+        Ok(handle)
+    }
+
+    /// Execute a query with streaming results via channel (FR-010, FR-011, FR-012).
+    ///
+    /// Sends QueryEvent messages through the provided channel as results arrive.
+    /// Returns immediately after starting; results stream asynchronously.
+    ///
+    /// # Arguments
+    /// * `connection_id` - Connection to execute on
+    /// * `sql` - SQL query to execute
+    /// * `tx` - Channel sender for QueryEvent stream
+    ///
+    /// # Returns
+    /// Query handle for tracking and cancellation.
+    pub async fn execute_query_streaming(
+        &self,
+        connection_id: Uuid,
+        sql: &str,
+        tx: mpsc::Sender<QueryEvent>,
+    ) -> Result<Arc<QueryHandle>, TuskError> {
+        // Get connection pool
+        let pool = self
+            .get_connection(&connection_id)
+            .ok_or_else(|| TuskError::internal(format!("No active connection: {connection_id}")))?;
+
+        // Create and register query handle
+        let handle = QueryHandle::new(connection_id, sql.to_string());
+        let handle = self.register_query(handle);
+
+        // Get a connection from the pool
+        let conn = pool.get().await?;
+
+        // Execute streaming query
+        let sql_owned = sql.to_string();
+        let handle_ref = handle.clone();
+
+        // Spawn the streaming execution
+        let query_id = handle.id();
+        self.spawn(async move {
+            let result = QueryService::execute_streaming(&conn, &sql_owned, &handle_ref, tx).await;
+
+            if let Err(e) = result {
+                tracing::warn!(
+                    query_id = %query_id,
+                    error = %e,
+                    "Streaming query failed"
+                );
+            }
+        });
+
+        Ok(handle)
     }
 }
 

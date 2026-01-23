@@ -11,6 +11,8 @@ use gpui::{actions, App, KeyBinding};
 actions!(
     workspace,
     [
+        // Connection
+        NewConnection,
         // Tab management
         NewQueryTab,
         CloseActiveTab,
@@ -89,6 +91,16 @@ pub mod select {
 }
 
 // ============================================================================
+// Form Actions
+// ============================================================================
+
+/// Form actions module (Tab navigation).
+pub mod form {
+    use gpui::actions;
+    actions!(form, [Tab, TabPrev,]);
+}
+
+// ============================================================================
 // Modal Actions
 // ============================================================================
 
@@ -118,7 +130,11 @@ pub mod context_menu {
 ///
 /// This should be called once during application initialization.
 pub fn register_key_bindings(cx: &mut App) {
+    // macOS bindings (using Cmd)
+    #[cfg(target_os = "macos")]
     cx.bind_keys([
+        // Connection
+        KeyBinding::new("cmd-shift-n", NewConnection, Some("Workspace")),
         // Tab management
         KeyBinding::new("cmd-n", NewQueryTab, Some("Workspace")),
         KeyBinding::new("cmd-w", CloseActiveTab, Some("Workspace")),
@@ -155,7 +171,49 @@ pub fn register_key_bindings(cx: &mut App) {
         KeyBinding::new("cmd-q", Quit, None),
     ]);
 
-    // Query bindings
+    // Windows/Linux bindings (using Ctrl)
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        // Connection
+        KeyBinding::new("ctrl-shift-n", NewConnection, Some("Workspace")),
+        // Tab management
+        KeyBinding::new("ctrl-n", NewQueryTab, Some("Workspace")),
+        KeyBinding::new("ctrl-w", CloseActiveTab, Some("Workspace")),
+        KeyBinding::new("ctrl-shift-w", CloseAllTabs, Some("Workspace")),
+        KeyBinding::new("ctrl-tab", NextTab, Some("Workspace")),
+        KeyBinding::new("ctrl-shift-tab", PreviousTab, Some("Workspace")),
+        KeyBinding::new("ctrl-1", ActivateTab1, Some("Workspace")),
+        KeyBinding::new("ctrl-2", ActivateTab2, Some("Workspace")),
+        KeyBinding::new("ctrl-3", ActivateTab3, Some("Workspace")),
+        KeyBinding::new("ctrl-4", ActivateTab4, Some("Workspace")),
+        KeyBinding::new("ctrl-5", ActivateTab5, Some("Workspace")),
+        KeyBinding::new("ctrl-6", ActivateTab6, Some("Workspace")),
+        KeyBinding::new("ctrl-7", ActivateTab7, Some("Workspace")),
+        KeyBinding::new("ctrl-8", ActivateTab8, Some("Workspace")),
+        KeyBinding::new("ctrl-9", ActivateTab9, Some("Workspace")),
+        // Dock toggles
+        KeyBinding::new("ctrl-b", ToggleLeftDock, Some("Workspace")),
+        KeyBinding::new("ctrl-shift-b", ToggleRightDock, Some("Workspace")),
+        KeyBinding::new("ctrl-j", ToggleBottomDock, Some("Workspace")),
+        // Pane management
+        KeyBinding::new("ctrl-\\", SplitRight, Some("Workspace")),
+        KeyBinding::new("ctrl-|", SplitDown, Some("Workspace")),
+        KeyBinding::new("ctrl-k ctrl-right", FocusNextPane, Some("Workspace")),
+        KeyBinding::new("ctrl-k ctrl-left", FocusPreviousPane, Some("Workspace")),
+        KeyBinding::new("ctrl-k ctrl-w", ClosePane, Some("Workspace")),
+        // Panel focus
+        KeyBinding::new("ctrl-shift-e", FocusSchemaBrowser, Some("Workspace")),
+        KeyBinding::new("ctrl-shift-r", FocusResults, Some("Workspace")),
+        KeyBinding::new("ctrl-shift-m", FocusMessages, Some("Workspace")),
+        // Global
+        KeyBinding::new("ctrl-shift-p", CommandPalette, Some("Workspace")),
+        KeyBinding::new("ctrl-,", Settings, Some("Workspace")),
+        KeyBinding::new("ctrl-/", ShowKeyboardShortcuts, None),
+        KeyBinding::new("alt-f4", Quit, None),
+    ]);
+
+    // Query bindings - macOS
+    #[cfg(target_os = "macos")]
     cx.bind_keys([
         KeyBinding::new("cmd-enter", RunQuery, Some("QueryEditor")),
         KeyBinding::new("cmd-shift-e", ExplainQuery, Some("QueryEditor")),
@@ -163,15 +221,36 @@ pub fn register_key_bindings(cx: &mut App) {
         KeyBinding::new("escape", CancelQuery, Some("QueryEditor")),
     ]);
 
-    // Tree navigation bindings
+    // Query bindings - Windows/Linux
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        KeyBinding::new("ctrl-enter", RunQuery, Some("QueryEditor")),
+        KeyBinding::new("ctrl-shift-e", ExplainQuery, Some("QueryEditor")),
+        KeyBinding::new("ctrl-shift-f", FormatQuery, Some("QueryEditor")),
+        KeyBinding::new("escape", CancelQuery, Some("QueryEditor")),
+    ]);
+
+    // Tree navigation bindings (platform-independent)
     cx.bind_keys([
         KeyBinding::new("up", tree::SelectPrevious, Some("Tree")),
         KeyBinding::new("down", tree::SelectNext, Some("Tree")),
         KeyBinding::new("right", tree::ExpandSelected, Some("Tree")),
         KeyBinding::new("left", tree::CollapseSelected, Some("Tree")),
         KeyBinding::new("enter", tree::ActivateSelected, Some("Tree")),
+    ]);
+
+    // Tree expand/collapse all - macOS
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
         KeyBinding::new("cmd-shift-right", tree::ExpandAll, Some("Tree")),
         KeyBinding::new("cmd-shift-left", tree::CollapseAll, Some("Tree")),
+    ]);
+
+    // Tree expand/collapse all - Windows/Linux
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        KeyBinding::new("ctrl-shift-right", tree::ExpandAll, Some("Tree")),
+        KeyBinding::new("ctrl-shift-left", tree::CollapseAll, Some("Tree")),
     ]);
 
     // Select/dropdown bindings
@@ -199,5 +278,12 @@ pub fn register_key_bindings(cx: &mut App) {
         KeyBinding::new("escape", context_menu::DismissMenu, Some("ContextMenu")),
         KeyBinding::new("right", context_menu::OpenSubmenu, Some("ContextMenu")),
         KeyBinding::new("left", context_menu::CloseSubmenu, Some("ContextMenu")),
+    ]);
+
+    // Form navigation bindings (Tab to cycle fields)
+    // Note: Using None for context so Tab works when focus is on child elements
+    cx.bind_keys([
+        KeyBinding::new("tab", form::Tab, None),
+        KeyBinding::new("shift-tab", form::TabPrev, None),
     ]);
 }

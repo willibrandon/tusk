@@ -240,8 +240,7 @@ impl Render for ConfirmDialog {
                             .justify_end()
                             .gap(px(8.0))
                             .child(
-                                Button::new()
-                                    .id("cancel-button")
+                                Button::new("cancel-button")
                                     .label(self.cancel_label.clone())
                                     .variant(ButtonVariant::Secondary)
                                     .on_click(cx.listener(|this, _, _window, cx| {
@@ -249,8 +248,7 @@ impl Render for ConfirmDialog {
                                     })),
                             )
                             .child(
-                                Button::new()
-                                    .id("confirm-button")
+                                Button::new("confirm-button")
                                     .label(self.confirm_label.clone())
                                     .variant(self.confirm_button_variant())
                                     .on_click(cx.listener(|this, _, _window, cx| {

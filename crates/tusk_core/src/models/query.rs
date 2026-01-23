@@ -1,5 +1,6 @@
 //! Query execution models.
 
+use crate::error::TuskError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
@@ -20,7 +21,7 @@ pub enum QueryType {
     Other,
 }
 
-/// Column metadata from query results.
+/// Column metadata from query results (FR-014).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnInfo {
     /// Column name
@@ -31,6 +32,86 @@ pub struct ColumnInfo {
     pub type_name: String,
 }
 
+/// Stream events during query execution (FR-011, FR-012, FR-014).
+///
+/// Events are sent through a tokio mpsc channel to enable streaming
+/// result delivery to UI components.
+///
+/// ## Event Ordering
+/// 1. `Columns` - Always sent first (for grid setup)
+/// 2. `Rows` - Sent in batches as rows are retrieved
+/// 3. `Progress` - Optional, for large queries (>10,000 rows)
+/// 4. `Complete` or `Error` - Exactly one, as final event
+#[derive(Debug)]
+pub enum QueryEvent {
+    /// Column metadata for result grid setup (FR-014).
+    /// Always sent first, before any Rows events.
+    Columns(Vec<ColumnInfo>),
+
+    /// Batch of result rows with running total (FR-011, FR-012).
+    /// Default batch size is 1000 rows.
+    Rows {
+        /// Batch of rows from the query
+        rows: Vec<tokio_postgres::Row>,
+        /// Cumulative count including this batch
+        total_so_far: usize,
+    },
+
+    /// Progress update for large queries (optional).
+    /// Sent periodically for queries returning >10,000 rows.
+    Progress {
+        /// Number of rows received so far
+        rows_so_far: usize,
+    },
+
+    /// Query completed successfully (FR-015).
+    /// Mutually exclusive with Error; exactly one is sent.
+    Complete {
+        /// Final row count
+        total_rows: usize,
+        /// Query execution time in milliseconds
+        execution_time_ms: u64,
+        /// Rows affected (for INSERT/UPDATE/DELETE, None for SELECT)
+        rows_affected: Option<u64>,
+    },
+
+    /// Query failed with error (FR-019, FR-020, FR-021).
+    /// Mutually exclusive with Complete; exactly one is sent.
+    Error(TuskError),
+}
+
+impl QueryEvent {
+    /// Create a Columns event.
+    pub fn columns(columns: Vec<ColumnInfo>) -> Self {
+        Self::Columns(columns)
+    }
+
+    /// Create a Rows event.
+    pub fn rows(rows: Vec<tokio_postgres::Row>, total_so_far: usize) -> Self {
+        Self::Rows { rows, total_so_far }
+    }
+
+    /// Create a Progress event.
+    pub fn progress(rows_so_far: usize) -> Self {
+        Self::Progress { rows_so_far }
+    }
+
+    /// Create a Complete event.
+    pub fn complete(total_rows: usize, execution_time_ms: u64, rows_affected: Option<u64>) -> Self {
+        Self::Complete { total_rows, execution_time_ms, rows_affected }
+    }
+
+    /// Create an Error event.
+    pub fn error(err: TuskError) -> Self {
+        Self::Error(err)
+    }
+
+    /// Check if this is a terminal event (Complete or Error).
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, Self::Complete { .. } | Self::Error(_))
+    }
+}
+
 /// Handle for tracking and cancelling a running query (FR-014, FR-015, FR-016).
 pub struct QueryHandle {
     /// Unique query identifier
@@ -39,8 +120,10 @@ pub struct QueryHandle {
     connection_id: Uuid,
     /// The SQL being executed
     sql: String,
-    /// Cancellation token for interrupting the query
+    /// Cancellation token for interrupting the query (tokio-util)
     cancel_token: CancellationToken,
+    /// PostgreSQL cancel token for sending cancel to server
+    pg_cancel_token: std::sync::RwLock<Option<tokio_postgres::CancelToken>>,
     /// Execution start time
     started_at: DateTime<Utc>,
 }
@@ -53,8 +136,23 @@ impl QueryHandle {
             connection_id,
             sql: sql.into(),
             cancel_token: CancellationToken::new(),
+            pg_cancel_token: std::sync::RwLock::new(None),
             started_at: Utc::now(),
         }
+    }
+
+    /// Set the PostgreSQL cancel token for server-side cancellation.
+    ///
+    /// This should be called when the query starts executing on a connection.
+    pub fn set_pg_cancel_token(&self, token: tokio_postgres::CancelToken) {
+        if let Ok(mut guard) = self.pg_cancel_token.write() {
+            *guard = Some(token);
+        }
+    }
+
+    /// Get the PostgreSQL cancel token (if set).
+    pub fn get_pg_cancel_token(&self) -> Option<tokio_postgres::CancelToken> {
+        self.pg_cancel_token.read().ok().and_then(|guard| guard.clone())
     }
 
     /// Get the unique query identifier.

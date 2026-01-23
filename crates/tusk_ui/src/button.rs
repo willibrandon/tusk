@@ -26,6 +26,9 @@ pub enum ButtonVariant {
     Danger,
 }
 
+/// Button style (alias for ButtonVariant for compatibility).
+pub type ButtonStyle = ButtonVariant;
+
 /// Button size variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ButtonSize {
@@ -116,9 +119,9 @@ pub struct Button {
 
 impl Button {
     /// Create a new button with a unique ID.
-    pub fn new() -> Self {
+    pub fn new(id: impl Into<ElementId>) -> Self {
         Self {
-            id: ElementId::Name("button".into()),
+            id: id.into(),
             label: None,
             icon: None,
             icon_position: IconPosition::default(),
@@ -135,6 +138,16 @@ impl Button {
     pub fn id(mut self, id: impl Into<ElementId>) -> Self {
         self.id = id.into();
         self
+    }
+
+    /// Convenience method to set small size.
+    pub fn small(self) -> Self {
+        self.size(ButtonSize::Small)
+    }
+
+    /// Set the button style (alias for variant).
+    pub fn style(self, style: ButtonStyle) -> Self {
+        self.variant(style)
     }
 
     /// Set the button label.
@@ -229,7 +242,7 @@ impl Button {
 
 impl Default for Button {
     fn default() -> Self {
-        Self::new()
+        Self::new("button")
     }
 }
 
@@ -327,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_button_construction() {
-        let button = Button::new()
+        let button = Button::new("test-button")
             .label("Click me")
             .icon(IconName::Plus)
             .variant(ButtonVariant::Primary)

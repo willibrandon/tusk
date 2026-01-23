@@ -4,6 +4,71 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
 
+/// Current state of a database connection (FR-006).
+///
+/// Tracks the lifecycle of a connection from disconnected through connected,
+/// with error states for failed connections.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum ConnectionStatus {
+    /// No active connection
+    #[default]
+    Disconnected,
+    /// Connection in progress
+    Connecting,
+    /// Active, healthy connection
+    Connected,
+    /// Connection failed or lost
+    Error {
+        /// Human-readable error message
+        message: String,
+        /// Whether the error is recoverable (can retry)
+        recoverable: bool,
+    },
+}
+
+impl ConnectionStatus {
+    /// Create an error status with a recoverable flag.
+    pub fn error(message: impl Into<String>, recoverable: bool) -> Self {
+        Self::Error { message: message.into(), recoverable }
+    }
+
+    /// Check if the connection is active.
+    pub fn is_connected(&self) -> bool {
+        matches!(self, Self::Connected)
+    }
+
+    /// Check if the connection is in an error state.
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::Error { .. })
+    }
+
+    /// Check if the connection is connecting.
+    pub fn is_connecting(&self) -> bool {
+        matches!(self, Self::Connecting)
+    }
+
+    /// Check if the connection is disconnected.
+    pub fn is_disconnected(&self) -> bool {
+        matches!(self, Self::Disconnected)
+    }
+
+    /// Get the error message if in error state.
+    pub fn error_message(&self) -> Option<&str> {
+        match self {
+            Self::Error { message, .. } => Some(message),
+            _ => None,
+        }
+    }
+
+    /// Check if the error is recoverable.
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            Self::Error { recoverable, .. } => *recoverable,
+            _ => false,
+        }
+    }
+}
+
 /// SSL mode for database connections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

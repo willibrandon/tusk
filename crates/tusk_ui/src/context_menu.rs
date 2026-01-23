@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use gpui::{
     div, prelude::*, px, App, Context, Entity, EventEmitter, FocusHandle, Global, MouseButton,
-    ParentElement, Point, Render, SharedString, Styled, Subscription, Window,
+    MouseDownEvent, ParentElement, Point, Render, SharedString, Styled, Subscription, Window,
 };
 
 use crate::panel::Focusable;
@@ -184,13 +184,13 @@ impl ContextMenuItem {
 /// A context menu component with keyboard navigation.
 pub struct ContextMenu {
     /// Menu items.
-    items: Vec<ContextMenuItem>,
+    pub(crate) items: Vec<ContextMenuItem>,
     /// Position where the menu should appear.
     position: Point<gpui::Pixels>,
     /// Focus handle for keyboard navigation.
-    focus_handle: FocusHandle,
+    pub focus_handle: FocusHandle,
     /// Currently highlighted item index.
-    highlighted_index: Option<usize>,
+    pub(crate) highlighted_index: Option<usize>,
     /// Active submenu entity and its index.
     active_submenu: Option<(usize, Entity<ContextMenu>)>,
     /// Subscription to submenu events.
@@ -621,6 +621,10 @@ impl Render for ContextMenu {
             .border_color(theme.colors.border)
             .rounded(px(6.0))
             .shadow_lg()
+            // Click outside to dismiss
+            .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _window, cx| {
+                this.dismiss(cx);
+            }))
             // Keyboard navigation
             .on_action(cx.listener(|this, _: &SelectNextItem, _window, cx| {
                 this.select_next(cx);

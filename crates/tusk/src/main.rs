@@ -3,13 +3,15 @@
 mod app;
 mod app_menus;
 
-use app::TuskApp;
+use app::{TuskApp, WorkspaceHandle};
 use gpui::{
     px, size, App, AppContext, Application, Bounds, PromptLevel, Size, WindowBounds, WindowOptions,
 };
 use tusk_core::logging::{init_logging, LogConfig};
 use tusk_core::state::TuskState;
-use tusk_ui::key_bindings::{About, CloseWindow, Minimize, Quit, ShowKeyboardShortcuts, Zoom};
+use tusk_ui::key_bindings::{
+    About, CloseWindow, Minimize, NewConnection, NewQueryTab, Quit, ShowKeyboardShortcuts, Zoom,
+};
 use tusk_ui::{show_keyboard_shortcuts, TuskTheme};
 
 fn main() {
@@ -144,6 +146,30 @@ fn register_global_actions(cx: &mut App) {
     cx.on_action(|_: &ShowKeyboardShortcuts, cx| {
         cx.defer(|cx| {
             show_keyboard_shortcuts(cx);
+        });
+    });
+
+    // New Connection - delegates to workspace
+    cx.on_action(|_: &NewConnection, cx| {
+        cx.defer(|cx| {
+            if let Some(workspace_handle) = cx.try_global::<WorkspaceHandle>() {
+                let workspace = workspace_handle.0.clone();
+                workspace.update(cx, |ws, cx| {
+                    ws.show_connection_dialog(cx);
+                });
+            }
+        });
+    });
+
+    // New Query Tab - delegates to workspace
+    cx.on_action(|_: &NewQueryTab, cx| {
+        cx.defer(|cx| {
+            if let Some(workspace_handle) = cx.try_global::<WorkspaceHandle>() {
+                let workspace = workspace_handle.0.clone();
+                workspace.update(cx, |ws, cx| {
+                    ws.new_query_tab(cx);
+                });
+            }
         });
     });
 }
