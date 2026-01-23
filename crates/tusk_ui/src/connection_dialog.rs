@@ -6,11 +6,16 @@
 //! - Connect and Test Connection buttons (T042, T043)
 //! - Connection progress indicator (T044)
 //! - Error display with actionable hints (T045)
+//! - Saved connections list (T078)
+//! - Save connection checkbox (T079)
+//! - Password retrieval from CredentialService (T081)
 
 use gpui::{
-    div, prelude::*, px, App, Context, Entity, FocusHandle, Focusable, Render, Task, Window,
+    div, prelude::*, px, App, Context, Entity, FocusHandle, Focusable, Render, SharedString, Task,
+    Window,
 };
 
+use crate::icon::{Icon, IconName, IconSize};
 use crate::key_bindings::form::{Tab, TabPrev};
 use uuid::Uuid;
 
@@ -86,7 +91,22 @@ pub enum ConnectionDialogEvent {
     Cancelled,
 }
 
-/// Connection dialog component (T039-T045).
+/// A saved connection entry for display in the list (T078).
+#[derive(Debug, Clone)]
+pub struct SavedConnectionEntry {
+    /// Unique identifier.
+    pub id: Uuid,
+    /// Display name.
+    pub name: SharedString,
+    /// Host.
+    pub host: SharedString,
+    /// Database name.
+    pub database: SharedString,
+    /// Whether password is stored.
+    pub has_password: bool,
+}
+
+/// Connection dialog component (T039-T045, T078-T081).
 pub struct ConnectionDialog {
     /// Focus handle for the dialog.
     focus_handle: FocusHandle,
@@ -108,10 +128,20 @@ pub struct ConnectionDialog {
     connection_name: String,
     /// Background task for connection attempts.
     _connection_task: Option<Task<()>>,
+    /// Saved connections list (T078).
+    saved_connections: Vec<SavedConnectionEntry>,
+    /// Currently selected saved connection ID.
+    selected_connection_id: Option<Uuid>,
+    /// Whether to save this connection (T079).
+    save_connection: bool,
+    /// Connection ID being edited (if editing existing connection).
+    editing_connection_id: Option<Uuid>,
 }
 
 impl ConnectionDialog {
-    /// Create a new connection dialog.
+    /// Create a new connection dialog (T078).
+    ///
+    /// Loads saved connections from storage on creation.
     pub fn new(cx: &mut Context<Self>) -> Self {
         let host_input = cx.new(|cx| {
             let mut input = TextInput::new("localhost", cx);
@@ -162,6 +192,9 @@ impl ConnectionDialog {
                 .selected(Some(SslModeValue("prefer".to_string())))
         });
 
+        // Load saved connections (T078)
+        let saved_connections = Self::load_saved_connections(cx);
+
         Self {
             focus_handle: cx.focus_handle(),
             state: ConnectionDialogState::Idle,
@@ -173,7 +206,159 @@ impl ConnectionDialog {
             ssl_mode_select,
             connection_name: String::new(),
             _connection_task: None,
+            saved_connections,
+            selected_connection_id: None,
+            save_connection: true, // Default to save
+            editing_connection_id: None,
         }
+    }
+
+    /// Load saved connections from storage (T078).
+    #[allow(unused_variables)]
+    fn load_saved_connections(cx: &App) -> Vec<SavedConnectionEntry> {
+        #[cfg(feature = "persistence")]
+        {
+            if let Some(state) = cx.try_global::<TuskState>() {
+                match state.storage().load_all_connections() {
+                    Ok(configs) => {
+                        return configs
+                            .into_iter()
+                            .map(|config| {
+                                let has_password =
+                                    state.credentials().has_password(config.id).unwrap_or(false);
+                                SavedConnectionEntry {
+                                    id: config.id,
+                                    name: config.name.into(),
+                                    host: config.host.into(),
+                                    database: config.database.into(),
+                                    has_password,
+                                }
+                            })
+                            .collect();
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "Failed to load saved connections");
+                    }
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    /// Reload saved connections list.
+    pub fn reload_saved_connections(&mut self, cx: &mut Context<Self>) {
+        self.saved_connections = Self::load_saved_connections(cx);
+        cx.notify();
+    }
+
+    /// Select a saved connection and populate the form (T078, T081).
+    ///
+    /// Retrieves the password from CredentialService if available (T081).
+    #[cfg(feature = "persistence")]
+    pub fn select_saved_connection(&mut self, connection_id: Uuid, cx: &mut Context<Self>) {
+        // Load the connection config and password (extract before mutating)
+        let (config, password) = {
+            let Some(tusk_state) = cx.try_global::<TuskState>() else {
+                return;
+            };
+
+            let config = match tusk_state.storage().load_connection(connection_id) {
+                Ok(Some(config)) => config,
+                Ok(None) => {
+                    tracing::warn!(connection_id = %connection_id, "Saved connection not found");
+                    return;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "Failed to load saved connection");
+                    return;
+                }
+            };
+
+            // Retrieve password from CredentialService (T081)
+            let password = match tusk_state.credentials().get_password(connection_id) {
+                Ok(pwd) => pwd,
+                Err(e) => {
+                    tracing::warn!(
+                        connection_id = %connection_id,
+                        error = %e,
+                        "Failed to retrieve password from credential service"
+                    );
+                    None
+                }
+            };
+
+            (config, password)
+        };
+
+        // Now we can mutate self
+        self.set_config(&config, cx);
+        self.selected_connection_id = Some(connection_id);
+        self.editing_connection_id = Some(connection_id);
+
+        // Set password if retrieved
+        if let Some(pwd) = password {
+            self.password_input.update(cx, |input, cx| {
+                input.set_text(&pwd, cx);
+            });
+        } else {
+            // No stored password - leave empty
+            self.password_input.update(cx, |input, cx| {
+                input.set_text("", cx);
+            });
+        }
+
+        cx.notify();
+    }
+
+    /// Select a saved connection placeholder for non-persistence builds.
+    #[cfg(not(feature = "persistence"))]
+    pub fn select_saved_connection(&mut self, _connection_id: Uuid, _cx: &mut Context<Self>) {
+        // No-op
+    }
+
+    /// Delete a saved connection (T073).
+    #[cfg(feature = "persistence")]
+    pub fn delete_saved_connection(&mut self, connection_id: Uuid, cx: &mut Context<Self>) {
+        let Some(tusk_state) = cx.try_global::<TuskState>() else {
+            return;
+        };
+
+        // Delete from storage
+        if let Err(e) = tusk_state.storage().delete_connection(connection_id) {
+            tracing::warn!(error = %e, "Failed to delete saved connection");
+            return;
+        }
+
+        // Delete password from credential service
+        if let Err(e) = tusk_state.credentials().delete_password(connection_id) {
+            tracing::warn!(error = %e, "Failed to delete password");
+        }
+
+        // Clear selection if this was the selected connection
+        if self.selected_connection_id == Some(connection_id) {
+            self.selected_connection_id = None;
+            self.editing_connection_id = None;
+        }
+
+        // Reload the list
+        self.reload_saved_connections(cx);
+    }
+
+    /// Delete a saved connection placeholder for non-persistence builds.
+    #[cfg(not(feature = "persistence"))]
+    pub fn delete_saved_connection(&mut self, _connection_id: Uuid, _cx: &mut Context<Self>) {
+        // No-op
+    }
+
+    /// Toggle the save connection checkbox (T079).
+    pub fn toggle_save_connection(&mut self, cx: &mut Context<Self>) {
+        self.save_connection = !self.save_connection;
+        cx.notify();
+    }
+
+    /// Get whether save connection is enabled.
+    pub fn will_save_connection(&self) -> bool {
+        self.save_connection
     }
 
     /// Get the current state.
@@ -251,8 +436,11 @@ impl ConnectionDialog {
             self.connection_name.clone()
         };
 
+        // Use existing ID if editing, otherwise generate new
+        let id = self.editing_connection_id.unwrap_or_else(Uuid::new_v4);
+
         Some(ConnectionConfig {
-            id: Uuid::new_v4(),
+            id,
             name,
             host,
             port,
@@ -318,6 +506,7 @@ impl ConnectionDialog {
         // Clone config for async block
         let config_clone = config.clone();
         let password_clone = password.clone();
+        let save_connection = self.save_connection;
 
         self._connection_task = Some(cx.spawn(async move |this, cx| {
             // Create connection pool on tokio runtime
@@ -345,8 +534,25 @@ impl ConnectionDialog {
                                 tracing::warn!(
                                     connection_id = %config.id,
                                     error = %e,
-                                    "Failed to store password in keychain"
+                                    "Failed to store password"
                                 );
+                            }
+
+                            // Save connection to storage if checkbox enabled (T079)
+                            if save_connection {
+                                if let Err(e) = tusk_state.storage().save_connection(&config) {
+                                    tracing::warn!(
+                                        connection_id = %config.id,
+                                        error = %e,
+                                        "Failed to save connection to storage"
+                                    );
+                                } else {
+                                    tracing::debug!(
+                                        connection_id = %config.id,
+                                        name = %config.name,
+                                        "Connection saved to storage"
+                                    );
+                                }
                             }
                         }
 
@@ -602,6 +808,149 @@ impl ConnectionDialog {
         }
     }
 
+    /// Render the saved connections list (T078).
+    fn render_saved_connections(
+        &self,
+        theme: &TuskTheme,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        if self.saved_connections.is_empty() {
+            return div().into_any_element();
+        }
+
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(4.0))
+            .child(
+                div()
+                    .text_size(px(12.0))
+                    .text_color(theme.colors.text_muted)
+                    .child("Saved Connections"),
+            )
+            .child(
+                div()
+                    .id("saved-connections-list")
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.0))
+                    .max_h(px(150.0))
+                    .overflow_scroll()
+                    .border_1()
+                    .border_color(theme.colors.border)
+                    .rounded(px(4.0))
+                    .children(self.saved_connections.iter().map(|entry| {
+                        let is_selected = self.selected_connection_id == Some(entry.id);
+                        let entry_id = entry.id;
+
+                        div()
+                            .id(entry.id)
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .px(px(12.0))
+                            .py(px(8.0))
+                            .when(is_selected, |el| el.bg(theme.colors.accent.opacity(0.15)))
+                            .hover(|s| s.bg(theme.colors.element_hover))
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.select_saved_connection(entry_id, cx);
+                            }))
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap(px(2.0))
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(6.0))
+                                            .child(
+                                                Icon::new(IconName::Database)
+                                                    .size(IconSize::Small)
+                                                    .color(theme.colors.text_muted),
+                                            )
+                                            .child(
+                                                div()
+                                                    .text_size(px(13.0))
+                                                    .text_color(theme.colors.text)
+                                                    .child(entry.name.clone()),
+                                            ),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(11.0))
+                                            .text_color(theme.colors.text_muted)
+                                            .child(format!(
+                                                "{} / {}",
+                                                entry.host.clone(),
+                                                entry.database.clone()
+                                            )),
+                                    ),
+                            )
+                            .child(
+                                // Delete button - use string ID
+                                div()
+                                    .id(format!("delete-{}", entry.id))
+                                    .p(px(4.0))
+                                    .rounded(px(4.0))
+                                    .hover(|s| s.bg(theme.colors.error.opacity(0.1)))
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                        this.delete_saved_connection(entry_id, cx);
+                                    }))
+                                    .child(
+                                        Icon::new(IconName::Trash)
+                                            .size(IconSize::Small)
+                                            .color(theme.colors.text_muted),
+                                    ),
+                            )
+                    })),
+            )
+            .into_any_element()
+    }
+
+    /// Render the save connection checkbox (T079).
+    fn render_save_checkbox(&self, theme: &TuskTheme, cx: &mut Context<Self>) -> impl IntoElement {
+        let is_checked = self.save_connection;
+
+        div()
+            .id("save-connection-checkbox")
+            .flex()
+            .items_center()
+            .gap(px(8.0))
+            .cursor_pointer()
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.toggle_save_connection(cx);
+            }))
+            .child(
+                div()
+                    .w(px(16.0))
+                    .h(px(16.0))
+                    .rounded(px(3.0))
+                    .border_1()
+                    .border_color(if is_checked {
+                        theme.colors.accent
+                    } else {
+                        theme.colors.border
+                    })
+                    .when(is_checked, |el| el.bg(theme.colors.accent))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .when(is_checked, |el| {
+                        el.child(Icon::new(IconName::Check).size(IconSize::XSmall).color(theme.colors.on_accent))
+                    }),
+            )
+            .child(
+                div()
+                    .text_size(px(13.0))
+                    .text_color(theme.colors.text)
+                    .child("Save connection"),
+            )
+    }
+
     /// Render the button section.
     fn render_buttons(&self, theme: &TuskTheme, cx: &mut Context<Self>) -> impl IntoElement {
         let is_loading = self.state.is_loading();
@@ -719,8 +1068,11 @@ impl Render for ConnectionDialog {
         let theme = cx.global::<TuskTheme>().clone();
         let has_error = self.state.has_error();
         let has_success = self.state.is_test_success();
+        let has_saved_connections = !self.saved_connections.is_empty();
         let error_element = self.render_error(&theme);
         let success_element = self.render_success(&theme);
+        let saved_connections_element = self.render_saved_connections(&theme, cx);
+        let save_checkbox_element = self.render_save_checkbox(&theme, cx);
         let buttons_element = self.render_buttons(&theme, cx);
 
         div()
@@ -729,7 +1081,7 @@ impl Render for ConnectionDialog {
             .track_focus(&self.focus_handle)
             .capture_action(cx.listener(Self::on_tab))
             .capture_action(cx.listener(Self::on_tab_prev))
-            .w(px(420.0))
+            .w(px(480.0)) // Slightly wider to accommodate saved connections
             .flex()
             .flex_col()
             .bg(theme.colors.panel_background)
@@ -760,6 +1112,8 @@ impl Render for ConnectionDialog {
                     .flex()
                     .flex_col()
                     .gap(px(16.0))
+                    // Saved connections list (T078)
+                    .when(has_saved_connections, |el| el.child(saved_connections_element))
                     // Host and Port row
                     .child(
                         div()
@@ -796,6 +1150,8 @@ impl Render for ConnectionDialog {
                             )
                             .child(self.ssl_mode_select.clone()),
                     )
+                    // Save connection checkbox (T079)
+                    .child(save_checkbox_element)
                     // Error display (T045)
                     .when(has_error, |el| el.child(error_element))
                     // Success display for test connection

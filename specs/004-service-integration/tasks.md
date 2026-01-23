@@ -180,20 +180,20 @@ This is a Rust workspace with multiple crates:
 
 ### Implementation for User Story 6
 
-- [ ] T070 [US6] Complete LocalStorage SQLite schema for saved_connections table in crates/tusk_core/src/services/storage.rs
-- [ ] T071 [US6] Implement LocalStorage.save_connection() method in crates/tusk_core/src/services/storage.rs
-- [ ] T072 [US6] Implement LocalStorage.load_connections() method in crates/tusk_core/src/services/storage.rs
-- [ ] T073 [US6] Implement LocalStorage.delete_connection() method in crates/tusk_core/src/services/storage.rs
-- [ ] T074 [US6] Add query_history table schema to LocalStorage in crates/tusk_core/src/services/storage.rs
-- [ ] T075 [US6] Implement LocalStorage.save_query_history() method in crates/tusk_core/src/services/storage.rs
-- [ ] T076 [US6] Implement LocalStorage.load_query_history() method in crates/tusk_core/src/services/storage.rs
-- [ ] T077 [US6] Add ui_state table for workspace layout persistence in crates/tusk_core/src/services/storage.rs
-- [ ] T078 [US6] Create SavedConnectionsList component showing saved connections in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T079 [US6] Add "Save Connection" checkbox to connection dialog in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T080 [US6] Load saved connections on application startup in crates/tusk/src/main.rs
-- [ ] T081 [US6] Retrieve password from CredentialService when selecting saved connection in crates/tusk_ui/src/connection_dialog.rs
-- [ ] T082 [US6] Persist workspace layout on dock resize and pane changes in crates/tusk_ui/src/workspace.rs
-- [ ] T083 [US6] Restore workspace layout on application startup in crates/tusk_ui/src/workspace.rs
+- [X] T070 [US6] Complete LocalStorage SQLite schema for saved_connections table in crates/tusk_core/src/services/storage.rs
+- [X] T071 [US6] Implement LocalStorage.save_connection() method in crates/tusk_core/src/services/storage.rs
+- [X] T072 [US6] Implement LocalStorage.load_connections() method in crates/tusk_core/src/services/storage.rs
+- [X] T073 [US6] Implement LocalStorage.delete_connection() method in crates/tusk_core/src/services/storage.rs
+- [X] T074 [US6] Add query_history table schema to LocalStorage in crates/tusk_core/src/services/storage.rs
+- [X] T075 [US6] Implement LocalStorage.save_query_history() method in crates/tusk_core/src/services/storage.rs
+- [X] T076 [US6] Implement LocalStorage.load_query_history() method in crates/tusk_core/src/services/storage.rs
+- [X] T077 [US6] Add ui_state table for workspace layout persistence in crates/tusk_core/src/services/storage.rs
+- [X] T078 [US6] Create SavedConnectionsList component showing saved connections in crates/tusk_ui/src/connection_dialog.rs
+- [X] T079 [US6] Add "Save Connection" checkbox to connection dialog in crates/tusk_ui/src/connection_dialog.rs
+- [X] T080 [US6] Load saved connections on application startup in crates/tusk/src/main.rs
+- [X] T081 [US6] Retrieve password from CredentialService when selecting saved connection in crates/tusk_ui/src/connection_dialog.rs
+- [X] T082 [US6] Persist workspace layout on dock resize and pane changes in crates/tusk_ui/src/workspace.rs
+- [X] T083 [US6] Restore workspace layout on application startup in crates/tusk_ui/src/workspace.rs
 
 ### Credential Provider Refactoring (Keychain Popup Fix)
 
@@ -203,13 +203,13 @@ This is a Rust workspace with multiple crates:
 
 **Reference**: See `/specs/004-service-integration/keychain-popup-analysis.md` for full root cause analysis.
 
-- [ ] T097 [US6] Create CredentialsProvider trait with store/get/delete methods in crates/tusk_core/src/services/credentials.rs
-- [ ] T098 [US6] Implement FileCredentialsProvider storing JSON at ~/.config/tusk/dev_credentials.json in crates/tusk_core/src/services/credentials.rs
-- [ ] T099 [US6] Implement KeychainCredentialsProvider wrapping keyring crate in crates/tusk_core/src/services/credentials.rs
-- [ ] T100 [US6] Update CredentialService to select FileCredentialsProvider when cfg!(debug_assertions) in crates/tusk_core/src/services/credentials.rs
-- [ ] T101 [US6] Add TUSK_USE_KEYCHAIN=1 env var override to force keychain in development builds in crates/tusk_core/src/services/credentials.rs
-- [ ] T102 [US6] Ensure dev_credentials.json file has restricted permissions (600) on creation in crates/tusk_core/src/services/credentials.rs
-- [ ] T103 [US6] Log which credential provider is active at DEBUG level on initialization in crates/tusk_core/src/services/credentials.rs
+- [X] T097 [US6] Create CredentialsProvider trait with store/get/delete methods in crates/tusk_core/src/services/credentials.rs
+- [X] T098 [US6] Implement FileCredentialsProvider storing JSON at ~/.config/tusk/dev_credentials.json in crates/tusk_core/src/services/credentials.rs
+- [X] T099 [US6] Implement KeychainCredentialsProvider wrapping keyring crate in crates/tusk_core/src/services/credentials.rs
+- [X] T100 [US6] Update CredentialService to select FileCredentialsProvider when cfg!(debug_assertions) in crates/tusk_core/src/services/credentials.rs
+- [X] T101 [US6] Add TUSK_USE_KEYCHAIN=1 env var override to force keychain in development builds in crates/tusk_core/src/services/credentials.rs
+- [X] T102 [US6] Ensure dev_credentials.json file has restricted permissions (600) on creation in crates/tusk_core/src/services/credentials.rs
+- [X] T103 [US6] Log which credential provider is active at DEBUG level on initialization in crates/tusk_core/src/services/credentials.rs
 
 **Checkpoint**: At this point, all User Stories (1-6) should be fully functional
 
