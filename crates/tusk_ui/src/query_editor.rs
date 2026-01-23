@@ -479,12 +479,13 @@ impl QueryEditor {
                 // SQL input field
                 .child(self.sql_input.clone())
                 // Help text
-                .child(
-                    div()
-                        .text_color(theme.colors.text_muted)
-                        .text_size(px(11.0))
-                        .child("Press Cmd+Enter to execute, or click Execute button"),
-                ),
+                .child(div().text_color(theme.colors.text_muted).text_size(px(11.0)).child(
+                    if cfg!(target_os = "macos") {
+                        "Press Cmd+Enter to execute, or click Execute button"
+                    } else {
+                        "Press Ctrl+Enter to execute, or click Execute button"
+                    },
+                )),
         )
     }
 }
