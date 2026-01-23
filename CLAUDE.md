@@ -397,25 +397,31 @@ Key GPUI concepts (see `/Users/brandon/src/zed/crates/gpui/src/` for implementat
 When in doubt, grep Zed's codebase for real-world usage patterns.
 
 ## Active Technologies
-- Local SQLite via rusqlite (for persistence of dock sizes, workspace state) (003-frontend-architecture)
-- Rust 1.80+ with 2021 edition + GPUI (from Zed), tokio-postgres 0.7, deadpool-postgres 0.14, tokio 1.x, parking_lot 0.12 (004-service-integration)
-- PostgreSQL (target databases), SQLite via rusqlite 0.32 (local metadata) (004-service-integration)
-
 - Rust 1.80+ with 2021 edition
 - GPUI (from Zed repository) for GPU-accelerated UI
-- tokio-postgres, deadpool-postgres for PostgreSQL connectivity
-- rusqlite for local SQLite metadata storage
+- tokio-postgres 0.7, deadpool-postgres 0.14 for PostgreSQL connectivity
+- tokio 1.x for async runtime
+- rusqlite 0.32 for local SQLite metadata storage
 - keyring for OS keychain credential storage
 - thiserror for error handling
 - tracing, tracing-appender for structured logging
-- parking_lot for synchronization primitives
+- parking_lot 0.12 for synchronization primitives
 - serde/serde_json for serialization
 
 ## Recent Changes
+- 004-service-integration: Connection dialog with form validation and database connectivity
+- 004-service-integration: Query execution with streaming results via mpsc channels
+- 004-service-integration: Schema browser connected to live database introspection
+- 004-service-integration: Error panel with 21 documented error scenarios and actionable hints
+- 004-service-integration: Toast notifications for transient user feedback
+- 004-service-integration: Pluggable credential providers (file-based dev, keychain release)
+- 004-service-integration: TuskState global state with async runtime bridge
+- 004-service-integration: Platform-specific keyboard shortcuts (Cmd on macOS, Ctrl on Windows/Linux)
+- 004-service-integration: In-window application menu for Windows/Linux
+- 004-service-integration: Results grid with text truncation and hover tooltips
 - 003-frontend-architecture: Complete workspace UI with docks, panes, tabs, and panels
 - 003-frontend-architecture: Native application menu bar (File, Edit, View, Window, Help)
 - 003-frontend-architecture: Keyboard shortcuts help modal (Cmd+/)
 - 003-frontend-architecture: Schema browser with tree navigation
 - 003-frontend-architecture: Results panel with virtualized data grid
 - 003-frontend-architecture: Context menus, modals, tooltips, and select components
-- 003-frontend-architecture: Added Rust 1.80+ with 2021 edition

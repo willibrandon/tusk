@@ -18,13 +18,19 @@ Tusk aims to be a complete replacement for pgAdmin and DBeaver for PostgreSQL wo
 
 ## Current Features
 
+- **Connection Management**: Connection dialog with form validation, connection pooling via deadpool-postgres
+- **Query Execution**: Execute SQL with streaming results, cancellation support, and execution timing
 - **Workspace Layout**: Resizable docks (schema browser, results panel) with persistent state
 - **Tabbed Query Editors**: Multiple tabs with drag-and-drop reordering and dirty state tracking
 - **Pane Splitting**: Split editors horizontally/vertically with keyboard navigation
-- **Schema Browser**: Tree view of databases, schemas, tables, views, and functions
-- **Results Panel**: Virtualized data grid for query results with messages panel
+- **Schema Browser**: Live database introspection showing schemas, tables, views, and functions
+- **Results Panel**: Streaming data grid with text truncation, hover tooltips, and row counts
+- **Error Handling**: 21 documented error scenarios with actionable hints and recovery suggestions
+- **Toast Notifications**: Transient feedback for user actions (query cancelled, connection lost, etc.)
 - **Native Menus**: Full application menu bar (File, Edit, View, Window, Help)
-- **Keyboard Shortcuts**: Comprehensive shortcuts with Help > Keyboard Shortcuts reference (Cmd+/)
+- **Cross-Platform Menus**: In-window application menu for Windows/Linux platforms
+- **Keyboard Shortcuts**: Platform-specific shortcuts (Cmd on macOS, Ctrl on Windows/Linux)
+- **Credential Storage**: Pluggable credential providers with OS keychain support
 - **Theming**: Catppuccin color palette with consistent styling throughout
 
 ## Planned Features
@@ -32,7 +38,7 @@ Tusk aims to be a complete replacement for pgAdmin and DBeaver for PostgreSQL wo
 - SQL editor with schema-aware autocomplete and syntax highlighting
 - Query plan visualization (EXPLAIN ANALYZE)
 - Inline data editing with transaction support
-- Connection management UI with SSH tunneling and SSL/TLS
+- SSH tunneling and SSL/TLS connection options
 - Admin dashboard (activity monitor, table/index stats, locks)
 - Import/export (CSV, JSON, pg_dump/pg_restore)
 - ER diagram generation
