@@ -16,6 +16,23 @@ use gpui::{
 
 use crate::context_menu::{ContextMenu, ContextMenuEvent};
 
+// ============================================================================
+// Type Aliases
+// ============================================================================
+
+/// Type alias for the menu builder function.
+type MenuBuilder = Rc<dyn Fn(&mut Window, &mut App) -> Option<Entity<ContextMenu>>>;
+
+/// Type alias for the optional menu builder.
+type OptionalMenuBuilder =
+    Option<Rc<dyn Fn(&mut Window, &mut App) -> Option<Entity<ContextMenu>> + 'static>>;
+
+/// Type alias for the menu entity reference.
+type MenuRef = Rc<RefCell<Option<Entity<ContextMenu>>>>;
+
+/// Type alias for the child builder function.
+type ChildBuilder = Box<dyn FnOnce(MenuRef, OptionalMenuBuilder) -> AnyElement + 'static>;
+
 /// Trait for elements that can be used as popover menu triggers.
 pub trait PopoverTrigger: IntoElement + 'static {}
 
@@ -35,8 +52,8 @@ pub struct PopoverMenuHandle {
 }
 
 struct PopoverMenuHandleState {
-    menu_builder: Rc<dyn Fn(&mut Window, &mut App) -> Option<Entity<ContextMenu>>>,
-    menu: Rc<RefCell<Option<Entity<ContextMenu>>>>,
+    menu_builder: MenuBuilder,
+    menu: MenuRef,
 }
 
 impl PopoverMenuHandle {
@@ -71,19 +88,8 @@ impl PopoverMenuHandle {
 /// A popover menu that appears when a trigger element is clicked.
 pub struct PopoverMenu {
     id: ElementId,
-    child_builder: Option<
-        Box<
-            dyn FnOnce(
-                    Rc<RefCell<Option<Entity<ContextMenu>>>>,
-                    Option<
-                        Rc<dyn Fn(&mut Window, &mut App) -> Option<Entity<ContextMenu>> + 'static>,
-                    >,
-                ) -> AnyElement
-                + 'static,
-        >,
-    >,
-    menu_builder:
-        Option<Rc<dyn Fn(&mut Window, &mut App) -> Option<Entity<ContextMenu>> + 'static>>,
+    child_builder: Option<ChildBuilder>,
+    menu_builder: OptionalMenuBuilder,
     anchor: Corner,
     attach: Option<Corner>,
     offset: Option<Point<Pixels>>,
@@ -170,12 +176,7 @@ impl PopoverMenu {
     }
 }
 
-fn show_menu(
-    builder: &Rc<dyn Fn(&mut Window, &mut App) -> Option<Entity<ContextMenu>>>,
-    menu: &Rc<RefCell<Option<Entity<ContextMenu>>>>,
-    window: &mut Window,
-    cx: &mut App,
-) {
+fn show_menu(builder: &MenuBuilder, menu: &MenuRef, window: &mut Window, cx: &mut App) {
     // Build the new menu
     let Some(new_menu) = (builder)(window, cx) else {
         return;
