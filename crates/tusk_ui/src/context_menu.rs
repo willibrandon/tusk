@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use gpui::{
     div, prelude::*, px, App, Context, Entity, EventEmitter, FocusHandle, Global, MouseButton,
-    ParentElement, Point, Render, SharedString, Styled, Subscription, Window,
+    MouseDownEvent, ParentElement, Point, Render, SharedString, Styled, Subscription, Window,
 };
 
 use crate::panel::Focusable;
@@ -621,6 +621,10 @@ impl Render for ContextMenu {
             .border_color(theme.colors.border)
             .rounded(px(6.0))
             .shadow_lg()
+            // Click outside to dismiss
+            .on_mouse_down_out(cx.listener(|this, _: &MouseDownEvent, _window, cx| {
+                this.dismiss(cx);
+            }))
             // Keyboard navigation
             .on_action(cx.listener(|this, _: &SelectNextItem, _window, cx| {
                 this.select_next(cx);
