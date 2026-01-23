@@ -291,8 +291,7 @@ impl Modal {
             .gap(px(8.0))
             .children(self.actions.iter().enumerate().map(|(idx, action)| {
                 let action_id = action.id.clone();
-                Button::new()
-                    .id(format!("modal-action-{}", idx))
+                Button::new(format!("modal-action-{}", idx))
                     .label(action.label.clone())
                     .variant(action.variant)
                     .disabled(action.disabled)

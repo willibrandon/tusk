@@ -184,13 +184,13 @@ impl ContextMenuItem {
 /// A context menu component with keyboard navigation.
 pub struct ContextMenu {
     /// Menu items.
-    items: Vec<ContextMenuItem>,
+    pub(crate) items: Vec<ContextMenuItem>,
     /// Position where the menu should appear.
     position: Point<gpui::Pixels>,
     /// Focus handle for keyboard navigation.
-    focus_handle: FocusHandle,
+    pub focus_handle: FocusHandle,
     /// Currently highlighted item index.
-    highlighted_index: Option<usize>,
+    pub(crate) highlighted_index: Option<usize>,
     /// Active submenu entity and its index.
     active_submenu: Option<(usize, Entity<ContextMenu>)>,
     /// Subscription to submenu events.

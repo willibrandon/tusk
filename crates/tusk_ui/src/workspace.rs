@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use std::sync::Arc;
 
+#[cfg(not(target_os = "macos"))]
+use crate::application_menu::ApplicationMenu;
 use crate::connection_dialog::{ConnectionDialog, ConnectionDialogEvent};
 use crate::context_menu::ContextMenuLayer;
 use crate::dock::{Dock, DockEvent, DraggedDock};
@@ -130,11 +132,15 @@ impl Default for WorkspaceState {
 /// The main workspace component.
 ///
 /// Manages the overall application layout including:
+/// - Application menu bar (Windows/Linux only)
 /// - Left dock (schema browser, etc.)
 /// - Right dock (optional, for secondary panels)
 /// - Bottom dock (results, messages, etc.)
 /// - Center pane group (query editors)
 pub struct Workspace {
+    /// Application menu bar (Windows/Linux only).
+    #[cfg(not(target_os = "macos"))]
+    application_menu: Entity<ApplicationMenu>,
     /// Left dock entity.
     left_dock: Entity<Dock>,
     /// Right dock entity (optional).
@@ -180,6 +186,10 @@ impl Workspace {
     #[tracing::instrument(level = "debug", skip_all, name = "workspace_new")]
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus_handle = cx.focus_handle();
+
+        // Create application menu for non-macOS platforms
+        #[cfg(not(target_os = "macos"))]
+        let application_menu = cx.new(|cx| ApplicationMenu::new(window, cx));
 
         // Try to load persisted state
         let persisted_state = Self::load_persisted_state(cx);
@@ -259,6 +269,8 @@ impl Workspace {
         ));
 
         let mut workspace = Self {
+            #[cfg(not(target_os = "macos"))]
+            application_menu,
             left_dock,
             right_dock: None,
             bottom_dock,
@@ -962,6 +974,17 @@ impl Render for Workspace {
             .on_action(cx.listener(|this, _: &FocusResults, window, cx| {
                 this.focus_results(window, cx);
             }))
+            // Application menu bar (Windows/Linux only)
+            .when(cfg!(not(target_os = "macos")), |el| {
+                #[cfg(not(target_os = "macos"))]
+                {
+                    el.child(self.application_menu.clone())
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    el
+                }
+            })
             // Main content area (horizontal: left dock | center | right dock)
             .child(
                 div()

@@ -8,6 +8,7 @@
 //! - Keyboard bindings and actions
 
 // Core modules
+pub mod application_menu;
 pub mod button;
 pub mod confirm_dialog;
 pub mod connection_dialog;
@@ -22,6 +23,7 @@ pub mod modal;
 pub mod pane;
 pub mod panel;
 pub mod panels;
+pub mod popover_menu;
 pub mod query_editor;
 pub mod resizer;
 pub mod select;
@@ -35,7 +37,8 @@ pub mod tree;
 pub mod workspace;
 
 // Re-exports for convenience
-pub use button::{Button, ButtonSize, ButtonVariant, IconPosition};
+pub use application_menu::ApplicationMenu;
+pub use button::{Button, ButtonSize, ButtonStyle, ButtonVariant, IconPosition};
 pub use confirm_dialog::{ConfirmDialog, ConfirmDialogEvent, ConfirmDialogKind};
 pub use connection_dialog::{ConnectionDialog, ConnectionDialogEvent, ConnectionDialogState};
 pub use context_menu::{ContextMenu, ContextMenuEvent, ContextMenuItem, ContextMenuLayer};
@@ -55,6 +58,7 @@ pub use panels::{
     MessagesPanel, ResultsPanel, ResultsPanelState, ResultsState, ResultsStatus,
     SchemaBrowserPanel, SchemaItem,
 };
+pub use popover_menu::{PopoverMenu, PopoverMenuHandle};
 pub use query_editor::{QueryEditor, QueryEditorState, QueryEditorStatus};
 pub use resizer::Resizer;
 pub use select::{Select, SelectEvent, SelectOption};
