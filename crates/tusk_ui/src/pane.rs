@@ -556,12 +556,13 @@ impl Pane {
                                 .text_color(theme.colors.text_muted)
                                 .child("No tabs open"),
                         )
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(theme.colors.text_muted)
-                                .child("Press Cmd+N to create a new query"),
-                        ),
+                        .child(div().text_sm().text_color(theme.colors.text_muted).child(
+                            if cfg!(target_os = "macos") {
+                                "Press Cmd+N to create a new query"
+                            } else {
+                                "Press Ctrl+N to create a new query"
+                            },
+                        )),
                 )
         }
     }

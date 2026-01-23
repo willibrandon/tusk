@@ -25,7 +25,8 @@ struct ShortcutCategory {
     shortcuts: &'static [ShortcutEntry],
 }
 
-/// All keyboard shortcuts organized by category.
+/// macOS keyboard shortcuts organized by category.
+#[cfg(target_os = "macos")]
 const SHORTCUTS: &[ShortcutCategory] = &[
     ShortcutCategory {
         name: "General",
@@ -97,6 +98,83 @@ const SHORTCUTS: &[ShortcutCategory] = &[
             ShortcutEntry { keys: "Enter", description: "Activate Item" },
             ShortcutEntry { keys: "Cmd+Shift+Right", description: "Expand All" },
             ShortcutEntry { keys: "Cmd+Shift+Left", description: "Collapse All" },
+        ],
+    },
+];
+
+/// Windows/Linux keyboard shortcuts organized by category.
+#[cfg(not(target_os = "macos"))]
+const SHORTCUTS: &[ShortcutCategory] = &[
+    ShortcutCategory {
+        name: "General",
+        shortcuts: &[
+            ShortcutEntry { keys: "Alt+F4", description: "Quit Tusk" },
+            ShortcutEntry { keys: "Ctrl+,", description: "Open Settings" },
+            ShortcutEntry { keys: "Ctrl+/", description: "Show Keyboard Shortcuts" },
+            ShortcutEntry { keys: "Ctrl+Shift+P", description: "Command Palette" },
+        ],
+    },
+    ShortcutCategory {
+        name: "Tabs",
+        shortcuts: &[
+            ShortcutEntry { keys: "Ctrl+N", description: "New Query Tab" },
+            ShortcutEntry { keys: "Ctrl+W", description: "Close Tab" },
+            ShortcutEntry { keys: "Ctrl+Shift+W", description: "Close All Tabs" },
+            ShortcutEntry { keys: "Ctrl+Tab", description: "Next Tab" },
+            ShortcutEntry { keys: "Ctrl+Shift+Tab", description: "Previous Tab" },
+            ShortcutEntry { keys: "Ctrl+1-9", description: "Activate Tab 1-9" },
+        ],
+    },
+    ShortcutCategory {
+        name: "Panels",
+        shortcuts: &[
+            ShortcutEntry { keys: "Ctrl+B", description: "Toggle Schema Browser" },
+            ShortcutEntry { keys: "Ctrl+Shift+B", description: "Toggle Right Dock" },
+            ShortcutEntry { keys: "Ctrl+J", description: "Toggle Results Panel" },
+            ShortcutEntry { keys: "Ctrl+Shift+E", description: "Focus Schema Browser" },
+            ShortcutEntry { keys: "Ctrl+Shift+R", description: "Focus Results" },
+            ShortcutEntry { keys: "Ctrl+Shift+M", description: "Focus Messages" },
+        ],
+    },
+    ShortcutCategory {
+        name: "Editor Layout",
+        shortcuts: &[
+            ShortcutEntry { keys: "Ctrl+\\", description: "Split Right" },
+            ShortcutEntry { keys: "Ctrl+|", description: "Split Down" },
+            ShortcutEntry { keys: "Ctrl+K Ctrl+Right", description: "Focus Next Pane" },
+            ShortcutEntry { keys: "Ctrl+K Ctrl+Left", description: "Focus Previous Pane" },
+            ShortcutEntry { keys: "Ctrl+K Ctrl+W", description: "Close Pane" },
+        ],
+    },
+    ShortcutCategory {
+        name: "Query Editor",
+        shortcuts: &[
+            ShortcutEntry { keys: "Ctrl+Enter", description: "Run Query" },
+            ShortcutEntry { keys: "Ctrl+Shift+E", description: "Explain Query" },
+            ShortcutEntry { keys: "Ctrl+Shift+F", description: "Format Query" },
+            ShortcutEntry { keys: "Escape", description: "Cancel Query" },
+        ],
+    },
+    ShortcutCategory {
+        name: "Editing",
+        shortcuts: &[
+            ShortcutEntry { keys: "Ctrl+Z", description: "Undo" },
+            ShortcutEntry { keys: "Ctrl+Y", description: "Redo" },
+            ShortcutEntry { keys: "Ctrl+X", description: "Cut" },
+            ShortcutEntry { keys: "Ctrl+C", description: "Copy" },
+            ShortcutEntry { keys: "Ctrl+V", description: "Paste" },
+            ShortcutEntry { keys: "Ctrl+A", description: "Select All" },
+        ],
+    },
+    ShortcutCategory {
+        name: "Tree Navigation",
+        shortcuts: &[
+            ShortcutEntry { keys: "Up/Down", description: "Navigate Items" },
+            ShortcutEntry { keys: "Right", description: "Expand Item" },
+            ShortcutEntry { keys: "Left", description: "Collapse Item" },
+            ShortcutEntry { keys: "Enter", description: "Activate Item" },
+            ShortcutEntry { keys: "Ctrl+Shift+Right", description: "Expand All" },
+            ShortcutEntry { keys: "Ctrl+Shift+Left", description: "Collapse All" },
         ],
     },
 ];
