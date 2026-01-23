@@ -3190,5 +3190,5 @@ mod integration_tests {
 
 - 10-schema-introspection.md (Uses connected connections)
 - 11-query-execution.md (Uses active connection)
-- 12-monaco-editor.md (Uses connection for autocomplete context)
+- 12-sql-editor.md (Uses connection for autocomplete context)
 - 16-schema-browser.md (Extends connection tree with schema nodes)

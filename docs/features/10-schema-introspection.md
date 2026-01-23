@@ -2422,7 +2422,7 @@ mod integration_tests {
 
 ## Dependent Features
 
-- 12-monaco-editor.md (autocomplete) → Will be renamed to 12-code-editor.md
+- 12-sql-editor.md (autocomplete)
 - 16-schema-browser.md (tree view)
 - 17-table-data-viewer.md (table metadata)
 - 26-er-diagram.md (relationships visualization)
