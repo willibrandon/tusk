@@ -38,7 +38,7 @@ Tusk aims to be a complete replacement for pgAdmin and DBeaver for PostgreSQL wo
 - SQL editor with schema-aware autocomplete and syntax highlighting
 - Query plan visualization (EXPLAIN ANALYZE)
 - Inline data editing with transaction support
-- SSH tunneling and SSL/TLS connection options
+- Connection management UI with SSH tunneling and SSL/TLS
 - Admin dashboard (activity monitor, table/index stats, locks)
 - Import/export (CSV, JSON, pg_dump/pg_restore)
 - ER diagram generation
