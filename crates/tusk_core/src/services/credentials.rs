@@ -19,7 +19,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -155,6 +155,7 @@ impl FileCredentialsProvider {
         // Create file with restricted permissions on Unix (T102)
         #[cfg(unix)]
         {
+            use std::io::Write;
             use std::os::unix::fs::OpenOptionsExt;
             let mut file = fs::OpenOptions::new()
                 .write(true)
